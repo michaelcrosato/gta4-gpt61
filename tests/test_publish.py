@@ -1,11 +1,12 @@
 """Exercise publication against real Git repositories without network access."""
 
-from contextlib import chdir, redirect_stdout
+from contextlib import chdir, redirect_stderr, redirect_stdout
 import importlib.util
 import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -112,6 +113,8 @@ class PublishTests(unittest.TestCase):
         environment = {
             key: value for key, value in os.environ.items() if not key.startswith("GIT_")
         }
+        environment.pop("SKIP_AUTO_PUBLISH", None)
+        environment.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"})
         self.enterContext(patch.dict(os.environ, environment, clear=True))
         self.command("git", "init", "--bare", "--initial-branch=main", str(self.remote))
         self.command("git", "init", "--initial-branch=main", str(self.repository))
@@ -218,6 +221,62 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(self.git("rev-parse", "HEAD"), captured)
         self.assertEqual(self.remote_git("for-each-ref", "refs/heads/publish"), "")
         self.assertEqual(self.github.calls, [])
+
+    def test_unconfigured_hook_exits_quietly_without_publication(self):
+        self.assert_hook_disabled()
+
+    def test_explicitly_disabled_hook_exits_quietly_without_publication(self):
+        self.git("config", "repo.autoPublish", "false")
+        self.assert_hook_disabled()
+
+    def assert_hook_disabled(self):
+        before = self.local_snapshot()
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(publish, "publish") as publication:
+            with patch.object(publish.sys, "argv", [str(SCRIPT), "--hook"]):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    self.assertEqual(publish.main(), 0)
+        publication.assert_not_called()
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(self.local_snapshot(), before)
+        self.assertEqual(self.github.calls, [])
+
+    def test_real_post_commit_hook_preserves_commit_when_publication_fails(self):
+        scripts = self.repository / "scripts"
+        hooks = self.repository / ".githooks"
+        scripts.mkdir()
+        hooks.mkdir()
+        shutil.copy2(SCRIPT, scripts / "publish.py")
+        hook = hooks / "post-commit"
+        shutil.copy2(SCRIPT.parent.parent / ".githooks" / "post-commit", hook)
+        hook.chmod(0o755)
+        self.git("config", "core.hooksPath", ".githooks")
+        self.git("config", "repo.autoPublish", "true")
+        content = "Committed work survives publication failure\n"
+        self.tracked.write_text(content)
+        self.git("add", "tracked.txt")
+
+        # The bare origin is intentionally rejected before any network or gh call.
+        with patch.dict(os.environ):
+            os.environ.pop("SKIP_AUTO_PUBLISH", None)
+            result = subprocess.run(
+                ["git", "commit", "-m", "Save despite publication failure"],
+                text=True, capture_output=True, check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Publishing failed:", result.stderr)
+        self.assertIn("origin must point", result.stderr)
+        self.assertIn("Your commit is saved locally", result.stderr)
+        self.assertNotEqual(self.git("rev-parse", "HEAD"), self.initial)
+        self.assertEqual(self.git("rev-parse", "HEAD^"), self.initial)
+        self.assertEqual(self.git("symbolic-ref", "HEAD"), "refs/heads/main")
+        self.assertEqual(self.git("show", "HEAD:tracked.txt"), content.rstrip("\n"))
+        self.assertEqual(self.tracked.read_text(), content)
+        self.assertEqual(self.git("diff", "HEAD", "--", "tracked.txt"), "")
+        self.assertEqual(self.remote_git("rev-parse", "refs/heads/main"), self.initial)
+        self.assertEqual(self.remote_git("for-each-ref", "refs/heads/publish"), "")
 
     def test_preserves_staged_unstaged_and_untracked_changes(self):
         captured = self.commit()
