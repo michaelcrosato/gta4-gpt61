@@ -1,0 +1,42 @@
+name: Repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    name: Repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Check committed whitespace
+        run: git diff-tree --check --root -r -m HEAD
+      - name: Run repository tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Check supplied engine syntax
+        run: node --check my-3d2dge-agent.js
+      - name: Check shell syntax
+        run: |
+          for script in .githooks/post-commit scripts/setup-local.sh scripts/setup-github.sh; do
+            bash -n "$script"
+          done

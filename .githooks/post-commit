@@ -1,0 +1,4 @@
+#!/bin/sh
+# Publication errors never undo the successful local commit.
+root=$(git rev-parse --show-toplevel) || exit 0
+python3 "$root/scripts/publish.py" --hook || true
