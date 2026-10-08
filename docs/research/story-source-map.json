@@ -1,0 +1,3902 @@
+{
+  "schema_version": 1,
+  "title": "LOWLIGHT story source map",
+  "researched_on": "2026-10-08",
+  "scope": "Original spiritual successor covering all GTA IV base-game story mission titles and both endings; this document records research and planned counterparts, not implemented game content.",
+  "original_identity": {
+    "working_title": "LOWLIGHT",
+    "city": "Harbor City",
+    "districts": [
+      "Breakwater",
+      "Saint Brigid",
+      "Glassward",
+      "The Narrows",
+      "Ironhaven"
+    ],
+    "protagonist": "Mara Voss",
+    "premise": "A former disaster-relief driver arriving from coastal civil unrest uncovers a market in emergency infrastructure while helping her cousin sustain a taxi co-op.",
+    "identity_rules": [
+      "Original fictional names, geography, dialogue, art, music, and scene staging.",
+      "Preserve mechanical and experiential breadth through distinct conflicts, institutions, objectives, and consequences.",
+      "The terminal tragedy is a sabotaged public floodgate commissioning, not the source wedding scene.",
+      "Source names and titles exist only as research keys."
+    ]
+  },
+  "counting": {
+    "unique_story_titles_in_map": 90,
+    "notable_characters_in_map": 51,
+    "wiki_reported_story_missions": 88,
+    "headline_count_status": "source headline observed; convention must be reconciled before using as an authored-content total",
+    "catalogue_union_rule": "One row per distinct title across shared and both terminal routes. Shared wedding title has two authored counterpart variants. Multi-part missions retain phase requirements.",
+    "implementation_total": 0,
+    "implementation_total_scope": "This research map claims no implemented story missions."
+  },
+  "sources": [
+    {
+      "id": "requested-source",
+      "url": "https://gta.fandom.com/wiki/Grand_Theft_Auto_IV",
+      "type": "user_required_wiki",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "base-game identity and source navigation"
+      ],
+      "limitation": "Full article was not directly fetched; indexed excerpts are incomplete."
+    },
+    {
+      "id": "story-catalogue",
+      "url": "https://gta.fandom.com/wiki/Missions_in_GTA_IV",
+      "type": "wiki_catalogue",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "mission membership",
+        "contact grouping",
+        "optional storyline arc",
+        "two ending routes"
+      ],
+      "limitation": "Headline 88 and catalogue union use different counting conventions; do not treat the headline as the number of unique authored titles."
+    },
+    {
+      "id": "characters-index-and-story-navigation",
+      "url": "https://gta.fandom.com/wiki/Characters_in_GTA_IV",
+      "type": "wiki_catalogue",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "protagonist",
+        "central cast",
+        "main cast",
+        "supporting cast"
+      ],
+      "limitation": "The page explicitly excludes some minor characters and points to the category and police database. The present roster is a notable-story-cast map, not an exhaustive character inventory."
+    },
+    {
+      "id": "plot",
+      "url": "https://gta.fandom.com/wiki/Plot_in_GTA_IV",
+      "type": "wiki_plot",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "betrayal and displacement",
+        "cross-faction cargo arc",
+        "search for former squad survivors",
+        "confrontation with the past"
+      ],
+      "limitation": "Indexed coverage is partial; scene-by-scene source beat enumeration remains open."
+    },
+    {
+      "id": "endings",
+      "url": "https://gta.fandom.com/wiki/Endings_in_GTA_IV",
+      "type": "wiki_endings",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "Deal and Revenge branches",
+        "branch-specific final missions",
+        "mission-statistics convention"
+      ],
+      "limitation": "Each original finale must be authored and tested separately; retaining both labels in data does not implement either."
+    },
+    {
+      "id": "holland-subparts",
+      "url": "https://gta.fandom.com/wiki/The_Holland_Play",
+      "type": "wiki_mission",
+      "access": "search_index_observed; direct access blocked",
+      "supports": [
+        "two-target choice",
+        "different reward and friend consequences",
+        "deferred optional resolution"
+      ],
+      "limitation": "Two subparts and their delay must be preserved; catalogue title count does not count subparts separately."
+    },
+    {
+      "id": "official-game",
+      "url": "https://www.rockstargames.com/games/IV",
+      "type": "primary_publisher",
+      "access": "publisher game page indexed",
+      "supports": [
+        "arrival seeking a new life",
+        "cousin promising opportunity"
+      ],
+      "limitation": "Publisher description is thematic evidence, not a full mission inventory."
+    }
+  ],
+  "missions": [
+    {
+      "id": "LL-ST-001",
+      "source_title": "The Cousins Bellic",
+      "source_url": "https://gta.fandom.com/wiki/The_Cousins_Bellic",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Night Crossing",
+      "original_premise": "Mara meets Felix at a ferry terminal, drives through an evacuation drill, and discovers his taxi co-op survives on overdue disaster contracts.",
+      "coverage_mechanics": [
+        "arrival",
+        "driving",
+        "shelter"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-002",
+      "source_title": "It's Your Call",
+      "source_url": "https://gta.fandom.com/wiki/It%27s_Your_Call",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Late Meter",
+      "original_premise": "Felix negotiates a cab impound release while Mara watches for predatory repossession crews and chooses an escape route.",
+      "coverage_mechanics": [
+        "phone",
+        "lookout",
+        "vehicle escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-003",
+      "source_title": "Three's a Crowd",
+      "source_url": "https://gta.fandom.com/wiki/Three%27s_a_Crowd",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Two Seats Open",
+      "original_premise": "Mara brings co-op organizer Nadia and researcher Tess home from a closed rail platform, then buys work clothes for city assignments.",
+      "coverage_mechanics": [
+        "passenger pickup",
+        "clothing",
+        "social introduction"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-004",
+      "source_title": "First Date",
+      "source_url": "https://gta.fandom.com/wiki/First_Date_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Small Hours",
+      "original_premise": "Tess proposes a quiet bowling evening after a community screening is cancelled; choices establish boundaries and conversational trust.",
+      "coverage_mechanics": [
+        "social outing",
+        "bowling",
+        "return trip"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-025"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-005",
+      "source_title": "Bleed Out",
+      "source_url": "https://gta.fandom.com/wiki/Bleed_Out",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Unpaid Interest",
+      "original_premise": "Mara rescues Felix from a repossession crew at a basketball court and tracks its fleeing supervisor through an unfinished parking tower.",
+      "coverage_mechanics": [
+        "melee",
+        "vehicle chase",
+        "foot pursuit"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-006",
+      "source_title": "Easy Fare",
+      "source_url": "https://gta.fandom.com/wiki/Easy_Fare",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Unmarked Fare",
+      "original_premise": "A fare retrieves a sealed relief manifest from a locked freight yard; Mara must evade a corrupt patrol without harming the passenger.",
+      "coverage_mechanics": [
+        "taxi job",
+        "police escape",
+        "repair introduction"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-007",
+      "source_title": "Jamaican Heat",
+      "source_url": "https://gta.fandom.com/wiki/Jamaican_Heat",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "After the Siren",
+      "original_premise": "Mechanic Tomas asks Mara to watch a generator exchange; armed profiteers turn a simple collection into an exposed alley defense.",
+      "coverage_mechanics": [
+        "lookout",
+        "handgun tutorial",
+        "companion protection"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-003"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-008",
+      "source_title": "Concrete Jungle",
+      "source_url": "https://gta.fandom.com/wiki/Concrete_Jungle",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Boiler Rooms",
+      "original_premise": "Mara and Tomas trace sabotaged neighborhood generators to an apartment workshop, where a return negotiation becomes a close-quarters extraction.",
+      "coverage_mechanics": [
+        "ambush response",
+        "cover tutorial",
+        "interior combat"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-003"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-009",
+      "source_title": "Bull in a China Shop",
+      "source_url": "https://gta.fandom.com/wiki/Bull_in_a_China_Shop",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Glass Tax",
+      "original_premise": "Insurer Victor demands a shopkeeper's protection payment; Mara can expose his fraud while demonstrating how breakable props and intimidation work.",
+      "coverage_mechanics": [
+        "object throwing",
+        "intimidation",
+        "taxi introduction"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-009"
+      ],
+      "arc": "debt",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-010",
+      "source_title": "Hung Out to Dry",
+      "source_url": "https://gta.fandom.com/wiki/Hung_Out_to_Dry",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Spin Cycle",
+      "original_premise": "A mobile cold-storage operator flees Victor's collectors; Mara disables the van without destroying its medicines or killing the driver.",
+      "coverage_mechanics": [
+        "vehicle pursuit",
+        "ramming without killing"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-009"
+      ],
+      "arc": "debt",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-011",
+      "source_title": "Clean Getaway",
+      "source_url": "https://gta.fandom.com/wiki/Clean_Getaway",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Clean Plate",
+      "original_premise": "Victor orders recovery of a lender's sedan across town; transit access and a wash strip its tracking paint before delivery.",
+      "coverage_mechanics": [
+        "rail travel",
+        "vehicle theft",
+        "car wash",
+        "delivery"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-009"
+      ],
+      "arc": "debt",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-012",
+      "source_title": "Ivan the Not So Terrible",
+      "source_url": "https://gta.fandom.com/wiki/Ivan_the_Not_So_Terrible",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "High Water Mark",
+      "original_premise": "A desperate depot thief flees across a flood-defense worksite; Mara chooses capture or safe passage after learning he was framed.",
+      "coverage_mechanics": [
+        "vehicle chase",
+        "ladders",
+        "rooftop traversal",
+        "mercy choice"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-009"
+      ],
+      "arc": "debt",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Ivan",
+          "spare Ivan"
+        ],
+        "original": [
+          "capture Ilan",
+          "grant safe passage"
+        ],
+        "persistence": [
+          "ilan_fate",
+          "later_street_encounter"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-013",
+      "source_title": "Uncle Vlad",
+      "source_url": "https://gta.fandom.com/wiki/Uncle_Vlad",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Premium Due",
+      "original_premise": "Mara intercepts Victor as he attempts to sell Felix's workers' identities, ending his hold over the co-op and attracting his employer.",
+      "coverage_mechanics": [
+        "vehicle pursuit",
+        "confrontation",
+        "consequential violence"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "debt",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-014",
+      "source_title": "Crime and Punishment",
+      "source_url": "https://gta.fandom.com/wiki/Crime_and_Punishment",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Borrowed Authority",
+      "original_premise": "Demolition magnate Bran coerces Mara into using a patrol car to intercept three relief vans and identify a missing crate.",
+      "coverage_mechanics": [
+        "police vehicle",
+        "van stops",
+        "cargo identification"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-010"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-015",
+      "source_title": "Do You Have Protection?",
+      "source_url": "https://gta.fandom.com/wiki/Do_You_Have_Protection%3F",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Safety Margin",
+      "original_premise": "Risk broker Silas supervises a warehouse dispute and weapon purchase, teaching controlled force while hiding evidence of contract abuse.",
+      "coverage_mechanics": [
+        "aim intimidation",
+        "selective injury",
+        "weapon shop"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-010"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-016",
+      "source_title": "Final Destination",
+      "source_url": "https://gta.fandom.com/wiki/Final_Destination",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Last Platform",
+      "original_premise": "Bran orders an attack on a port courier at an elevated station, accelerating a contractor feud despite Silas's warnings.",
+      "coverage_mechanics": [
+        "rail-station fight",
+        "fleeing target"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-010"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-017",
+      "source_title": "No Love Lost",
+      "source_url": "https://gta.fandom.com/wiki/No_Love_Lost",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Chain Reaction",
+      "original_premise": "Mara tracks a courier biker accused of selling floodgate access codes; the ride ends at a gang-controlled recreation lot.",
+      "coverage_mechanics": [
+        "motorcycle pursuit",
+        "gang reinforcements"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-010"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-018",
+      "source_title": "Rigged to Blow",
+      "source_url": "https://gta.fandom.com/wiki/Rigged_to_Blow_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Pressure Vessel",
+      "original_premise": "A supposed disposal run is revealed as a bomb truck; Mara must route it to an evacuated contractor yard and escape detonation.",
+      "coverage_mechanics": [
+        "hazardous truck",
+        "careful driving",
+        "demolition"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-010"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-019",
+      "source_title": "Shadow",
+      "source_url": "https://gta.fandom.com/wiki/Shadow",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Second Shift",
+      "original_premise": "Mara tails a stolen-battery courier through The Narrows to a counterfeit component supplier, with different entry conditions if spotted.",
+      "coverage_mechanics": [
+        "discreet foot tail",
+        "apartment search",
+        "ambush"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-003"
+      ],
+      "arc": "contractors",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-020",
+      "source_title": "The Master and the Molotov",
+      "source_url": "https://gta.fandom.com/wiki/The_Master_and_the_Molotov",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Foreman's Fall",
+      "original_premise": "Silas sends Mara into Bran's shuttered exhibition hall to remove its armed management and confront Bran over missing relief crews.",
+      "coverage_mechanics": [
+        "large interior fight",
+        "armor",
+        "stairs",
+        "rooftop confrontation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-004"
+      ],
+      "arc": "betrayal",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-021",
+      "source_title": "Russian Revolution",
+      "source_url": "https://gta.fandom.com/wiki/Russian_Revolution",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Bad Receipts",
+      "original_premise": "A promised payment meeting exposes Silas's collusion with Mara's former relief employer Astra; Tomas helps her fight out and evade police.",
+      "coverage_mechanics": [
+        "betrayal",
+        "warehouse firefight",
+        "companion",
+        "wanted escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-004"
+      ],
+      "arc": "betrayal",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-022",
+      "source_title": "Logging On",
+      "source_url": "https://gta.fandom.com/wiki/Logging_On",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Public Terminal",
+      "original_premise": "Felix introduces garage owner Jules and directs Mara to create a city services account, opening mail, contracts, listings, and research.",
+      "coverage_mechanics": [
+        "internet cafe",
+        "email registration"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "arrival",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-023",
+      "source_title": "Search and Delete",
+      "source_url": "https://gta.fandom.com/wiki/Search_and_Delete",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Address Unknown",
+      "original_premise": "Jules asks Mara to locate a stolen vehicle broker using patrol-terminal records, then follow him to recover the shop's evidence.",
+      "coverage_mechanics": [
+        "police database search",
+        "target chase"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-011"
+      ],
+      "arc": "garage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-024",
+      "source_title": "Easy as Can Be",
+      "source_url": "https://gta.fandom.com/wiki/Easy_as_Can_Be",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Free Parking",
+      "original_premise": "An apparently abandoned electric coupe is bait for a repossession ambush; Mara returns it to Jules through hostile traffic.",
+      "coverage_mechanics": [
+        "car recovery",
+        "ambush",
+        "vehicle escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-011"
+      ],
+      "arc": "garage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-025",
+      "source_title": "Roman's Sorrow",
+      "source_url": "https://gta.fandom.com/wiki/Roman%27s_Sorrow",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Vacant Notice",
+      "original_premise": "A coordinated eviction destroys the co-op's depot and shelter; Mara, Felix, and Nadia relocate displaced drivers to The Narrows.",
+      "coverage_mechanics": [
+        "destroyed home",
+        "lost business",
+        "district relocation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002"
+      ],
+      "arc": "betrayal",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-026",
+      "source_title": "Out of the Closet",
+      "source_url": "https://gta.fandom.com/wiki/Out_of_the_Closet",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Private Listing",
+      "original_premise": "Mara uses a vehicle-club listing to arrange a meeting with an identity trader; she confronts him over a driver's stolen records.",
+      "coverage_mechanics": [
+        "internet appointment",
+        "timed meeting",
+        "confrontation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-011"
+      ],
+      "arc": "garage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-027",
+      "source_title": "No. 1",
+      "source_url": "https://gta.fandom.com/wiki/No._1",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Closed Circuit",
+      "original_premise": "Jules stakes the shop's future on a sanctioned-at-night street circuit; Mara wins a tuned vehicle and unlocks his social activities.",
+      "coverage_mechanics": [
+        "street race",
+        "companion",
+        "vehicle reward"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-011"
+      ],
+      "arc": "garage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "optional_storyline",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-028",
+      "source_title": "Escuela of the Streets",
+      "source_url": "https://gta.fandom.com/wiki/Escuela_of_the_Streets",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Public Relations",
+      "original_premise": "Campaign filmmaker Mina recruits Mara to expose a relief hoard, then tries to stage the recovery as a personal publicity victory.",
+      "coverage_mechanics": [
+        "vehicle tail",
+        "warehouse assault"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-012"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-029",
+      "source_title": "Street Sweeper",
+      "source_url": "https://gta.fandom.com/wiki/Street_Sweeper",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Clear the Curb",
+      "original_premise": "Mara clears a blocked neighborhood food depot while Mina edits a heroic narrative that ignores the workers actually maintaining it.",
+      "coverage_mechanics": [
+        "depot combat",
+        "fleeing vehicle"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-012"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-030",
+      "source_title": "Luck of the Irish",
+      "source_url": "https://gta.fandom.com/wiki/Luck_of_the_Irish",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Long Sight",
+      "original_premise": "Distributor Ada asks Mara to cover a clean-water transfer from a roof; salvage captain Elias survives only if Mara tracks several approach lanes.",
+      "coverage_mechanics": [
+        "sniper overwatch",
+        "ally protection"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-013"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-031",
+      "source_title": "Blow Your Cover",
+      "source_url": "https://gta.fandom.com/wiki/Blow_Your_Cover",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Open Secret",
+      "original_premise": "A filtration-parts exchange is raided as developer Cass introduces Mara to Glassward; the pair escape a multi-floor tenement without leaving allies behind.",
+      "coverage_mechanics": [
+        "multi-floor escape",
+        "police raid",
+        "new district access"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-013"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-032",
+      "source_title": "Call and Collect",
+      "source_url": "https://gta.fandom.com/wiki/Call_and_Collect",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Signal Among Noise",
+      "original_premise": "Inspector June asks Mara to identify a blackmailer among waterfront pedestrians by calling a number and recovering an incriminating device.",
+      "coverage_mechanics": [
+        "phone identification",
+        "crowd observation",
+        "evidence retrieval"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-015"
+      ],
+      "arc": "glassward",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-033",
+      "source_title": "The Puerto Rican Connection",
+      "source_url": "https://gta.fandom.com/wiki/The_Puerto_Rican_Connection",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Parallel Lines",
+      "original_premise": "Mara tracks a moving commuter train carrying a hijacked relief ledger, choosing road connections to intercept its courier at the final stop.",
+      "coverage_mechanics": [
+        "follow elevated train",
+        "ground pursuit"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-012"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-034",
+      "source_title": "The Snow Storm",
+      "source_url": "https://gta.fandom.com/wiki/The_Snow_Storm",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Whiteout Ledger",
+      "original_premise": "A storm-damaged clinic holds Ada's missing inventory; after an intense recovery Tess reveals that her investigation has used Mara as an unwitting source.",
+      "coverage_mechanics": [
+        "abandoned facility assault",
+        "tactical police escape",
+        "revelation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-013"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-035",
+      "source_title": "Have a Heart",
+      "source_url": "https://gta.fandom.com/wiki/Have_a_Heart",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "No Questions Asked",
+      "original_premise": "Ada's panic leaves two workers dead; Mara transports evidence to a clandestine medical examiner while vehicle damage risks exposing the crime.",
+      "coverage_mechanics": [
+        "sensitive cargo",
+        "cautious transport"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-013"
+      ],
+      "arc": "narrows",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-036",
+      "source_title": "Deconstruction for Beginners",
+      "source_url": "https://gta.fandom.com/wiki/Deconstruction_for_Beginners",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Ground Lease",
+      "original_premise": "Cass uses Mara to clear armed subcontractors from a redevelopment site, disguising a contested eviction as essential flood works.",
+      "coverage_mechanics": [
+        "long-range opening",
+        "construction combat",
+        "reinforcement response"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-019"
+      ],
+      "arc": "development",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-037",
+      "source_title": "Photo Shoot",
+      "source_url": "https://gta.fandom.com/wiki/Photo_Shoot",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Face Value",
+      "original_premise": "Mara photographs a dock gang meeting and receives a target confirmation from Cass, opening doubts about the reliability of his evidence.",
+      "coverage_mechanics": [
+        "camera identification",
+        "remote confirmation",
+        "target combat"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-019"
+      ],
+      "arc": "development",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-038",
+      "source_title": "Ruff Rider",
+      "source_url": "https://gta.fandom.com/wiki/Ruff_Rider",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Old Balance",
+      "original_premise": "Released contractor Dara seeks stolen compensation; Mara decides a former partner's fate before pursuing the broker carrying the funds.",
+      "coverage_mechanics": [
+        "mercy choice",
+        "motorcycle chase",
+        "money recovery"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-020"
+      ],
+      "arc": "optional_development",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "optional_storyline",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Cherise",
+          "spare Cherise"
+        ],
+        "original": [
+          "punish Chela",
+          "accept her evidence"
+        ],
+        "persistence": [
+          "chela_fate",
+          "later_street_encounter"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-039",
+      "source_title": "Undress to Kill",
+      "source_url": "https://gta.fandom.com/wiki/Undress_to_Kill",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Backroom Owners",
+      "original_premise": "Mara identifies three extortion managers inside a music venue by overhearing their routines, then helps Dara reclaim the workers' cooperative.",
+      "coverage_mechanics": [
+        "conversation eavesdropping",
+        "identify multiple targets",
+        "escape prevention"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-020"
+      ],
+      "arc": "optional_development",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "optional_storyline",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-040",
+      "source_title": "The Holland Play",
+      "source_url": "https://gta.fandom.com/wiki/The_Holland_Play",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Two Signatures",
+      "original_premise": "Cass and Dara demand incompatible deeds to the same housing block; Mara chooses whose operation to dismantle, changing shelter and companion support.",
+      "coverage_mechanics": [
+        "delayed decision",
+        "choose one ally",
+        "distinct combat routes"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-019",
+        "LL-CHAR-020"
+      ],
+      "arc": "optional_development",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "optional_storyline",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Playboy X",
+          "kill Dwayne"
+        ],
+        "original": [
+          "dismantle Cass operation",
+          "dismantle Dara operation"
+        ],
+        "persistence": [
+          "housing_owner",
+          "companion_available",
+          "shelter_access"
+        ],
+        "subparts": [
+          "request",
+          "delayed resolution"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-041",
+      "source_title": "Final Interview",
+      "source_url": "https://gta.fandom.com/wiki/Final_Interview",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Under Review",
+      "original_premise": "Mara applies for an audit role at a corporate law firm to access suppressed safety records, then confronts counsel and escapes security.",
+      "coverage_mechanics": [
+        "internet application",
+        "clothing gate",
+        "appointment",
+        "interior escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-015"
+      ],
+      "arc": "glassward",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-042",
+      "source_title": "Holland Nights",
+      "source_url": "https://gta.fandom.com/wiki/Holland_Nights",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Upper Landing",
+      "original_premise": "June directs Mara against a housing enforcer in a stacked residential complex; surrender changes a later street encounter.",
+      "coverage_mechanics": [
+        "multi-level combat",
+        "mercy choice",
+        "wanted escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-015"
+      ],
+      "arc": "glassward",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Clarence",
+          "spare Clarence"
+        ],
+        "original": [
+          "kill Kellan",
+          "accept surrender"
+        ],
+        "persistence": [
+          "kellan_fate",
+          "later_street_encounter"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-043",
+      "source_title": "Lure",
+      "source_url": "https://gta.fandom.com/wiki/Lure_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Open Window",
+      "original_premise": "Mara exposes a protected surveillance operator at a tower window using a phone or environmental disturbance before resolving the threat.",
+      "coverage_mechanics": [
+        "sniper setup",
+        "environmental distraction",
+        "remote target"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-015"
+      ],
+      "arc": "glassward",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-044",
+      "source_title": "Harboring a Grudge",
+      "source_url": "https://gta.fandom.com/wiki/Harboring_a_Grudge",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Harbor Weight",
+      "original_premise": "Elias and Mara infiltrate a port roofline to reclaim confiscated rescue supplies and drive the loaded truck through private security.",
+      "coverage_mechanics": [
+        "roof traversal",
+        "cargo-truck theft",
+        "companion extraction"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-014"
+      ],
+      "arc": "salvage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-045",
+      "source_title": "Waste Not Want Knots",
+      "source_url": "https://gta.fandom.com/wiki/Waste_Not_Want_Knots",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Waste Dividend",
+      "original_premise": "The salvage crew raids a laundering operation at a waste plant and escapes via river when road access is sealed.",
+      "coverage_mechanics": [
+        "four-seat crew transport",
+        "cash theft",
+        "boat extraction"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-014"
+      ],
+      "arc": "salvage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-046",
+      "source_title": "Three Leaf Clover",
+      "source_url": "https://gta.fandom.com/wiki/Three_Leaf_Clover",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Four Alarm Reserve",
+      "original_premise": "Mara joins Elias's crew in stealing an emergency fund held by a corrupt reserve bank; an escalating street siege drives them into rail tunnels.",
+      "coverage_mechanics": [
+        "bank heist",
+        "squad cover combat",
+        "police escalation",
+        "subway escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-014"
+      ],
+      "arc": "salvage",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-047",
+      "source_title": "Actions Speak Louder than Words",
+      "source_url": "https://gta.fandom.com/wiki/Actions_Speak_Louder_than_Words",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Silent Invoice",
+      "original_premise": "Organizer Soren has Mara sabotage an evacuated convoy at a rival meeting, tracing vehicle routines before remotely disabling its escorts.",
+      "coverage_mechanics": [
+        "vehicle bomb placement",
+        "tail",
+        "remote detonation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-016"
+      ],
+      "arc": "ward_family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-048",
+      "source_title": "I Need Your Clothes, Your Boots, and Your Motorcycle",
+      "source_url": "https://gta.fandom.com/wiki/I_Need_Your_Clothes%2C_Your_Boots%2C_and_Your_Motorcycle",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Borrowed Colors",
+      "original_premise": "Mara borrows a courier crew's uniform and bike to intercept a forged bond shipment, making its theft appear to originate inside a rival network.",
+      "coverage_mechanics": [
+        "disguise",
+        "motorcycle pursuit",
+        "faction manipulation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-016"
+      ],
+      "arc": "ward_family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-049",
+      "source_title": "Smackdown",
+      "source_url": "https://gta.fandom.com/wiki/Smackdown_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Return Address",
+      "original_premise": "Retired ferry captain Nessa directs Mara to a violent smuggler; a database lead and careful pursuit reveal the entire crew's refuge.",
+      "coverage_mechanics": [
+        "patrol database",
+        "tail to hideout",
+        "gang combat"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-017"
+      ],
+      "arc": "ironhaven",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-050",
+      "source_title": "A Long Way to Fall",
+      "source_url": "https://gta.fandom.com/wiki/A_Long_Way_to_Fall",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Twenty Floors",
+      "original_premise": "Broker Rafi sends Mara into an inhabited tower to recover a contract ledger from an armed floor manager and his guards.",
+      "coverage_mechanics": [
+        "photo clue",
+        "intimidation",
+        "elevator",
+        "high-rise combat"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-051",
+      "source_title": "Taking in the Trash",
+      "source_url": "https://gta.fandom.com/wiki/Taking_In_the_Trash",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Collection Day",
+      "original_premise": "Mara joins a recycling route to recover hidden floodgate authentication cores, protecting a slow service truck across several collection stops.",
+      "coverage_mechanics": [
+        "service disguise",
+        "refuse truck",
+        "multi-stop cargo pickup"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-052",
+      "source_title": "Meltdown",
+      "source_url": "https://gta.fandom.com/wiki/Meltdown_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Missing Pickup",
+      "original_premise": "A collection crew absconds with the cores; Mara pursues its vehicle, searches park facilities, and retrieves the sealed case.",
+      "coverage_mechanics": [
+        "car pursuit",
+        "park search",
+        "cargo recovery"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-053",
+      "source_title": "Museum Piece",
+      "source_url": "https://gta.fandom.com/wiki/Museum_Piece",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Archive Night",
+      "original_premise": "An archive handover with independent freight operators becomes a cross-faction ambush, leaving Mara with neither verified records nor payment.",
+      "coverage_mechanics": [
+        "three-faction exchange",
+        "museum firefight",
+        "escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-054",
+      "source_title": "No Way on the Subway",
+      "source_url": "https://gta.fandom.com/wiki/No_Way_on_the_Subway",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Trackside Debt",
+      "original_premise": "Rafi orders Mara after couriers carrying duplicate keys; the pursuit enters active rail tunnels with crossings, trains, and limited sight lines.",
+      "coverage_mechanics": [
+        "motorcycle pursuit",
+        "rail tunnel hazards"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-055",
+      "source_title": "Late Checkout",
+      "source_url": "https://gta.fandom.com/wiki/Late_Checkout",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Penthouse Warranty",
+      "original_premise": "Mara confronts a procurement buyer whose private hotel suite contains stolen audit copies, then escapes through staff passages under armed pressure.",
+      "coverage_mechanics": [
+        "hotel infiltration",
+        "elevator",
+        "multi-floor combat",
+        "escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "ledger",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-056",
+      "source_title": "Weekend at Florian's",
+      "source_url": "https://gta.fandom.com/wiki/Weekend_at_Florian%27s",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "An Old Route",
+      "original_premise": "Mara locates a former relief colleague through a driver's spoken directions and learns her old convoy's collapse was tied to forged dispatch orders.",
+      "coverage_mechanics": [
+        "witness directions",
+        "four-seat transport",
+        "identity revelation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-021"
+      ],
+      "arc": "past",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-057",
+      "source_title": "Babysitting",
+      "source_url": "https://gta.fandom.com/wiki/Babysitting",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Wake Protection",
+      "original_premise": "Nessa asks Mara to escort a river cargo captain carrying emergency bonds; attackers on boats and in the air force layered protection decisions.",
+      "coverage_mechanics": [
+        "boat escort",
+        "moving gunfight",
+        "anti-helicopter weapon"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-017"
+      ],
+      "arc": "ironhaven",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-058",
+      "source_title": "Tunnel of Death",
+      "source_url": "https://gta.fandom.com/wiki/Tunnel_of_Death",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Sealed Bore",
+      "original_premise": "A prison transport is diverted inside a tunnel so Mara can extract a dispatch witness before rival officers erase his testimony.",
+      "coverage_mechanics": [
+        "roadblock setup",
+        "armored transport theft",
+        "wanted escape",
+        "fate"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-017"
+      ],
+      "arc": "ward_family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-059",
+      "source_title": "Blood Brothers",
+      "source_url": "https://gta.fandom.com/wiki/Blood_Brothers",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Family Record",
+      "original_premise": "June and Nessa's contradictory evidence converges at a meeting; Mara chooses which armed operation to stop, changing police favors and family loyalties.",
+      "coverage_mechanics": [
+        "rooftop vantage",
+        "choose one target",
+        "lasting service change"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-015",
+        "LL-CHAR-017"
+      ],
+      "arc": "ward_family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Francis",
+          "kill Derrick"
+        ],
+        "original": [
+          "stop June operation",
+          "stop Nessa operation"
+        ],
+        "persistence": [
+          "ward_survivor",
+          "police_favor_access",
+          "memorial_variant"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-060",
+      "source_title": "Undertaker",
+      "source_url": "https://gta.fandom.com/wiki/Undertaker",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "The Last Convoy",
+      "original_premise": "The Ward family holds a memorial interrupted by a contractor attack; Mara guards the procession and transports its ceremonial vehicle intact.",
+      "coverage_mechanics": [
+        "formal attire",
+        "ceremonial defense",
+        "fragile hearse transport"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-014"
+      ],
+      "arc": "ward_family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "Francis funeral",
+          "Derrick funeral"
+        ],
+        "original": [
+          "June memorial",
+          "Nessa memorial"
+        ],
+        "persistence": [
+          "ceremony_location",
+          "attendee_dialogue"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-061",
+      "source_title": "Hating the Haters",
+      "source_url": "https://gta.fandom.com/wiki/Hating_the_Haters",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "A Clear Morning",
+      "original_premise": "Former relief colleague Leif is stalked during his morning run; Mara protects him and pursues the attacker without endangering park users.",
+      "coverage_mechanics": [
+        "protect jogger",
+        "foot pursuit",
+        "scooter chase"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-006"
+      ],
+      "arc": "past",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-062",
+      "source_title": "Union Drive",
+      "source_url": "https://gta.fandom.com/wiki/Union_Drive",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Closed Session",
+      "original_premise": "Leif's partner faces coercion over a public transit vote; Mara follows the blackmail network through a fast industrial-road pursuit.",
+      "coverage_mechanics": [
+        "escort",
+        "blackmailer meeting",
+        "vehicle chase"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-006"
+      ],
+      "arc": "past",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-063",
+      "source_title": "Buoys Ahoy",
+      "source_url": "https://gta.fandom.com/wiki/Buoys_Ahoy",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Quiet Water",
+      "original_premise": "A peaceful river trip with Leif becomes an attack by contract enforcers, shifting from boat pursuit to an exposed shoreline defense.",
+      "coverage_mechanics": [
+        "recreational boat outing",
+        "water chase",
+        "shore combat"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-006"
+      ],
+      "arc": "past",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-064",
+      "source_title": "Wrong is Right",
+      "source_url": "https://gta.fandom.com/wiki/Wrong_is_Right",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Inbox Zero",
+      "original_premise": "An opaque audit contact has Mara search a consultant's inbox for falsified relocation records and intercept the fleeing author.",
+      "coverage_mechanics": [
+        "apartment computer",
+        "email clue",
+        "car chase"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-023"
+      ],
+      "arc": "agency",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-065",
+      "source_title": "Portrait of a Killer",
+      "source_url": "https://gta.fandom.com/wiki/Portrait_of_a_Killer",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Public Face",
+      "original_premise": "A transmitted surveillance image lets Mara locate the head of a coercive security outfit, then approach a layered freight-yard defense.",
+      "coverage_mechanics": [
+        "phone image",
+        "police photo database",
+        "guarded target"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-023"
+      ],
+      "arc": "agency",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-066",
+      "source_title": "Dust Off",
+      "source_url": "https://gta.fandom.com/wiki/Dust_Off",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Rotor Claim",
+      "original_premise": "Mara tracks a contractor helicopter to an isolated landing site, steals it from guards, and delivers it to a public emergency hangar.",
+      "coverage_mechanics": [
+        "road-to-air pursuit",
+        "guarded landing",
+        "helicopter theft"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-023"
+      ],
+      "arc": "agency",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-067",
+      "source_title": "Paper Trail",
+      "source_url": "https://gta.fandom.com/wiki/Paper_Trail",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Flight Ledger",
+      "original_premise": "Mara pilots while Tomas disables an airborne fugitive's craft; flight positioning, shot alignment, and civilian airspace govern the pursuit.",
+      "coverage_mechanics": [
+        "helicopter pursuit",
+        "companion rocket aim",
+        "air escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-023"
+      ],
+      "arc": "agency",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-068",
+      "source_title": "Truck Hustle",
+      "source_url": "https://gta.fandom.com/wiki/Truck_Hustle",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Moving Deck",
+      "original_premise": "Freight operator Petra sends Mara after a runaway filtration truck; she boards its rear, traverses the moving load, and takes control.",
+      "coverage_mechanics": [
+        "ambush",
+        "moving-truck grab",
+        "roof traversal",
+        "cargo delivery"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-022"
+      ],
+      "arc": "freight",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-069",
+      "source_title": "Pegorino's Pride",
+      "source_url": "https://gta.fandom.com/wiki/Pegorino%27s_Pride",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Council of Smoke",
+      "original_premise": "Redevelopment chief Oren meets rival investors at a refinery; Mara's overwatch becomes a rescue and recovery when the supposed truce collapses.",
+      "coverage_mechanics": [
+        "sniper overwatch",
+        "employer rescue",
+        "offering recovery"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-005"
+      ],
+      "arc": "redevelopment",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-070",
+      "source_title": "Payback",
+      "source_url": "https://gta.fandom.com/wiki/Payback_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Return Policy",
+      "original_premise": "Mara follows Oren's fleeing attackers through a service district and uncovers an armed vehicle showroom financing the feud.",
+      "coverage_mechanics": [
+        "baited vehicle chase",
+        "dealership firefight"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-005"
+      ],
+      "arc": "redevelopment",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-071",
+      "source_title": "Catch the Wave",
+      "source_url": "https://gta.fandom.com/wiki/Catch_the_Wave",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Tidal Inventory",
+      "original_premise": "Petra and Mara infiltrate a river yard using a freight truck, seize two supply boats, and defend each other on the trip downstream.",
+      "coverage_mechanics": [
+        "truck approach",
+        "boatyard combat",
+        "two-boat cargo escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-022"
+      ],
+      "arc": "freight",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-072",
+      "source_title": "Flatline",
+      "source_url": "https://gta.fandom.com/wiki/Flatline",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Quiet Ward",
+      "original_premise": "Oren orders a hospital witness silenced; Mara enters in staff clothing and chooses exposure or coercion before hospital security responds.",
+      "coverage_mechanics": [
+        "hospital disguise",
+        "guarded patient",
+        "wanted escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-005"
+      ],
+      "arc": "redevelopment",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-073",
+      "source_title": "Trespass",
+      "source_url": "https://gta.fandom.com/wiki/Trespass",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Above the Rust",
+      "original_premise": "Petra identifies a contractor selling crew locations; Mara chases him through a derelict factory and stops his helicopter extraction.",
+      "coverage_mechanics": [
+        "factory infiltration",
+        "vertical pursuit",
+        "helicopter target"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-022"
+      ],
+      "arc": "freight",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-074",
+      "source_title": "To Live and Die in Alderney",
+      "source_url": "https://gta.fandom.com/wiki/To_Live_and_Die_in_Alderney",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Ironhaven Run",
+      "original_premise": "An audit raid catches Petra's shipment; Mara alternates driving and street fighting to get workers and evidence into an unmarked van.",
+      "coverage_mechanics": [
+        "convoy follow",
+        "tactical-unit pursuit",
+        "foot escape",
+        "escape van"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-022"
+      ],
+      "arc": "freight",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-075",
+      "source_title": "Pest Control",
+      "source_url": "https://gta.fandom.com/wiki/Pest_Control",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "The Small Print",
+      "original_premise": "Oren's paranoia turns against Rafi; Mara must resolve a traveling armed escort while deciding which contracts and testimony survive.",
+      "coverage_mechanics": [
+        "employer order",
+        "guarded convoy attack"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-005"
+      ],
+      "arc": "redevelopment",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-076",
+      "source_title": "I'll Take Her",
+      "source_url": "https://gta.fandom.com/wiki/I%27ll_Take_Her",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Test Drive Terms",
+      "original_premise": "Mara arranges a test drive with contract heiress Lyra, then extracts her from a tracked car when a family security crew intervenes.",
+      "coverage_mechanics": [
+        "online listing",
+        "scheduled meeting",
+        "coerced passenger",
+        "safehouse"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-016"
+      ],
+      "arc": "authentication",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-077",
+      "source_title": "Ransom",
+      "source_url": "https://gta.fandom.com/wiki/Ransom_%28GTA_IV%29",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Proof of Safety",
+      "original_premise": "Mara sends photographic proof that Lyra is safe, opening negotiations over recovered authentication cores and exposing false hostage claims.",
+      "coverage_mechanics": [
+        "safehouse visit",
+        "photo",
+        "message transmission"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-014"
+      ],
+      "arc": "authentication",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-078",
+      "source_title": "She's a Keeper",
+      "source_url": "https://gta.fandom.com/wiki/She%27s_a_Keeper",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Safe Address",
+      "original_premise": "Lyra's refuge is compromised; Mara moves her through city traffic while pursuers threaten both the passenger and the fragile evidence case.",
+      "coverage_mechanics": [
+        "sensitive passenger",
+        "pursuit",
+        "vehicle damage constraint"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-016"
+      ],
+      "arc": "authentication",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-079",
+      "source_title": "Diamonds Are a Girl's Best Friend",
+      "source_url": "https://gta.fandom.com/wiki/Diamonds_Are_a_Girl%27s_Best_Friend",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Keys to the Spillway",
+      "original_premise": "A riverside witness-and-core exchange is attacked by Astra's contractors; the keys vanish into industrial runoff despite Mara and Elias surviving.",
+      "coverage_mechanics": [
+        "exchange",
+        "gang ambush",
+        "catwalk combat",
+        "companion escape"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-016"
+      ],
+      "arc": "authentication",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-080",
+      "source_title": "Entourage",
+      "source_url": "https://gta.fandom.com/wiki/Entourage",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Priority Passage",
+      "original_premise": "Union elder Eamon asks Mara to escort a transport commissioner whose testimony can end privatized evacuations; a convoy detour reveals an ambush.",
+      "coverage_mechanics": [
+        "convoy escort",
+        "road ambush",
+        "VIP rescue"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-024"
+      ],
+      "arc": "resolution",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-081",
+      "source_title": "Dining Out",
+      "source_url": "https://gta.fandom.com/wiki/Dining_Out",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Kitchen Exit",
+      "original_premise": "A bond printer evades an audit in a crowded restaurant; Mara uses staff information to trace his kitchen escape.",
+      "coverage_mechanics": [
+        "restaurant infiltration",
+        "manager questioning",
+        "kitchen pursuit"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-024"
+      ],
+      "arc": "resolution",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-082",
+      "source_title": "Liquidize the Assets",
+      "source_url": "https://gta.fandom.com/wiki/Liquidize_the_Assets",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Dry Stock",
+      "original_premise": "Mara dismantles a fraudulent disaster fleet by disabling marked cargo vans inside a guarded depot with several entry paths.",
+      "coverage_mechanics": [
+        "guarded compound",
+        "multiple vehicle destruction",
+        "approach choice"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-024"
+      ],
+      "arc": "resolution",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-083",
+      "source_title": "Hostile Negotiation",
+      "source_url": "https://gta.fandom.com/wiki/Hostile_Negotiation",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "The Missing Driver",
+      "original_premise": "Felix disappears during negotiations for the co-op; Mara fights through a warehouse and saves him from a close-range hostage threat.",
+      "coverage_mechanics": [
+        "warehouse assault",
+        "vertical rescue",
+        "hostage precision",
+        "escort"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-008"
+      ],
+      "arc": "family",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-084",
+      "source_title": "That Special Someone",
+      "source_url": "https://gta.fandom.com/wiki/That_Special_Someone",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Dispatch at Dawn",
+      "original_premise": "Mara confronts former dispatcher Ivo, who falsified the relief route under coercion, and chooses punishment or public testimony before a quiet return.",
+      "coverage_mechanics": [
+        "past confrontation",
+        "spare-or-kill choice",
+        "reflective drive"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-023"
+      ],
+      "arc": "resolution",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "kill Darko",
+          "spare Darko"
+        ],
+        "original": [
+          "punish Ivo",
+          "preserve public testimony"
+        ],
+        "persistence": [
+          "ivo_fate",
+          "past_resolution",
+          "epilogue_dialogue"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-085",
+      "source_title": "One Last Thing",
+      "source_url": "https://gta.fandom.com/wiki/One_Last_Thing",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "The Last Contract",
+      "original_premise": "Oren offers a lucrative floodgate-control deal with Silas; Mara chooses acceptance or disclosure after friends give incompatible advice.",
+      "coverage_mechanics": [
+        "phone advice",
+        "terminal branch decision"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-005"
+      ],
+      "arc": "finale_common",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "shared",
+      "branches": {
+        "source": [
+          "Deal",
+          "Revenge"
+        ],
+        "original": [
+          "accept contract",
+          "disclose contract"
+        ],
+        "persistence": [
+          "terminal_route",
+          "city_service_ownership",
+          "finale_cast"
+        ]
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-086",
+      "source_title": "If the Price is Right",
+      "source_url": "https://gta.fandom.com/wiki/If_the_Price_is_Right",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "The Acceptance Window",
+      "original_premise": "Mara accepts the contract, but the escrow handover becomes a theft; she and Petra recover funds while Silas acquires operational access.",
+      "coverage_mechanics": [
+        "companion infiltration",
+        "betrayed deal",
+        "cash recovery",
+        "pursuit"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-022"
+      ],
+      "arc": "finale_accept",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "accept",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-087",
+      "source_title": "A Dish Served Cold",
+      "source_url": "https://gta.fandom.com/wiki/A_Dish_Served_Cold",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Cold Start",
+      "original_premise": "Mara rejects the deal and boards Silas's control barge to seize the emergency network keys before its crew can privatize the next evacuation.",
+      "coverage_mechanics": [
+        "large ship assault",
+        "machinery interaction",
+        "antagonist confrontation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-004"
+      ],
+      "arc": "finale_disclose",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "disclose",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-088",
+      "source_title": "Mr. & Mrs. Bellic",
+      "source_url": "https://gta.fandom.com/wiki/Mr._%26_Mrs._Bellic",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Grid Zero",
+      "original_premise": "A public floodgate commissioning joins the co-op and city workers; branch-specific sabotage fractures the coalition and changes who needs rescue.",
+      "coverage_mechanics": [
+        "scheduled personal event",
+        "branch-dependent tragedy",
+        "aftermath"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-002",
+        "LL-CHAR-008"
+      ],
+      "arc": "finale_shared_variant",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "both_variants",
+      "branches": {
+        "source": [
+          "Deal wedding variant",
+          "Revenge wedding variant"
+        ],
+        "original": [
+          "acceptance sabotage variant",
+          "disclosure sabotage variant"
+        ],
+        "persistence": [
+          "coalition_survivors",
+          "evacuation_service",
+          "finale_objective"
+        ],
+        "separate_authored_variants_required": true
+      },
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-089",
+      "source_title": "A Revenger's Tragedy",
+      "source_url": "https://gta.fandom.com/wiki/A_Revenger%27s_Tragedy",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Black Channel",
+      "original_premise": "On acceptance, Mara tracks Silas through a river fort and moving aircraft to an island relay, confronting his takeover as neighborhoods lose evacuation service.",
+      "coverage_mechanics": [
+        "car tail",
+        "fortified assault",
+        "boat chase",
+        "helicopter transfer",
+        "island pursuit"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-003"
+      ],
+      "arc": "finale_accept",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "accept",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    },
+    {
+      "id": "LL-ST-090",
+      "source_title": "Out of Commission",
+      "source_url": "https://gta.fandom.com/wiki/Out_of_Commission",
+      "source_evidence": "indexed-mission-article-and-catalogue",
+      "source_access": "search-index-only; direct page blocked by robots",
+      "source_game": "GTA IV base game",
+      "original_title": "Open Harbor",
+      "original_premise": "On disclosure, Mara pursues Oren along the industrial coastline and into a flooded control park, ending his retaliatory destruction while preserving evidence.",
+      "coverage_mechanics": [
+        "car tail",
+        "fortified assault",
+        "motorcycle pursuit",
+        "helicopter jump",
+        "final confrontation"
+      ],
+      "original_contact_ids": [
+        "LL-CHAR-003",
+        "LL-CHAR-002"
+      ],
+      "arc": "finale_disclose",
+      "district_assignment": "pending authored layout across Harbor City",
+      "source_completion_role": "storyline_or_terminal_route",
+      "terminal_route": "disclose",
+      "branches": {},
+      "implementation_status": "planned",
+      "verification_status": "not_implemented",
+      "acceptance_evidence_required": [
+        "playable authored encounter",
+        "objective and failure-state tests",
+        "save/resume at phase boundaries",
+        "route and consequence verification",
+        "finished art, animation, audio and dialogue"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "LL-CHAR-001",
+      "source_name": "Niko Bellic",
+      "source_url": "https://gta.fandom.com/wiki/Niko_Bellic",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "protagonist",
+      "original_name": "Mara Voss",
+      "original_role": "Former relief driver investigating the ownership of a failed evacuation route.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-002",
+      "source_name": "Roman Bellic",
+      "source_url": "https://gta.fandom.com/wiki/Roman_Bellic",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Felix Voss",
+      "original_role": "Cousin and taxi co-op operator whose optimism keeps displaced workers together.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-003",
+      "source_name": "Little Jacob",
+      "source_url": "https://gta.fandom.com/wiki/Little_Jacob",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Tomas Reed",
+      "original_role": "Community mechanic and reliable companion who supplies mobile workshop support.",
+      "status": "planned",
+      "source_aliases": [
+        "Jacob Hughes"
+      ]
+    },
+    {
+      "id": "LL-CHAR-004",
+      "source_name": "Dimitri Rascalov",
+      "source_url": "https://gta.fandom.com/wiki/Dimitri_Rascalov",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Silas Quinn",
+      "original_role": "Risk broker converting emergency infrastructure into private leverage.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-005",
+      "source_name": "Jimmy Pegorino",
+      "source_url": "https://gta.fandom.com/wiki/Jimmy_Pegorino",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Oren Hale",
+      "original_role": "Redevelopment chief who mistakes city control for civic legitimacy.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-006",
+      "source_name": "Bernie Crane",
+      "source_url": "https://gta.fandom.com/wiki/Bernie_Crane",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Leif Arden",
+      "original_role": "Former relief colleague now documenting relocation and transit abuse.",
+      "status": "planned",
+      "source_aliases": [
+        "Florian Cravic"
+      ]
+    },
+    {
+      "id": "LL-CHAR-007",
+      "source_name": "Darko Brevic",
+      "source_url": "https://gta.fandom.com/wiki/Darko_Brevic",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "central",
+      "original_name": "Ivo Maren",
+      "original_role": "Former dispatcher who altered a convoy route under coercion.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-008",
+      "source_name": "Mallorie Bardas",
+      "source_url": "https://gta.fandom.com/wiki/Mallorie_Bardas",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Nadia Sol",
+      "original_role": "Co-op organizer with independent housing and mutual-aid ambitions.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-009",
+      "source_name": "Vladimir Glebov",
+      "source_url": "https://gta.fandom.com/wiki/Vladimir_Glebov",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Victor Senn",
+      "original_role": "Insurance collector exploiting driver identity records.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-010",
+      "source_name": "Mikhail Faustin",
+      "source_url": "https://gta.fandom.com/wiki/Mikhail_Faustin",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Bran Corvus",
+      "original_role": "Demolition contractor whose reckless orders destabilize the port.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-011",
+      "source_name": "Brucie Kibbutz",
+      "source_url": "https://gta.fandom.com/wiki/Brucie_Kibbutz",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Jules Axel",
+      "original_role": "Enthusiastic electric-car tuner funding neighborhood mobility projects.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-012",
+      "source_name": "Manny Escuela",
+      "source_url": "https://gta.fandom.com/wiki/Manny_Escuela",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Mina Rook",
+      "original_role": "Campaign filmmaker who takes credit for dangerous community recoveries.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-013",
+      "source_name": "Elizabeta Torres",
+      "source_url": "https://gta.fandom.com/wiki/Elizabeta_Torres",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Ada Cinder",
+      "original_role": "Medical-supply distributor compromised by illicit emergency contracts.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-014",
+      "source_name": "Patrick McReary",
+      "source_url": "https://gta.fandom.com/wiki/Patrick_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Elias Ward",
+      "original_role": "Salvage captain assembling a crew to recover diverted public funds.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-015",
+      "source_name": "Francis McReary",
+      "source_url": "https://gta.fandom.com/wiki/Francis_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "June Ward",
+      "original_role": "Inspector using selective enforcement to protect her political position.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-016",
+      "source_name": "Gerald McReary",
+      "source_url": "https://gta.fandom.com/wiki/Gerald_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Soren Ward",
+      "original_role": "Imprisoned organizer directing leverage campaigns from a visitation room.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-017",
+      "source_name": "Derrick McReary",
+      "source_url": "https://gta.fandom.com/wiki/Derrick_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Nessa Ward",
+      "original_role": "Retired ferry captain entangled in forged cargo bonds.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-018",
+      "source_name": "Kate McReary",
+      "source_url": "https://gta.fandom.com/wiki/Kate_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Selene Ward",
+      "original_role": "Public defender challenging Mara's dependence on violent intermediaries.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-019",
+      "source_name": "Playboy X",
+      "source_url": "https://gta.fandom.com/wiki/Playboy_X",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Cass Raze",
+      "original_role": "Developer selling polished plans for a housing block he cannot ethically acquire.",
+      "status": "planned",
+      "source_aliases": [
+        "Trey Stewart"
+      ]
+    },
+    {
+      "id": "LL-CHAR-020",
+      "source_name": "Dwayne Forge",
+      "source_url": "https://gta.fandom.com/wiki/Dwayne_Forge",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Dara Flint",
+      "original_role": "Released contractor rebuilding a worker-owned venue and mutual-aid network.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-021",
+      "source_name": "Ray Boccino",
+      "source_url": "https://gta.fandom.com/wiki/Ray_Boccino",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Rafi Castell",
+      "original_role": "Recycling broker trading industrial access for protection.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-022",
+      "source_name": "Phil Bell",
+      "source_url": "https://gta.fandom.com/wiki/Phil_Bell",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Petra Bellamy",
+      "original_role": "Practical freight operator who values surviving crews above bosses.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-023",
+      "source_name": "United Liberty Paper contact",
+      "source_url": "https://gta.fandom.com/wiki/United_Liberty_Paper_contact",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Director Lattice",
+      "original_role": "Opaque emergency auditor whose public mandate conceals private bargains.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-024",
+      "source_name": "Jon Gravelli",
+      "source_url": "https://gta.fandom.com/wiki/Jon_Gravelli",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "main",
+      "original_name": "Eamon Vale",
+      "original_role": "Union elder arranging transport testimony from a hospital room.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-025",
+      "source_name": "Michelle / Karen Daniels",
+      "source_url": "https://gta.fandom.com/wiki/Karen_Daniels",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Tess Vale",
+      "original_role": "Researcher hiding the fact that her investigation relies on Mara's movements.",
+      "status": "planned",
+      "source_aliases": [
+        "Michelle",
+        "Karen Daniels"
+      ]
+    },
+    {
+      "id": "LL-CHAR-026",
+      "source_name": "Ilyena Faustin",
+      "source_url": "https://gta.fandom.com/wiki/Ilyena_Faustin",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Edda Corvus",
+      "original_role": "Engineer living with the consequences of Bran's collapsing organization.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-027",
+      "source_name": "Isaac Roth",
+      "source_url": "https://gta.fandom.com/wiki/Isaac_Roth",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Milo Prax",
+      "original_role": "Procurement buyer seeking authentication cores for a private auction.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-028",
+      "source_name": "Kim Young-Guk",
+      "source_url": "https://gta.fandom.com/wiki/Kim_Young-Guk",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Jin Sato",
+      "original_role": "Cargo captain and illicit bond printer working across river routes.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-029",
+      "source_name": "Ray Bulgarin",
+      "source_url": "https://gta.fandom.com/wiki/Ray_Bulgarin",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Astra Kane",
+      "original_role": "Former relief patron trying to erase responsibility for the convoy disaster.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-030",
+      "source_name": "Jay Hamilton",
+      "source_url": "https://gta.fandom.com/wiki/Jay_Hamilton",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Rui Pine",
+      "original_role": "Documentary sound editor witnessing Mina's staged campaigning.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-031",
+      "source_name": "Jim Fitzgerald",
+      "source_url": "https://gta.fandom.com/wiki/Jim_Fitzgerald",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Morgan Ash",
+      "original_role": "Freight crew mechanic whose work binds an independent courier group.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-032",
+      "source_name": "Johnny Klebitz",
+      "source_url": "https://gta.fandom.com/wiki/Johnny_Klebitz",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Cade Mercer",
+      "original_role": "Independent logistics leader caught in a disputed cargo handover.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-033",
+      "source_name": "Gordon Sargent",
+      "source_url": "https://gta.fandom.com/wiki/Gordon_Sargent",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Hana Dunn",
+      "original_role": "Salvage crew safe technician with a limited appetite for escalation.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-034",
+      "source_name": "Michael Keane",
+      "source_url": "https://gta.fandom.com/wiki/Michael_Keane",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Ben Oris",
+      "original_role": "Young lookout learning that contract recovery has civilian costs.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-035",
+      "source_name": "Maureen McReary",
+      "source_url": "https://gta.fandom.com/wiki/Maureen_McReary",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Marta Ward",
+      "original_role": "Market owner holding the divided Ward family together.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-036",
+      "source_name": "Luis Fernando Lopez",
+      "source_url": "https://gta.fandom.com/wiki/Luis_Fernando_Lopez",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Imani Fleet",
+      "original_role": "Venue security specialist whose own employer claims the disputed cargo.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-037",
+      "source_name": "Anthony Corrado",
+      "source_url": "https://gta.fandom.com/wiki/Anthony_Corrado",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Arlo Saye",
+      "original_role": "Hospitalized audit witness whose survival threatens Oren's contracts.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-038",
+      "source_name": "Stevie",
+      "source_url": "https://gta.fandom.com/wiki/Stevie",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Theo Kestrel",
+      "original_role": "Vehicle export buyer commissioning specific recoveries by message.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-039",
+      "source_name": "The Fixer",
+      "source_url": "https://gta.fandom.com/wiki/Wade_Johnson",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Dispatcher Sable",
+      "original_role": "Anonymous contract intermediary operating through public terminals.",
+      "status": "planned",
+      "source_aliases": [
+        "Wade Johnson"
+      ]
+    },
+    {
+      "id": "LL-CHAR-040",
+      "source_name": "Tony Prince",
+      "source_url": "https://gta.fandom.com/wiki/Tony_Prince",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Rene Noir",
+      "original_role": "Music venue owner protecting staff against illicit financiers.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-041",
+      "source_name": "Bryce Dawkins",
+      "source_url": "https://gta.fandom.com/wiki/Bryce_Dawkins",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Noel Vane",
+      "original_role": "Transit official whose private relationship is weaponized during a public vote.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-042",
+      "source_name": "Eugene Reaper",
+      "source_url": "https://gta.fandom.com/wiki/Eugene_Reaper",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Jonas Pell",
+      "original_role": "Civilian reserve-bank customer who intervenes during the heist.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-043",
+      "source_name": "Mohammed",
+      "source_url": "https://gta.fandom.com/wiki/Mohammed",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "supporting",
+      "original_name": "Amin Dary",
+      "original_role": "Overworked taxi co-op driver seeking fair pay and ownership.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-044",
+      "source_name": "Gracie Ancelotti",
+      "source_url": "https://gta.fandom.com/wiki/Gracie_Ancelotti",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Lyra Ansel",
+      "original_role": "Contract heiress choosing to disclose documents against her family's security operation.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-045",
+      "source_name": "Ivan Bytchkov",
+      "source_url": "https://gta.fandom.com/wiki/Ivan_Bytchkov",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Ilan Vale",
+      "original_role": "Framed depot thief whose survival changes a later street meeting.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-046",
+      "source_name": "Cherise Glover",
+      "source_url": "https://gta.fandom.com/wiki/Cherise_Glover",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Chela Stone",
+      "original_role": "Former business partner caught between Dara's recovery and a broker's coercion.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-047",
+      "source_name": "Clarence Little",
+      "source_url": "https://gta.fandom.com/wiki/Clarence_Little",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Kellan Reid",
+      "original_role": "Housing enforcer whose surrender changes a later confrontation.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-048",
+      "source_name": "Kenny Petrovic",
+      "source_url": "https://gta.fandom.com/wiki/Kenny_Petrovic",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Idris Cobalt",
+      "original_role": "Port coalition boss whose influence keeps rival contractors uneasy.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-049",
+      "source_name": "Lenny Petrovic",
+      "source_url": "https://gta.fandom.com/wiki/Lenny_Petrovic",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Marek Cobalt",
+      "original_role": "Port courier targeted after a false accusation of stolen route codes.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-050",
+      "source_name": "Talbot Daniels",
+      "source_url": "https://gta.fandom.com/wiki/Talbot_Daniels",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Tobin Fleet",
+      "original_role": "Driver who recognizes an old relief route and gives spoken directions.",
+      "status": "planned",
+      "source_aliases": []
+    },
+    {
+      "id": "LL-CHAR-051",
+      "source_name": "Tom Goldberg",
+      "source_url": "https://gta.fandom.com/wiki/Tom_Goldberg",
+      "source_evidence": "characters-index-and-story-navigation",
+      "source_role_category": "mission_target",
+      "original_name": "Axel Hawthorne",
+      "original_role": "Corporate attorney suppressing building safety records.",
+      "status": "planned",
+      "source_aliases": []
+    }
+  ],
+  "branch_contracts": {
+    "Ivan the Not So Terrible": {
+      "source": [
+        "kill Ivan",
+        "spare Ivan"
+      ],
+      "original": [
+        "capture Ilan",
+        "grant safe passage"
+      ],
+      "persistence": [
+        "ilan_fate",
+        "later_street_encounter"
+      ]
+    },
+    "Ruff Rider": {
+      "source": [
+        "kill Cherise",
+        "spare Cherise"
+      ],
+      "original": [
+        "punish Chela",
+        "accept her evidence"
+      ],
+      "persistence": [
+        "chela_fate",
+        "later_street_encounter"
+      ]
+    },
+    "The Holland Play": {
+      "source": [
+        "kill Playboy X",
+        "kill Dwayne"
+      ],
+      "original": [
+        "dismantle Cass operation",
+        "dismantle Dara operation"
+      ],
+      "persistence": [
+        "housing_owner",
+        "companion_available",
+        "shelter_access"
+      ],
+      "subparts": [
+        "request",
+        "delayed resolution"
+      ]
+    },
+    "Holland Nights": {
+      "source": [
+        "kill Clarence",
+        "spare Clarence"
+      ],
+      "original": [
+        "kill Kellan",
+        "accept surrender"
+      ],
+      "persistence": [
+        "kellan_fate",
+        "later_street_encounter"
+      ]
+    },
+    "Blood Brothers": {
+      "source": [
+        "kill Francis",
+        "kill Derrick"
+      ],
+      "original": [
+        "stop June operation",
+        "stop Nessa operation"
+      ],
+      "persistence": [
+        "ward_survivor",
+        "police_favor_access",
+        "memorial_variant"
+      ]
+    },
+    "Undertaker": {
+      "source": [
+        "Francis funeral",
+        "Derrick funeral"
+      ],
+      "original": [
+        "June memorial",
+        "Nessa memorial"
+      ],
+      "persistence": [
+        "ceremony_location",
+        "attendee_dialogue"
+      ]
+    },
+    "That Special Someone": {
+      "source": [
+        "kill Darko",
+        "spare Darko"
+      ],
+      "original": [
+        "punish Ivo",
+        "preserve public testimony"
+      ],
+      "persistence": [
+        "ivo_fate",
+        "past_resolution",
+        "epilogue_dialogue"
+      ]
+    },
+    "One Last Thing": {
+      "source": [
+        "Deal",
+        "Revenge"
+      ],
+      "original": [
+        "accept contract",
+        "disclose contract"
+      ],
+      "persistence": [
+        "terminal_route",
+        "city_service_ownership",
+        "finale_cast"
+      ]
+    },
+    "Mr. & Mrs. Bellic": {
+      "source": [
+        "Deal wedding variant",
+        "Revenge wedding variant"
+      ],
+      "original": [
+        "acceptance sabotage variant",
+        "disclosure sabotage variant"
+      ],
+      "persistence": [
+        "coalition_survivors",
+        "evacuation_service",
+        "finale_objective"
+      ],
+      "separate_authored_variants_required": true
+    }
+  },
+  "open_items": [
+    {
+      "id": "ST-GAP-001",
+      "description": "Fetch or legally archive the complete requested wiki and individual mission pages; search-index excerpts alone cannot certify all scenes, optional dialogue, failures, and alternatives.",
+      "status": "research_pending"
+    },
+    {
+      "id": "ST-GAP-002",
+      "description": "Verify the exact dependency graph, phone-call delays, outfit gates, time-of-day gates, and alternate triggers for every mission; current row order is an index, not enforced chronology.",
+      "status": "research_pending"
+    },
+    {
+      "id": "ST-GAP-003",
+      "description": "Expand the notable cast into every minor, ambient, mentioned, radio, television, Internet, police-database, and service character in the required source.",
+      "status": "research_pending"
+    },
+    {
+      "id": "ST-GAP-004",
+      "description": "Author every mission phase, enemy formation, cinematic beat, checkpoint, fail reason, optional resolution, and reward; a name and premise do not constitute content completion.",
+      "status": "authoring_pending"
+    },
+    {
+      "id": "ST-GAP-005",
+      "description": "Cross-reference recurring cargo participants with random encounters, friendships, romance, side jobs, locations, and the independent gameplay/source catalogues.",
+      "status": "integration_pending"
+    },
+    {
+      "id": "ST-GAP-006",
+      "description": "Verify source numerical counts against title union, selected route, optional missions, subparts, and in-game statistics rather than collapsing distinct definitions.",
+      "status": "research_pending"
+    },
+    {
+      "id": "ST-GAP-007",
+      "description": "Create two complete terminal routes plus separately authored shared-event variants and persistent post-ending city/relationship consequences.",
+      "status": "implementation_pending"
+    },
+    {
+      "id": "ST-GAP-008",
+      "description": "Maintain base-game breadth, including multiplayer in its own feature catalogue; expansion-pack campaigns are separate source scopes requiring explicit scope resolution, not silent omissions.",
+      "status": "scope_pending"
+    }
+  ],
+  "completion_gate": {
+    "must_not_claim_complete_until": [
+      "All requested source categories are exhaustively inventoried, including every character and per-mission phase.",
+      "Every planned counterpart is a playable authored mission with original narrative and assets.",
+      "All branching alternatives and later consequences are exercised in saved playthroughs.",
+      "Both finale paths and both shared-event variants pass end-to-end checks.",
+      "Source-to-counterpart traceability links to actual implementation and verification evidence."
+    ],
+    "current_result": "incomplete; research and design plan only"
+  }
+}

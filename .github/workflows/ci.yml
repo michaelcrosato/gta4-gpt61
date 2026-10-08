@@ -29,12 +29,26 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
       - name: Check committed whitespace
         run: git diff-tree --check --root -r -m HEAD
       - name: Run repository tests
         run: python3 -m unittest discover -s tests -v
       - name: Check supplied engine syntax
-        run: node --check my-3d2dge-agent.js
+        run: |
+          node --check my-3d2dge-agent.js
+          node --check my-3d2dge.js
+      - name: Check and test game
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm run format:check
+          npm test
+          npm run scope
+          npm run build
       - name: Check shell syntax
         run: |
           for script in .githooks/post-commit scripts/setup-local.sh scripts/setup-github.sh; do
