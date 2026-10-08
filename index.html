@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101716" />
+    <meta name="description" content="LOWLIGHT. An original urban crime drama in Harbor City." />
+    <title>LOWLIGHT — Harbor City</title>
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-mode="title">
+    <main id="game-shell">
+      <canvas id="screen" aria-label="Harbor City game world" tabindex="-1"></canvas>
+      <div class="world-grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <header class="topbar">
+        <a class="brand" href="#" id="brand-home" aria-label="LOWLIGHT main menu"
+          >LOWLIGHT<span class="brand-mark">/</span></a
+        >
+        <div class="city-label">
+          <span class="status-dot"></span> HARBOR CITY
+          <span class="city-coordinate">40° 41′ N</span>
+        </div>
+        <button
+          class="icon-button menu-toggle"
+          id="menu-button"
+          aria-label="Pause game"
+          title="Pause (Escape)"
+        >
+          <span></span><span></span>
+        </button>
+      </header>
+
+      <section id="title-screen" aria-labelledby="title-heading">
+        <div class="title-content">
+          <p class="eyebrow"><span class="line"></span> A CITY THAT NEVER FORGIVES</p>
+          <h1 id="title-heading">LOW<span>LIGHT</span><i>/</i></h1>
+          <p class="title-subhead">EVERY DEBT HAS A STORY.</p>
+          <p class="title-description">
+            You came here for a fresh start.<br />Harbor City had other plans.
+          </p>
+          <div class="title-actions">
+            <button id="new-game" class="primary-button">
+              <span>ENTER THE CITY</span
+              ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg>
+            </button>
+            <button id="continue-game" class="text-button" hidden>
+              CONTINUE YOUR STORY <span>↗</span>
+            </button>
+          </div>
+          <div class="menu-links">
+            <button id="controls-button">HOW TO PLAY</button><span>/</span
+            ><button id="settings-button">SETTINGS</button><span>/</span
+            ><button id="credits-button">CREDITS</button>
+          </div>
+        </div>
+        <aside class="city-caption" aria-hidden="true">
+          <span class="caption-number">01 /</span>
+          <div>
+            <b>BREAKWATER</b>
+            <p>Where the city washes its hands.</p>
+          </div>
+        </aside>
+        <footer class="title-footer">
+          <span>AN ORIGINAL URBAN CRIME DRAMA</span
+          ><span class="footer-input">KEYBOARD · GAMEPAD · TOUCH</span
+          ><span class="footer-live"><i></i> THE CITY IS AWAKE</span>
+        </footer>
+      </section>
+
+      <section id="game-hud" hidden aria-label="Game information">
+        <div class="player-status">
+          <div class="wanted-stars" id="wanted-stars" aria-label="Not wanted"></div>
+          <p id="cash">$240</p>
+          <div class="vitals">
+            <span class="health-track" aria-label="Health"><i id="health-bar"></i></span
+            ><span class="armour-track" aria-label="Armour"><i id="armour-bar"></i></span>
+          </div>
+          <div class="weapon-status">
+            <span id="weapon-name">SERVICE PISTOL</span><b id="ammo">12 <small>/ 48</small></b>
+          </div>
+        </div>
+        <section class="mission-panel" aria-labelledby="mission-name">
+          <p class="mission-label"><span></span> CURRENT JOB</p>
+          <h2 id="mission-name">First shift</h2>
+          <p id="mission-objective">Find Felix's cab.</p>
+          <div id="mission-distance"></div>
+        </section>
+        <div class="district-announcement" id="district-announcement">
+          <span>HARBOR CITY</span><b id="district-name">BREAKWATER</b>
+        </div>
+        <div class="minimap-panel">
+          <div class="minimap-frame">
+            <canvas id="minimap" width="228" height="156" aria-label="Local street map"></canvas
+            ><span class="map-north">N</span
+            ><span class="map-legend"><i></i> YOUR DESTINATION</span>
+          </div>
+          <div class="map-caption">
+            <span id="street-name">BREAKWATER AVENUE</span><span id="game-clock">18:42</span>
+          </div>
+        </div>
+        <div class="context-prompt" id="context-prompt" hidden>
+          <kbd>E</kbd><span id="context-text">Enter vehicle</span>
+        </div>
+        <div class="control-hints">
+          <span><kbd>E</kbd> INTERACT</span><span><kbd>M</kbd> MAP</span
+          ><span><kbd>T</kbd> PHONE</span>
+        </div>
+        <div class="dialogue-panel" id="dialogue-panel" hidden>
+          <p id="dialogue-speaker"></p>
+          <p id="dialogue-text"></p>
+          <span><kbd>E</kbd> CONTINUE</span>
+        </div>
+        <div id="notifications" class="notifications" role="status" aria-live="polite"></div>
+        <div class="touch-controls" id="touch-controls">
+          <div class="joystick" id="joystick" aria-label="Movement control">
+            <div id="joystick-knob"></div>
+          </div>
+          <div class="touch-actions">
+            <button id="touch-fire" aria-label="Fire weapon">FIRE</button
+            ><button id="touch-interact" aria-label="Interact or enter vehicle">USE</button
+            ><button id="touch-sprint" aria-label="Sprint or brake">RUN</button
+            ><button id="touch-reload" aria-label="Reload weapon">LOAD</button>
+          </div>
+        </div>
+      </section>
+
+      <dialog id="pause-dialog" class="game-dialog pause-dialog">
+        <div class="dialog-header">
+          <p class="eyebrow">TAKE A BREATH</p>
+          <button class="icon-button close-dialog" aria-label="Close pause menu">×</button>
+        </div>
+        <h2>City on hold.</h2>
+        <div class="pause-actions">
+          <button class="primary-button" id="resume-game">BACK TO THE STREETS <span>↗</span></button
+          ><button id="pause-map">CITY MAP</button><button id="pause-phone">PHONE</button
+          ><button id="pause-journal">JOURNAL</button
+          ><button id="pause-weapon">SWITCH WEAPON</button
+          ><button id="save-game">SAVE PROGRESS</button><button id="pause-settings">SETTINGS</button
+          ><button id="quit-game">MAIN MENU</button>
+        </div>
+      </dialog>
+
+      <dialog id="info-dialog" class="game-dialog">
+        <div class="dialog-header">
+          <p class="eyebrow" id="info-eyebrow">LOWLIGHT</p>
+          <button class="icon-button close-dialog" aria-label="Close dialog">×</button>
+        </div>
+        <h2 id="info-title">How to play</h2>
+        <div id="info-content"></div>
+      </dialog>
+      <dialog id="map-dialog" class="game-dialog map-dialog">
+        <div class="dialog-header">
+          <p class="eyebrow">HARBOR CITY / STREET ATLAS</p>
+          <button class="icon-button close-dialog" aria-label="Close city map">×</button>
+        </div>
+        <h2>Know your way out.</h2>
+        <p class="map-instruction">
+          Select a street, or use arrow keys and Enter, to set a waypoint.
+        </p>
+        <canvas
+          id="city-map"
+          width="900"
+          height="700"
+          aria-label="Interactive Harbor City map. Arrow keys move the cursor. Enter sets a waypoint. Home returns to your location."
+          tabindex="0"
+        ></canvas>
+        <div class="map-key">
+          <span><i class="key-player"></i> YOU</span><span><i class="key-mission"></i> JOB</span
+          ><span><i class="key-store"></i> SERVICES</span
+          ><button id="clear-waypoint" class="text-button">CLEAR WAYPOINT</button>
+        </div>
+      </dialog>
+      <noscript>Enable JavaScript to play LOWLIGHT.</noscript>
+    </main>
+    <script src="my-3d2dge.js"></script>
+    <script type="module" src="src/game.js"></script>
+  </body>
+</html>

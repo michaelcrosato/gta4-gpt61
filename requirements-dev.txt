@@ -1,0 +1,2 @@
+# Optional browser verification; already installed on the development machine.
+playwright==1.63.0
