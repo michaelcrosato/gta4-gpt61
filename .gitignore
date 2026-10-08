@@ -1,0 +1,38 @@
+# Local credentials and environment configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Dependencies, caches, and generated output
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+coverage/
+.coverage
+dist/
+build/
+target/
+*.log
+
+# Local verification artifacts
+playwright-report/
+test-results/
