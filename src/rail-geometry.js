@@ -1236,7 +1236,7 @@ function groupedRoadGates(crossings, settings) {
  * Candidate geometry, not a completion certificate. All constraints are retained
  * in report.unresolved; callers must use their normal collision guard for trains.
  */
-function buildRailWorld(source, options = {}, laneCorrections = []) {
+function buildRailWorld(source, options = {}, laneCorrections = [], trackOverrides = new Map()) {
   if (
     !source ||
     !Array.isArray(source.roads) ||
@@ -1614,7 +1614,9 @@ function buildRailWorld(source, options = {}, laneCorrections = []) {
       for (const correction of laneCorrections.filter((c) => c.trackId === id))
         centerline = separateLanes(centerline, correction, settings);
       const profile = levelProfile(centerline, a, b, source, terrain, settings, id),
-        points = profile.points;
+        points = trackOverrides.has(id)
+          ? trackOverrides.get(id).map((p) => ({ ...p }))
+          : profile.points;
       report.unresolved.push(...profile.issues);
       report.transitionZones.push(
         ...profile.zones.map((zone, index) => ({
@@ -2001,10 +2003,33 @@ function buildRailWorld(source, options = {}, laneCorrections = []) {
 
 /** Build, audit, and separate opposing running lanes before exposing a candidate. */
 export function createRailWorld(source, options = {}) {
+  const { trackGeometryOverrides = [], initialLaneCorrections = [], ...buildOptions } = options;
+  if (!Array.isArray(trackGeometryOverrides) || trackGeometryOverrides.length > 256)
+    throw TypeError('Invalid known rail geometry override list.');
+  const overrides = new Map();
+  for (const record of trackGeometryOverrides) {
+    if (
+      !record ||
+      typeof record.trackId !== 'string' ||
+      overrides.has(record.trackId) ||
+      !Array.isArray(record.points) ||
+      record.points.length < 2 ||
+      record.points.length > 2048 ||
+      record.points.some((p) => ![p.x, p.y, p.z].every(Number.isFinite))
+    )
+      throw TypeError('Invalid known rail track geometry override.');
+    overrides.set(
+      record.trackId,
+      record.points.map((p) => ({ x: p.x, y: p.y, z: p.z })),
+    );
+  }
   let corrections = [],
     result;
+  corrections = initialLaneCorrections.map((record) => JSON.parse(JSON.stringify(record)));
   for (let pass = 0; pass < 3; pass++) {
-    result = buildRailWorld(source, options, corrections);
+    result = buildRailWorld(source, buildOptions, corrections, overrides);
+    if ([...overrides.keys()].some((id) => !result.world.transit.tracks.some((t) => t.id === id)))
+      throw TypeError('Unknown known rail track geometry override.');
     const opposing = result.report.sharedRailConstraints.filter((r) =>
       r.flowClasses.includes('opposing-direction'),
     );

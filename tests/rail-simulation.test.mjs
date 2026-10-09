@@ -93,16 +93,26 @@ test('Continue rejects an impossible dead boarded rider without a recovery trans
   saved.state.respawnTimer = 0;
   assert.throws(() => restoreGame(JSON.stringify(saved)), /incapacitated Metro passenger/);
 });
-test('Continue checks physical consist dimensions even when signal state is removed', () => {
+test('Continue independently rejects corrupt physical consist dimensions with valid signal state', () => {
   const saved = JSON.parse(saveGame(createSimulation(61)));
-  delete saved.state.railSignals;
   saved.state.transit.config.trainWidth = 22;
   assert.throws(() => restoreGame(JSON.stringify(saved)), /physical corridors/);
-  saved.state.transit.config.trainWidth = 20;
-  assert.throws(() => restoreGame(JSON.stringify(saved)), /signal reservations are missing/);
 });
-test('old exterior saves without any Metro model migrate to a checked initial fleet and reservations', () => {
+test('current marked geometry cannot bypass validation by removing signals or the whole Metro model', () => {
   const saved = JSON.parse(saveGame(createSimulation(61)));
+  assert(saved.state.worldGeometryVersion);
+  delete saved.state.railSignals;
+  assert.throws(() => restoreGame(saved), /no checked fleet\/signals/);
+  saved.state.transit.config.trainWidth = 22;
+  assert.throws(() => restoreGame(saved), /no checked fleet\/signals/);
+  delete saved.state.transit;
+  assert.throws(() => restoreGame(saved), /no checked fleet\/signals/);
+});
+test('legacy exterior shape without a geometry marker or Metro model initializes a checked fleet and reservations', () => {
+  const saved = JSON.parse(saveGame(createSimulation(61)));
+  // Declared legacy-schema fixture: a current geometry marker is an ownership
+  // claim and must never be left behind when representing a pre-Metro save.
+  delete saved.state.worldGeometryVersion;
   delete saved.state.transit;
   delete saved.state.railSignals;
   const continued = restoreGame(JSON.stringify(saved));

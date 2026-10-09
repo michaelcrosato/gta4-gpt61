@@ -26,6 +26,8 @@ const world = {
     { id: 'blue-hour-lanes', x: 411, y: 654 },
     { id: 'dockside-rooms', x: 129, y: 308 },
     { id: 'impound-annex', x: 293, y: 389 },
+    { id: 'tess-flat', x: 729, y: 308 },
+    { id: 'pier-goods', x: 231, y: 308 },
   ],
 };
 function exterior() {

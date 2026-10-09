@@ -11,9 +11,11 @@ import {
 import { createSceneContext } from '../src/scene-context.js';
 import { findLocalFootPath } from '../src/local-navigation.js';
 import { createCampaignPhysicalContext } from '../src/campaign/physical-context.js';
+import { createSceneBodyClearance } from '../src/scene-body-clearance.js';
+import { INTERIOR_LAYOUTS } from '../src/interiors.js';
 import * as companions from '../src/companions.js';
 const bindings = WORLD.campaignSceneBindings;
-function fixture() {
+function fixture(options = {}) {
   const state = createSimulation(61);
   state.mission = null;
   state.dialogue = null;
@@ -24,6 +26,7 @@ function fixture() {
     specs: VEHICLE_SPECS,
     scenes: createSceneContext(WORLD, TERRAIN),
     localPath: findLocalFootPath,
+    ...options,
   });
   return { state, context };
 }
@@ -119,4 +122,79 @@ test('home escort authorizes only a reached real portal then walks through the a
     false,
   );
   assert.equal(actor.health, before.health);
+});
+
+test('checked foot routing cannot fall back to a feet-only road route beneath a native low deck', () => {
+  const { state } = fixture(),
+    full = createSceneBodyClearance(WORLD),
+    target = { x: 456, y: 320, z: 0, sceneId: null },
+    context = createCampaignPhysicalContext(state, {
+      world: WORLD,
+      terrain: TERRAIN,
+      specs: VEHICLE_SPECS,
+      scenes: createSceneContext(WORLD, TERRAIN),
+      localPath: findLocalFootPath,
+      preferLocalFootPaths: () => true,
+      isBodyBlocked: (x, y, radius, z, sceneId) =>
+        !full.inspect(state, { x, y, radius, z, height: 30 }, { sceneId }).clear,
+    }),
+    actor = { id: 'route-body', x: 458, y: 700, z: 0, health: 74, sceneId: null },
+    before = structuredClone(actor);
+  assert.equal(TERRAIN.isBlocked(target.x, target.y, 7, target.z), false);
+  assert.equal(full.inspect(state, { ...target, radius: 7, height: 30 }).clear, false);
+  assert.equal(context.isBlocked(target.x, target.y, 7, target.z, null), true);
+  assert.deepEqual(context.findRoute(actor, target), []);
+  assert.deepEqual(actor, before);
+});
+
+test('a reached portal still rejects a blocked destination body without changing the actor', () => {
+  let blocked = true;
+  const { state, context } = fixture({
+      isBodyBlocked: (_x, _y, _radius, _z, sceneId) => blocked && sceneId === 'dockside-rooms',
+    }),
+    room = INTERIOR_LAYOUTS['dockside-rooms'],
+    actor = { id: 'portal-body', x: 129, y: 308, z: 0, health: 74, sceneId: null },
+    before = structuredClone(actor),
+    transition = {
+      id: 'dockside-rooms-entry',
+      radius: 8,
+      to: { ...room.spawn, z: room.floorZ, sceneId: room.id },
+    };
+  state.storyInventory = { keys: ['dockside-tenancy'] };
+  assert.equal(context.transitionScene(actor, transition), false);
+  assert.deepEqual(actor, before);
+  blocked = false;
+  assert.equal(context.transitionScene(actor, transition), true);
+  assert.equal(actor.sceneId, room.id);
+  assert.equal(actor.health, 74);
+});
+
+test('the local route around a desk uses the exact conservative movement sweep at a close corner', () => {
+  const { state } = fixture(),
+    full = createSceneBodyClearance(WORLD),
+    sceneId = 'voss-dispatch',
+    actor = { x: 192.809616, y: 44.731878, z: 0, sceneId, health: 100 },
+    target = { x: 168, y: 216, z: 0, sceneId },
+    context = createCampaignPhysicalContext(state, {
+      world: WORLD,
+      terrain: TERRAIN,
+      specs: VEHICLE_SPECS,
+      scenes: createSceneContext(WORLD, TERRAIN),
+      localPath: findLocalFootPath,
+      preferLocalFootPaths: () => true,
+      isBodyBlocked: (x, y, radius, z, id) =>
+        !full.inspect(state, { x, y, z, radius, height: 30 }, { sceneId: id }).clear,
+      bodySegmentBlocked: (from, to, radius, id) =>
+        !full.sweep(state, from, to, { sceneId: id, radius, height: 30 }).clear,
+    }),
+    path = context.findRoute(actor, target);
+  assert(path.length > 1, 'a real desk-safe route must remain available');
+  for (let i = 1; i < path.length; i++)
+    assert.equal(
+      full.sweep(state, path[i - 1], path[i], { sceneId, radius: 7, height: 30 }).clear,
+      true,
+    );
+  assert.equal(actor.x, 192.809616);
+  assert.equal(actor.y, 44.731878);
+  assert.equal(actor.health, 100);
 });

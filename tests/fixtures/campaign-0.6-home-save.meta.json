@@ -1,0 +1,13 @@
+{
+  "boundary": "Authentic0.5 physical home checkpoint loaded by exact0.6 production restore/save; no gameplay change.",
+  "sha256": "026c09fd29b32c1f44e1b9f5b3d552a7515bed75b303db56b7b5b9f6904b8079",
+  "contentFingerprint": "38b480d9",
+  "receiptNamespace": "cbf05190",
+  "active": "LL-ST-001",
+  "stage": "rest",
+  "checkpoints": [
+    "start",
+    "arrival",
+    "home"
+  ]
+}

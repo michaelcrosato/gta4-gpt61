@@ -136,9 +136,15 @@ function motion(elapsed, length, config) {
   const p = profile(length, config),
     t = clamp(elapsed, 0, p.duration);
   if (t < p.accelerationTime)
-    return { distance: (config.acceleration * t * t) / 2, speed: config.acceleration * t };
+    return {
+      distance: (config.acceleration * t * t) / 2,
+      speed: config.acceleration * t,
+    };
   if (t < p.accelerationTime + p.cruiseTime)
-    return { distance: p.accelerationDistance + p.peak * (t - p.accelerationTime), speed: p.peak };
+    return {
+      distance: p.accelerationDistance + p.peak * (t - p.accelerationTime),
+      speed: p.peak,
+    };
   const braking = t - p.accelerationTime - p.cruiseTime;
   return {
     distance: Math.min(
@@ -175,7 +181,12 @@ function sample(leg, travelled) {
     heading = first + delta * blend;
     break;
   }
-  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t, heading };
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    z: a.z + (b.z - a.z) * t,
+    heading,
+  };
 }
 function swept(leg, start, end) {
   const points = [point(sample(leg, start), 'swept start')];
@@ -202,7 +213,11 @@ function compile(world) {
   for (const item of source.stations) {
     const id = text(item.id, 'station id');
     if (stations.has(id)) invalid('duplicate station');
-    const station = { id, name: text(item.name ?? id, 'station name'), platformIds: [] };
+    const station = {
+      id,
+      name: text(item.name ?? id, 'station name'),
+      platformIds: [],
+    };
     array(item.platforms, 'platforms', 1, 32);
     for (const itemPlatform of item.platforms) {
       const platformId = text(itemPlatform.id, 'platform id');
@@ -260,7 +275,14 @@ function compile(world) {
       lengths.push(length);
     }
     number(length, 'track length', 1, 1e8);
-    tracks.set(id, { id, fromPlatformId: from.id, toPlatformId: to.id, points, length, lengths });
+    tracks.set(id, {
+      id,
+      fromPlatformId: from.id,
+      toPlatformId: to.id,
+      points,
+      length,
+      lengths,
+    });
   }
   for (const item of source.segments ?? []) {
     const id = text(item.id, 'segment id');
@@ -358,7 +380,12 @@ function observer(state, context, callback, data, passenger = null) {
   }
 }
 function event(state, context, kind, data) {
-  const record = { id: ++state.eventSequence, time: state.time, kind, data: clone(data) };
+  const record = {
+    id: ++state.eventSequence,
+    time: state.time,
+    kind,
+    data: clone(data),
+  };
   state.events.push(record);
   state.events = state.events.slice(-128);
   observer(state, context, 'onEvent', record);
@@ -479,9 +506,17 @@ function arrival(state, train, topology, context) {
     passenger.stopsTravelled++;
     if (passenger.destination?.platformId === call.platformId) passenger.arrivalPending = true;
   }
-  event(state, context, 'arrival', { trainId: train.id, ...call, visits: train.visits });
+  event(state, context, 'arrival', {
+    trainId: train.id,
+    ...call,
+    visits: train.visits,
+  });
   if (previous !== train.segmentId)
-    event(state, context, 'handoff', { trainId: train.id, from: previous, to: train.segmentId });
+    event(state, context, 'handoff', {
+      trainId: train.id,
+      from: previous,
+      to: train.segmentId,
+    });
   if (!policy(context, 'canStop', { train: trainView(train), call })) {
     markMissed(state, train, context, 'stop-closed');
     train.phase = 'moving';
@@ -558,7 +593,10 @@ export function updateTransit(state, world, dt, context = {}) {
           })
         ) {
           if (train.phase !== 'blocked')
-            event(state, context, 'blocked', { trainId: train.id, trackId: leg.trackId });
+            event(state, context, 'blocked', {
+              trainId: train.id,
+              trackId: leg.trackId,
+            });
           train.phase = 'blocked';
           train.speed = 0;
           train.blockedReason = 'corridor-blocked';
@@ -584,7 +622,10 @@ export function updateTransit(state, world, dt, context = {}) {
       Object.assign(train, sample(leg, next.distance));
     }
     for (const { train, path } of moves) {
-      observer(state, context, 'onTrainMove', { train: trainView(train), path });
+      observer(state, context, 'onTrainMove', {
+        train: trainView(train),
+        path,
+      });
     }
     // All train positions now share one time. Same-time callbacks use stable IDs.
     for (const train of state.trains) {
@@ -645,7 +686,10 @@ export function updateTransit(state, world, dt, context = {}) {
       state,
       context,
       'onRide',
-      { passengerId: passenger.id, pose: getTransitPassengerPose(state, passenger.id) },
+      {
+        passengerId: passenger.id,
+        pose: getTransitPassengerPose(state, passenger.id),
+      },
       passenger,
     );
   return state;
@@ -754,7 +798,12 @@ function receipt(value, amount) {
   for (const key of ['paid', 'owed', 'waived'])
     number(value[key], `receipt ${key}`, 0, amount, true);
   if (value.paid + value.owed + value.waived !== amount) invalid('unaccounted fare');
-  return { approved: true, paid: value.paid, owed: value.owed, waived: value.waived };
+  return {
+    approved: true,
+    paid: value.paid,
+    owed: value.owed,
+    waived: value.waived,
+  };
 }
 function restoreInPlace(state, before, sequence) {
   // Keep fleet objects/array alive for same-time timetable callbacks that refuse
@@ -778,7 +827,11 @@ function transact(state, context, request, change) {
   transactions.add(state);
   const before = clone(state),
     sequence = ++state.transactionSequence;
-  const transaction = { id: `rail-tx-${sequence}`, time: state.time, ...request };
+  const transaction = {
+    id: `rail-tx-${sequence}`,
+    time: state.time,
+    ...request,
+  };
   let active = true,
     applied = false,
     accepted = false;
@@ -914,7 +967,12 @@ export function boardTransit(state, world, request, context = {}) {
     },
   );
   if (result.ok)
-    event(state, context, 'board', { passengerId: id, trainId: train.id, ...call, freeTransfer });
+    event(state, context, 'board', {
+      passengerId: id,
+      trainId: train.id,
+      ...call,
+      freeTransfer,
+    });
   return { ...result, trainId: train.id, freeTransfer };
 }
 
@@ -960,7 +1018,11 @@ export function alightTransit(state, world, request, context = {}) {
   const train = state.trains.find((t) => t.id === passenger.trainId),
     call = currentCall(train, topology);
   if (!openDoors(train))
-    return { ok: false, reason: 'doors-not-open', recovery: 'request-next-stop' };
+    return {
+      ok: false,
+      reason: 'doors-not-open',
+      recovery: 'request-next-stop',
+    };
   const platform = topology.platforms.get(call.platformId),
     position = point(request.position ?? platform.boardingPoint, 'exit position');
   if (
@@ -980,7 +1042,11 @@ export function alightTransit(state, world, request, context = {}) {
       call,
     })
   )
-    return { ok: false, reason: 'exit-blocked', recovery: 'retry-or-request-next-stop' };
+    return {
+      ok: false,
+      reason: 'exit-blocked',
+      recovery: 'retry-or-request-next-stop',
+    };
   const amount = fare(state, passenger);
   const result = transact(
     state,
@@ -1035,7 +1101,13 @@ export function alightTransit(state, world, request, context = {}) {
       receipt: result.receipt,
     });
   }
-  return { ...result, position, amount, stationId: call.stationId, platformId: call.platformId };
+  return {
+    ...result,
+    position,
+    amount,
+    stationId: call.stationId,
+    platformId: call.platformId,
+  };
 }
 
 /** Parent-authorized death/disconnect recovery, never normal missed-stop teleporting. */
@@ -1046,7 +1118,10 @@ export function recoverTransitPassenger(state, world, request, context = {}) {
   if (
     !['death', 'disconnect', 'world-reset'].includes(request.reason) ||
     typeof context.canRecover !== 'function' ||
-    !policy(context, 'canRecover', { passengerId: passenger.id, reason: request.reason })
+    !policy(context, 'canRecover', {
+      passengerId: passenger.id,
+      reason: request.reason,
+    })
   )
     return { ok: false, reason: 'recovery-not-authorized' };
   const train = state.trains.find((t) => t.id === passenger.trainId),
@@ -1064,7 +1139,10 @@ export function recoverTransitPassenger(state, world, request, context = {}) {
     () => {
       if (
         context.onRecover &&
-        context.onRecover({ passengerId: passenger.id, reason: request.reason }) === false
+        context.onRecover({
+          passengerId: passenger.id,
+          reason: request.reason,
+        }) === false
       )
         return false;
       train.passengerIds = train.passengerIds.filter((id) => id !== passenger.id);
@@ -1475,4 +1553,146 @@ export function restoreTransit(serializedOrObject, world) {
   const restored = safeClone(value);
   validateTransit(restored, world);
   return restored;
+}
+
+/** Detached geometry-version migration. It never ticks trains or emits events.
+ * The caller must attest the known old/new world versions and migrate signals
+ * and parent rider poses atomically before exposing the returned state.
+ */
+export function migrateTransitGeometry(serializedOrObject, fromWorld, toWorld) {
+  const state = restoreTransit(serializedOrObject, fromWorld),
+    before = compile(fromWorld),
+    after = compile(toWorld),
+    adjustments = [];
+  const planar = (leg) => {
+    const lengths = [];
+    let length = 0;
+    for (let i = 1; i < leg.points.length; i++) {
+      length += Math.hypot(
+        leg.points[i].x - leg.points[i - 1].x,
+        leg.points[i].y - leg.points[i - 1].y,
+      );
+      lengths.push(length);
+    }
+    return { lengths, length };
+  };
+  const canonical = (points) => {
+    const result = [];
+    for (const p of points) {
+      if (result.length && Math.hypot(p.x - result.at(-1).x, p.y - result.at(-1).y) <= EPSILON)
+        continue;
+      result.push({ x: p.x, y: p.y });
+      while (result.length >= 3) {
+        const [a, b, c] = result.slice(-3),
+          ux = b.x - a.x,
+          uy = b.y - a.y,
+          vx = c.x - b.x,
+          vy = c.y - b.y;
+        if (
+          Math.abs(ux * vy - uy * vx) >
+            EPSILON * Math.max(1, Math.hypot(ux, uy) * Math.hypot(vx, vy)) ||
+          ux * vx + uy * vy < 0
+        )
+          break;
+        result.splice(result.length - 2, 1);
+      }
+    }
+    return result;
+  };
+  const maps = new Map();
+  for (const [id, service] of before.services) {
+    const next = after.services.get(id);
+    if (
+      !next ||
+      JSON.stringify(service.calls) !== JSON.stringify(next.calls) ||
+      JSON.stringify(service.segmentAtCall) !== JSON.stringify(next.segmentAtCall)
+    )
+      invalid('migration service identity');
+    const legs = service.legs.map((leg, index) => {
+      const target = next.legs[index],
+        a = canonical(leg.points),
+        b = canonical(target.points),
+        fromPlanar = planar(leg),
+        toPlanar = planar(target);
+      if (
+        leg.trackId !== target.trackId ||
+        a.length !== b.length ||
+        a.some((p, i) => Math.hypot(p.x - b[i].x, p.y - b[i].y) > EPSILON * 10) ||
+        Math.abs(fromPlanar.length - toPlanar.length) > EPSILON * 10
+      )
+        invalid('migration cannot relocate a known planar corridor');
+      return { leg, target, fromPlanar, toPlanar };
+    });
+    maps.set(id, legs);
+  }
+  if (maps.size !== after.services.size) invalid('migration fleet service count');
+  for (const train of state.trains) {
+    const prior = { ...train },
+      map = maps.get(train.serviceId)[train.callIndex];
+    if (['moving', 'blocked'].includes(train.phase)) {
+      const { leg, target, fromPlanar, toPlanar } = map;
+      if (
+        train.distance >= leg.length ||
+        train.legElapsed >= profile(leg.length, state.config).duration
+      )
+        invalid('migration requires a nonterminal moving train');
+      let index = leg.lengths.findIndex((end) => end >= train.distance - EPSILON);
+      if (index < 0) index = leg.lengths.length - 1;
+      const start = index ? leg.lengths[index - 1] : 0,
+        ratio = clamp((train.distance - start) / (leg.lengths[index] - start), 0, 1),
+        ground =
+          (index ? fromPlanar.lengths[index - 1] : 0) +
+          ratio * (fromPlanar.lengths[index] - (index ? fromPlanar.lengths[index - 1] : 0));
+      let nextIndex = toPlanar.lengths.findIndex((end) => end >= ground - EPSILON);
+      if (nextIndex < 0) nextIndex = toPlanar.lengths.length - 1;
+      const nextStart = nextIndex ? toPlanar.lengths[nextIndex - 1] : 0,
+        nextRatio = clamp((ground - nextStart) / (toPlanar.lengths[nextIndex] - nextStart), 0, 1),
+        distance =
+          (nextIndex ? target.lengths[nextIndex - 1] : 0) +
+          nextRatio * (target.lengths[nextIndex] - (nextIndex ? target.lengths[nextIndex - 1] : 0)),
+        p = profile(target.length, state.config);
+      let elapsed;
+      if (distance <= p.accelerationDistance)
+        elapsed = Math.sqrt((2 * distance) / state.config.acceleration);
+      else if (distance <= p.accelerationDistance + p.cruiseDistance)
+        elapsed = p.accelerationTime + (distance - p.accelerationDistance) / p.peak;
+      else
+        elapsed =
+          p.duration -
+          Math.sqrt(Math.max(0, (2 * (target.length - distance)) / state.config.braking));
+      const resolved = motion(elapsed, target.length, state.config),
+        pose = sample(target, resolved.distance);
+      if (Math.hypot(pose.x - prior.x, pose.y - prior.y) > EPSILON * 10)
+        invalid('migration train planar pose');
+      train.legElapsed = elapsed;
+      train.distance = resolved.distance;
+      train.speed = train.phase === 'blocked' ? 0 : resolved.speed;
+      Object.assign(train, pose);
+    } else setStoppedPose(train, after);
+    adjustments.push({
+      trainId: train.id,
+      phase: train.phase,
+      callIndex: train.callIndex,
+      oldPose: { x: prior.x, y: prior.y, z: prior.z, heading: prior.heading },
+      newPose: { x: train.x, y: train.y, z: train.z, heading: train.heading },
+      oldDistance: prior.distance,
+      newDistance: train.distance,
+      oldElapsed: prior.legElapsed,
+      newElapsed: train.legElapsed,
+      oldSpeed: prior.speed,
+      newSpeed: train.speed,
+    });
+  }
+  state.topology = after.fingerprint;
+  validateTransit(state, toWorld);
+  return {
+    state,
+    report: {
+      fromTopology: before.fingerprint,
+      toTopology: after.fingerprint,
+      adjustments,
+      boundary:
+        'No clock, calls, visits, fare/debt/destination, event, callback or transaction history is advanced. Exact profile speeds reconcile to the new geometric arc.',
+    },
+  };
 }

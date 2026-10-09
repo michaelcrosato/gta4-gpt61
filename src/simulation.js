@@ -7,9 +7,11 @@ import {
   relinquishPoliceVehicle,
   validatePoliceSave,
 } from './police.js';
-import { WORLD, ROAD_XS as roadXs, ROAD_YS as roadYs } from './world.js';
+import { WORLD, LEGACY_WORLD, ROAD_XS as roadXs, ROAD_YS as roadYs } from './world.js';
+import { migrateDispatchSave, DISPATCH_WORLD_MIGRATION } from './dispatch-save-migration.js';
 import { createTerrain } from './terrain.js';
 import { createSurfaceMovement } from './surface-movement.js';
+import { createTwoSeatsBodyContext } from './campaign/two-seats-body-context.js';
 import { worldElevation } from './world-elevation.js';
 import {
   initializeRail,
@@ -51,7 +53,23 @@ import {
   closestLateMeterClipboardPoint,
   traceLateMeterClipboard,
 } from './campaign/late-meter-scenes.js';
+import { TWO_SEATS_APPEARANCES } from './campaign/two-seats-scenes.js';
+import {
+  createTwoSeatsParentContext,
+  initializeTwoSeatsParentState,
+  validateTwoSeatsParentState,
+  twoSeatsWristView,
+} from './campaign/two-seats-parent-context.js';
+import {
+  createTwoSeatsAdapters,
+  tickTwoSeatsRuntime,
+  twoSeatsView,
+  observeTwoSeatsDisarm,
+  observeTwoSeatsDamage,
+  validateTwoSeatsRuntime,
+} from './campaign/two-seats-runtime.js';
 import * as Companions from './companions.js';
+import * as NamedHostility from './named-hostility.js';
 import { createCampaignPhysicalContext } from './campaign/physical-context.js';
 import { findLocalFootPath } from './local-navigation.js';
 import {
@@ -157,12 +175,14 @@ const TAU = Math.PI * 2;
 const SAVE_VERSION = 1;
 export const TERRAIN = createTerrain(WORLD);
 const ELEVATION = worldElevation(WORLD);
-const surfaceMovement = createSurfaceMovement(TERRAIN);
-const SCENES = createSceneContext(WORLD, TERRAIN);
+const twoSeatsBodies = createTwoSeatsBodyContext(WORLD);
+const surfaceMovement = createSurfaceMovement(TERRAIN, { canMoveBody: twoSeatsBodies.canMoveBody });
+const SCENES = createSceneContext(WORLD, TERRAIN, { canMoveBody: twoSeatsBodies.canMoveBody });
 const campaignParents = new WeakMap(),
   physicalContexts = new WeakMap(),
   storyDialogueCache = new WeakMap(),
   lateMeterParents = new WeakMap(),
+  twoSeatsParents = new WeakMap(),
   campaignRouters = new WeakMap(),
   renderedStoryClues = new WeakMap(),
   phonePresentations = new WeakMap();
@@ -173,15 +193,16 @@ export function setCampaignObservationHandlers(state, missionId, handlers) {
   if (!state || typeof state !== 'object' || !/^LL-ST-\d{3}$/.test(missionId))
     throw TypeError('Campaign observation registration needs a state and mission owner.');
   let registry = campaignObservationHandlers.get(state);
+  const previous = registry?.get(missionId);
   if (handlers === null) {
     registry?.delete(missionId);
-    return;
+    return previous ? { ...previous } : null;
   }
   if (
     !handlers ||
     typeof handlers !== 'object' ||
     Array.isArray(handlers) ||
-    Object.keys(handlers).some((key) => !['damage', 'attack'].includes(key)) ||
+    Object.keys(handlers).some((key) => !['damage', 'attack', 'disarm'].includes(key)) ||
     !Object.values(handlers).every((value) => typeof value === 'function') ||
     !Object.keys(handlers).length
   )
@@ -191,9 +212,14 @@ export function setCampaignObservationHandlers(state, missionId, handlers) {
     campaignObservationHandlers.set(state, registry);
   }
   registry.set(missionId, { ...handlers });
+  return previous ? { ...previous } : null;
 }
 function campaignObservers(state) {
   return campaignObservationHandlers.get(state)?.get(state.campaign?.active?.missionId);
+}
+/** Read-only canonical dressing view; a renderer never creates an injury. */
+export function storyActorDressing(state, actorId) {
+  return twoSeatsWristView(state, actorId);
 }
 export function setCampaignStorageVerifier(verifier) {
   campaignStorageVerifier = verifier;
@@ -270,6 +296,7 @@ function campaignContext(state) {
         physicalContexts.delete(s);
         campaignParents.delete(s);
         lateMeterParents.delete(s);
+        twoSeatsParents.delete(s);
         campaignRouters.delete(s);
         renderedStoryClues.delete(s);
         phonePresentations.delete(s);
@@ -433,30 +460,110 @@ function lateMeterContext(state) {
   });
   return parent;
 }
+/** Actual registered scenes and native-art composition determine availability;
+ * a content catalogue entry alone cannot activate the mission. */
+function twoSeatsContext(state) {
+  let parent = twoSeatsParents.get(state);
+  if (parent) return parent;
+  initializeStoryPhone(state);
+  initializeTwoSeatsParentState(state);
+  const physical = companionContext(state),
+    report = WORLD.campaignSceneReports?.['LL-ST-003'],
+    bindings = WORLD.campaignSceneBindings;
+  parent = createTwoSeatsParentContext(state, {
+    authoredMission: CAMPAIGN_CONTENT.missions.find((m) => m.id === 'LL-ST-003'),
+    ready: {
+      geometry: report?.ready === true,
+      passengers: true,
+      hostility: true,
+      disarm: true,
+      handImpairment: true,
+      injuryArt: report?.injuryArt === true,
+      clothing: true,
+      friendship: true,
+      director: true,
+    },
+    world: WORLD,
+    bindings,
+    sceneReport: report,
+    specs: VEHICLE_SPECS,
+    actorDefinitions: Object.values(WORLD.campaignActorDefinitions?.['LL-ST-003'] ?? {}),
+    companionContext: physical,
+    rooms: {
+      hasRoom: (id) => Boolean(INTERIOR_LAYOUTS[id]),
+      hasPortal: (id) => PORTAL_DEFINITIONS.some((p) => p.id === id),
+      layout: (id) => INTERIOR_LAYOUTS[id] ?? null,
+    },
+    enemies: {
+      ready: true,
+      register: NamedHostility.registerNamedHostile,
+      engage: NamedHostility.engageNamedHostile,
+      retreat: (s, id, target, scope) =>
+        NamedHostility.requestNamedRetreat(s, id, target, scope, {
+          ...namedHostilityContext(s),
+          allowedRetreatTarget: (actorId, actual) => {
+            const mark = bindings?.dispatch?.encounter?.exteriorRetreat?.at(-1);
+            return (
+              ['LL-ARC-DAX', 'LL-ARC-PEL'].includes(actorId) &&
+              mark &&
+              JSON.stringify(actual) === JSON.stringify({ ...mark, sceneId: null, radius: 6 })
+            );
+          },
+        }),
+      release: NamedHostility.releaseNamedHostile,
+      observe: NamedHostility.namedHostileObservation,
+    },
+    disarmObserverBound: true,
+    damageObserverBound: true,
+    damageActor: (s, id, amount, cause) => damageStoryActor(s, id, amount, cause.owner, cause.kind),
+    isCivilian: (s, actor) => {
+      const threat = NamedHostility.namedHostileObservation(s, actor.id);
+      return (
+        actor.kind !== 'hostile' &&
+        actor.kind !== 'police' &&
+        !(threat?.controlled && ['threat', 'combat'].includes(threat.mode))
+      );
+    },
+    chooseCampaignOption: (s, id, option) =>
+      chooseCampaignOption(s.campaign, id, option, campaignAdapters(s)),
+    snapshots: campaignContext(state).snapshots,
+  });
+  twoSeatsParents.set(state, parent);
+  setCampaignObservationHandlers(state, 'LL-ST-003', {
+    damage: (event) => observeTwoSeatsDamage(state, event, twoSeatsContext(state)),
+    disarm: (receipt) => observeTwoSeatsDisarm(state, receipt, twoSeatsContext(state)),
+  });
+  return parent;
+}
 function campaignAdapters(state) {
   let router = campaignRouters.get(state);
   if (router) return router;
   const night = createCampaignAdapters(state, campaignContext(state)),
     late = createLateMeterAdapters(state, lateMeterContext(state)),
+    twoSeats = createTwoSeatsAdapters(state, twoSeatsContext(state)),
     snapshots = campaignContext(state).snapshots;
   router = createCampaignAdapterRouter({
     content: CAMPAIGN_CONTENT,
     registrations: [
       { missionId: 'LL-ST-001', adapter: night },
       { missionId: 'LL-ST-002', adapter: late },
+      { missionId: 'LL-ST-003', adapter: twoSeats },
     ],
     parent: {
       captureWorld: () => snapshots.capture(state, { exclude: ['campaign'] }),
       validateWorld: (snapshot) => snapshots.validate(snapshot),
       restoreWorld: (snapshot, request) => {
         const nightEpoch = state.campaignRuntime?.restoreEpoch ?? 0,
-          lateEpoch = state.lateMeterRuntime?.restoreEpoch ?? 0;
+          lateEpoch = state.lateMeterRuntime?.restoreEpoch ?? 0,
+          twoSeatsEpoch = state.twoSeatsRuntime?.restoreEpoch ?? 0;
         const result = snapshots.restore(state, snapshot, request);
         if (!(result === true || result?.ok)) return result;
         for (const [model, epoch] of [
           [state.campaignRuntime, nightEpoch],
           [state.lateMeterRuntime, lateEpoch],
+          [state.twoSeatsRuntime, twoSeatsEpoch],
         ]) {
+          if (!model) continue;
           model.restoreEpoch = Math.max(model.restoreEpoch, epoch) + 1;
           model.lastObservedTime = state.time;
           model.lastRestoreReason = request.reason;
@@ -475,7 +582,9 @@ function storyRestoreEpoch(state) {
   return (
     String(state.campaignRuntime?.restoreEpoch ?? 0) +
     ':' +
-    String(state.lateMeterRuntime?.restoreEpoch ?? 0)
+    String(state.lateMeterRuntime?.restoreEpoch ?? 0) +
+    ':' +
+    String(state.twoSeatsRuntime?.restoreEpoch ?? 0)
   );
 }
 /** Renderer records only clues actually drawn in the current camera. Never saved. */
@@ -524,7 +633,12 @@ export function hideStoryPhone(state) {
   if (state.phoneCalls) PhoneCalls.setPhonePresentationVisibility(state, false);
 }
 export function startStoryMission(state, missionId) {
-  if (missionId !== 'LL-ST-002' || state.mission || state.campaign?.active || state.wanted.level)
+  if (
+    !['LL-ST-002', 'LL-ST-003'].includes(missionId) ||
+    state.mission ||
+    state.campaign?.active ||
+    state.wanted.level
+  )
     return { ok: false, reason: 'assignment-unavailable' };
   const felix = Companions.getActor(state, 'LL-CHAR-002');
   if (
@@ -537,7 +651,12 @@ export function startStoryMission(state, missionId) {
     return { ok: false, reason: 'speak-to-felix-at-dispatch' };
   const result = startCampaignMission(state.campaign, missionId, campaignAdapters(state));
   if (!result.ok)
-    notify(state, 'Bring a working taxi to the marked dispatch rank, then speak to Felix.');
+    notify(
+      state,
+      missionId === 'LL-ST-002'
+        ? 'Bring a working taxi to the marked dispatch rank, then speak to Felix.'
+        : 'This assignment is not ready.',
+    );
   return result;
 }
 /** Actual simulation/world bindings for composed campaign controllers and integration tools. */
@@ -563,19 +682,64 @@ function interruptedStory(state) {
   return (
     state.campaign?.suspended.find(
       (run) =>
-        ['LL-ST-001', 'LL-ST-002'].includes(run.missionId) &&
+        ['LL-ST-001', 'LL-ST-002', 'LL-ST-003'].includes(run.missionId) &&
         run.resumeInfo?.reason === 'return-to-free-roam',
     ) ?? null
   );
+}
+function pendingDispatchMission(state) {
+  if (!state.campaign?.completed?.['LL-ST-001'] || state.campaign.active) return null;
+  const interrupted = interruptedStory(state);
+  if (interrupted)
+    return ['LL-ST-002', 'LL-ST-003'].includes(interrupted.missionId)
+      ? interrupted.missionId
+      : null;
+  return !state.campaign.completed['LL-ST-002']
+    ? 'LL-ST-002'
+    : !state.campaign.completed['LL-ST-003']
+      ? 'LL-ST-003'
+      : null;
+}
+function availableStoryAssignment(state) {
+  if (
+    !state.campaign ||
+    state.campaign.active ||
+    interruptedStory(state) ||
+    !state.campaign.completed['LL-ST-001']
+  )
+    return null;
+  if (!state.campaign.completed['LL-ST-002'])
+    return {
+      id: 'LL-ST-002',
+      title: 'Late Meter',
+      preparation: { ...state.lateMeterRuntime.preparation },
+      objective: 'Bring a working taxi to the dispatch rank, then talk to Felix inside.',
+      target: { ...WORLD.campaignSceneBindings.dispatch.target, sceneId: null },
+    };
+  const definition = CAMPAIGN_CONTENT.missions.find((m) => m.id === 'LL-ST-003');
+  if (
+    !state.campaign.completed['LL-ST-003'] &&
+    campaignAdapters(state).supportsMission(definition.id, definition)
+  )
+    return {
+      id: definition.id,
+      title: definition.title,
+      preparation: clone(state.twoSeatsRuntime.preparation),
+      objective: 'Talk to Felix inside Voss Dispatch.',
+      target: { ...WORLD.campaignSceneBindings.dispatch.target, sceneId: null },
+    };
+  return null;
 }
 export function storyView(state) {
   if (!state.campaign) return null;
   const context = campaignContext(state),
     owner = state.campaign.active?.missionId ?? interruptedStory(state)?.missionId,
     view =
-      owner === 'LL-ST-002'
-        ? lateMeterView(state, lateMeterContext(state))
-        : campaignRuntimeView(state, context);
+      owner === 'LL-ST-003'
+        ? twoSeatsView(state, twoSeatsContext(state))
+        : owner === 'LL-ST-002'
+          ? lateMeterView(state, lateMeterContext(state))
+          : campaignRuntimeView(state, context);
   const key = `${state.campaign.sequence}:${Math.floor(state.time * 10)}:${storyRestoreEpoch(state)}`;
   let cached = storyDialogueCache.get(state);
   if (!cached || cached.director !== state.campaign || cached.key !== key) {
@@ -588,19 +752,7 @@ export function storyView(state) {
   }
   const dialogue = cached.dialogue,
     interrupted = interruptedStory(state);
-  const availableAssignment =
-    !state.campaign.active &&
-    !interrupted &&
-    state.campaign.completed['LL-ST-001'] &&
-    !state.campaign.completed['LL-ST-002']
-      ? {
-          id: 'LL-ST-002',
-          title: 'Late Meter',
-          preparation: { ...state.lateMeterRuntime.preparation },
-          objective: 'Bring a working taxi to the dispatch rank, then talk to Felix inside.',
-          target: { ...WORLD.campaignSceneBindings.dispatch.target, sceneId: null },
-        }
-      : null;
+  const availableAssignment = availableStoryAssignment(state);
   return {
     ...view,
     title: CAMPAIGN_CONTENT.missions.find((mission) => mission.id === owner)?.title ?? null,
@@ -641,6 +793,7 @@ function tickStory(state, dt) {
   context.syncSceneProps();
   tickCampaignRuntime(state, dt, context);
   tickLateMeterRuntime(state, dt, lateMeterContext(state));
+  tickTwoSeatsRuntime(state, dt, twoSeatsContext(state));
   const view = storyView(state),
     presentation = state.campaignPresentation;
   tickSubtitles(state, dt, {
@@ -733,10 +886,16 @@ function companionContext(state) {
       specs: VEHICLE_SPECS,
       scenes: SCENES,
       localPath: findLocalFootPath,
+      isBodyBlocked: (x, y, radius, z, sceneId) =>
+        twoSeatsBodies.isBodyBlocked(state, x, y, radius, z, sceneId),
+      bodySegmentBlocked: (from, to, radius, sceneId) =>
+        twoSeatsBodies.segmentBlocked(state, from, to, radius, sceneId),
+      preferLocalFootPaths: () => twoSeatsBodies.enabled(state),
       scriptControlled: (actor) => {
         const active = state.cinematics?.active,
           definition = active && campaignParents.get(state)?.cinematicContext.sequence(active.id);
         return Boolean(
+          NamedHostility.namedCombatControlsActor(state, actor.id) ||
           definition?.phases[active.phase]?.tracks.some((track) => track.actorId === actor.id),
         );
       },
@@ -1166,6 +1325,7 @@ export function createSimulation(seed = 61) {
   const requestedStory = typeof seed === 'object' && seed.campaign === true;
   const numericSeed = typeof seed === 'object' ? (seed.seed ?? 61) : seed;
   const state = {
+    worldGeometryVersion: DISPATCH_WORLD_MIGRATION.id,
     campaignMode: requestedStory ? 'story' : 'legacy',
     campaignPresentation: {
       version: 1,
@@ -1641,8 +1801,11 @@ function combatContext(state, sceneId = currentSceneId(state)) {
   const geometry = SCENES.queries(state, sceneId);
   return {
     sceneId,
+    handImpairment: (actor) => twoSeatsWristView(state, actor.id),
     onDamage: campaignObservers(state)?.damage,
     onAttack: campaignObservers(state)?.attack,
+    onDisarm: campaignObservers(state)?.disarm,
+    isHostile: (actor) => NamedHostility.isNamedHostile(state, actor.id),
     damageProps: (point, radius, amount) => damageSceneArea(state, sceneId, point, radius, amount),
     strikeProps: (actor, action) => {
       for (const prop of lateMeterPropDescriptors(state)) {
@@ -2373,6 +2536,26 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
           })).some((q) => circleRectCollision(q.x, q.y, 7, b)),
       );
     if (!clear) return false;
+    if (twoSeatsBodies.enabled(state)) {
+      let previous = { x: p.x, y: p.y, z: p.groundZ || 0 };
+      for (let i = 1; i <= 24; i++) {
+        const t = i / 24,
+          next = {
+            x: p.x + (obstacle.end.x - p.x) * t,
+            y: p.y + (obstacle.end.y - p.y) * t,
+            z: (p.groundZ || 0) + Math.sin(Math.PI * t) * obstacle.height,
+          };
+        if (
+          !twoSeatsBodies.native.sweep(state, previous, next, {
+            sceneId: currentSceneId(state),
+            radius: 7,
+            height: 30,
+          }).clear
+        )
+          return false;
+        previous = next;
+      }
+    }
     p.stamina -= 20;
     p.traversal = {
       ...obstacle,
@@ -2412,9 +2595,25 @@ function walk(state, dt, input) {
     const action = p.traversal;
     action.elapsed += dt;
     const t = clamp(action.elapsed / action.duration, 0, 1);
-    p.x = action.start.x + (action.end.x - action.start.x) * t;
-    p.y = action.start.y + (action.end.y - action.start.y) * t;
-    p.z = (action.groundZ || 0) + Math.sin(Math.PI * t) * action.height;
+    const next = {
+      x: action.start.x + (action.end.x - action.start.x) * t,
+      y: action.start.y + (action.end.y - action.start.y) * t,
+      z: (action.groundZ || 0) + Math.sin(Math.PI * t) * action.height,
+    };
+    if (
+      twoSeatsBodies.enabled(state) &&
+      !twoSeatsBodies.native.sweep(state, p, next, {
+        sceneId: currentSceneId(state),
+        radius: 7,
+        height: 30,
+      }).clear
+    ) {
+      p.traversal = null;
+      p.vz = 0;
+      p.speed = 0;
+      return;
+    }
+    Object.assign(p, next);
     p.speed = 0;
     if (t === 1) {
       p.groundZ = geometryFor(state).surfaceHeight(p.x, p.y, action.groundZ || 0);
@@ -2428,7 +2627,13 @@ function walk(state, dt, input) {
   p.vz ||= 0;
   if (p.z > p.groundZ || p.vz > 0) {
     p.vz -= 220 * dt;
-    p.z = Math.max(p.groundZ, p.z + p.vz * dt);
+    const requested = Math.max(p.groundZ, p.z + p.vz * dt),
+      roof =
+        requested > p.z
+          ? twoSeatsBodies.limitRise(state, p, requested, currentSceneId(state))
+          : { z: requested, hit: false };
+    p.z = roof.z;
+    if (roof.hit) p.vz = 0;
     if (p.z === p.groundZ) p.vz = 0;
   }
   p.swimming = Boolean(
@@ -2589,6 +2794,27 @@ function updateHostiles(state, dt, sceneId = currentSceneId(state)) {
     )
       fireHostile(state, hostile);
   }
+}
+/** Canonical threat bindings, with the same physical cast and weapon contexts. */
+export function namedHostilityContext(state) {
+  const physical = companionContext(state);
+  return { ...physical, fireActor: (actor) => fireHostile(state, actor) };
+}
+export function damageStoryActor(state, actorId, amount, owner = 'player', kind = 'wrist-injury') {
+  const actor = Companions.getActor(state, actorId);
+  if (!actor || !Number.isFinite(amount) || amount <= 0)
+    return { ok: false, reason: 'actual-actor-damage-required' };
+  const before = { health: actor.health, armour: actor.armour ?? 0 };
+  hitCombatant(state, actor, amount, owner, combatContext(state, actorSceneId(actor)), kind);
+  return {
+    ok: true,
+    actorId,
+    healthBefore: before.health,
+    healthAfter: actor.health,
+    armourBefore: before.armour,
+    armourAfter: actor.armour ?? 0,
+    at: state.time,
+  };
 }
 function spawnEncounter(state, definition) {
   for (let i = 0; i < definition.count; i += 1) {
@@ -2762,6 +2988,7 @@ function validExitPoint(state, vehicle) {
     };
     if (
       !isBlocked(point.x, point.y, 7, point.z, state) &&
+      !twoSeatsBodies.isBodyBlocked(state, point.x, point.y, 7, point.z, currentSceneId(state)) &&
       Math.abs(geometryFor(state).surfaceHeight(point.x, point.y, point.groundZ) - point.groundZ) <
         6 &&
       !sceneVehicles(state).some((other) => other.id !== vehicle.id && distance(point, other) < 17)
@@ -2873,9 +3100,7 @@ function interactionCandidates(state) {
           item.type === 'interior-portal' &&
           item.roomId === WORLD.campaignSceneBindings.dispatch.roomId &&
           !state.campaign?.active &&
-          state.campaign?.completed?.['LL-ST-001'] &&
-          !state.campaign.completed['LL-ST-002'] &&
-          !interruptedStory(state)
+          pendingDispatchMission(state)
         )
           return 0.9;
         if (item.type === 'vehicle' && requiredVehicle) {
@@ -2925,13 +3150,8 @@ export function nearestInteractable(state) {
       distance: 0,
       prompt: 'Identify the grey jacket and clipboard',
     };
-  if (
-    !state.campaign?.active &&
-    state.campaign?.completed?.['LL-ST-001'] &&
-    !state.campaign.completed['LL-ST-002'] &&
-    !interruptedStory(state) &&
-    currentSceneId(state) === 'voss-dispatch'
-  ) {
+  const pendingAssignment = pendingDispatchMission(state);
+  if (pendingAssignment && !interruptedStory(state) && currentSceneId(state) === 'voss-dispatch') {
     const felix = Companions.getActor(state, 'LL-CHAR-002');
     if (
       felix?.health > 0 &&
@@ -2939,11 +3159,16 @@ export function nearestInteractable(state) {
       distance(state.player, felix) <= 35
     )
       return {
-        id: 'LL-ST-002',
+        id: pendingAssignment,
         type: 'story-mission',
-        available: true,
+        available:
+          pendingAssignment === 'LL-ST-002' ||
+          campaignAdapters(state).supportsMission(
+            pendingAssignment,
+            CAMPAIGN_CONTENT.missions.find((m) => m.id === pendingAssignment),
+          ),
         distance: distance(state.player, felix),
-        prompt: 'Talk to Felix · Late Meter',
+        prompt: `Talk to Felix · ${CAMPAIGN_CONTENT.missions.find((m) => m.id === pendingAssignment).title}`,
       };
   }
   if (railPassenger(state)) return railInteraction(state, WORLD);
@@ -3451,6 +3676,39 @@ function interiorContext(state) {
   return {
     world: WORLD,
     terrain: TERRAIN,
+    canEnter: (portal) => {
+      if (!twoSeatsBodies.enabled(state)) return true;
+      const room = INTERIOR_LAYOUTS[portal.roomId],
+        car = currentVehicle(state),
+        spawn = car ? room.vehicleSpawn : room.spawn;
+      return (
+        !!spawn &&
+        twoSeatsBodies.native.inspect(
+          state,
+          {
+            ...spawn,
+            z: room.floorZ,
+            radius: car ? 12 : 7,
+            height: car ? 16 : 30,
+          },
+          { sceneId: room.id },
+        ).clear
+      );
+    },
+    isExteriorBlocked: (x, y, radius, z) =>
+      TERRAIN.isBlocked(x, y, radius, z) ||
+      (twoSeatsBodies.enabled(state) &&
+        !twoSeatsBodies.native.inspect(
+          state,
+          {
+            x,
+            y,
+            z,
+            radius,
+            height: currentVehicle(state) ? 16 : 30,
+          },
+          { sceneId: null },
+        ).clear),
     returnOnIncapacitation: false,
     notify: (text) => notify(state, text),
     onEnter: () => {
@@ -3674,6 +3932,7 @@ export function updateSimulation(state, dt, input = {}) {
     }
     updateRailImpacts(state, step, railOptions(state));
     updateNPCVehicles(state, step);
+    NamedHostility.updateNamedHostility(state, step, namedHostilityContext(state));
     Companions.updateCompanions(state, step, companionContext(state));
     updateBullets(state, step);
     for (const sceneId of new Set([null, ...Object.keys(state.interior?.rooms || {})]))
@@ -3807,7 +4066,7 @@ export function restoreGame(serialized, options = {}) {
   }
   if (!saved || saved.format !== 'lowlight-save' || saved.version !== SAVE_VERSION)
     throw new Error('This save version is not supported.');
-  const state = saved.state;
+  let state = saved.state;
   if (
     !state ||
     !validPoint(state.player) ||
@@ -3839,6 +4098,14 @@ export function restoreGame(serialized, options = {}) {
     !finiteNumber(state.lastCrimeTime, -1000, 1e9)
   )
     throw new Error('The save is incomplete or corrupted.');
+  if (
+    state.worldGeometryVersion ||
+    [DISPATCH_WORLD_MIGRATION.fromTransit, DISPATCH_WORLD_MIGRATION.toTransit].includes(
+      state.transit?.topology,
+    )
+  )
+    state = migrateDispatchSave({ ...saved, state }, { fromWorld: LEGACY_WORLD, toWorld: WORLD })
+      .save.state;
   initializeInteriors(state);
   state.scene ??= { kind: 'exterior', id: 'harbor-city' };
   state.player.sceneId ??= currentSceneId(state);
@@ -3870,6 +4137,7 @@ export function restoreGame(serialized, options = {}) {
     throw Error('The saved conversation presentation is invalid.');
   Companions.initializeCompanions(state);
   Companions.validateCompanions(state, companionContext(state));
+  NamedHostility.validateNamedHostility(state);
   initializeSubtitles(state);
   validateSubtitles(state);
   initializeShelterServices(state);
@@ -3880,21 +4148,35 @@ export function restoreGame(serialized, options = {}) {
     state.campaignMode === 'story' ||
     state.campaignRuntime ||
     state.lateMeterRuntime ||
+    state.twoSeatsRuntime ||
+    state.twoSeatsEffects ||
+    state.clothingServices ||
     state.campaignEffects ||
     state.lateMeterEffects
   ) {
     initializeCampaignParentState(state);
     initializeStoryPhone(state);
     initializeLateMeterParentState(state);
+    initializeTwoSeatsParentState(state);
     validateCampaignParentState(state);
     validateCampaignRuntime(state);
     validateLateMeterRuntime(state);
     validateLateMeterParentState(state);
+    validateTwoSeatsRuntime(state);
+    validateTwoSeatsParentState(state);
     PhoneCalls.validatePhoneCalls(state);
     const appearances = {
       'LL-ARC-REEVE': LATE_METER_APPEARANCES.reeve,
       'LL-ARC-YARA': LATE_METER_APPEARANCES.yara,
       'holt-collector-watch': LATE_METER_APPEARANCES.watcher,
+      ...(state.twoSeatsRuntime || state.twoSeatsEffects
+        ? {
+            'LL-CHAR-025': TWO_SEATS_APPEARANCES.tess,
+            'LL-ARC-DAX': TWO_SEATS_APPEARANCES.dax,
+            'LL-ARC-PEL': TWO_SEATS_APPEARANCES.pel,
+            'LL-ARC-BEA': TWO_SEATS_APPEARANCES.bea,
+          }
+        : {}),
     };
     for (const actor of state.companions.actors)
       if (
@@ -4110,9 +4392,11 @@ export function restoreGame(serialized, options = {}) {
     validateCampaignDirector(state.campaign, adapters);
     const active = state.campaign.active,
       physical =
-        active?.missionId === 'LL-ST-002'
-          ? state.lateMeterRuntime.active
-          : state.campaignRuntime.active;
+        active?.missionId === 'LL-ST-003'
+          ? state.twoSeatsRuntime.active
+          : active?.missionId === 'LL-ST-002'
+            ? state.lateMeterRuntime.active
+            : state.campaignRuntime.active;
     if (
       active &&
       (!physical ||
@@ -4124,9 +4408,11 @@ export function restoreGame(serialized, options = {}) {
       throw Error('The saved physical assignment and story director disagree.');
     const interrupted = interruptedStory(state);
     const interruptedPhysical =
-      interrupted?.missionId === 'LL-ST-002'
-        ? state.lateMeterRuntime.active
-        : state.campaignRuntime.active;
+      interrupted?.missionId === 'LL-ST-003'
+        ? state.twoSeatsRuntime.active
+        : interrupted?.missionId === 'LL-ST-002'
+          ? state.lateMeterRuntime.active
+          : state.campaignRuntime.active;
     if (
       interrupted &&
       (!interruptedPhysical ||

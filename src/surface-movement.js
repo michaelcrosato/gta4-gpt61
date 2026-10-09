@@ -1,6 +1,8 @@
 /** Small collision steps follow connected ramps without selecting an unrelated deck. */
-export function createSurfaceMovement(terrain) {
-  function moveBody(body, dx, dy, radius, { allowWater = false } = {}) {
+export function createSurfaceMovement(terrain, { canMoveBody } = {}) {
+  if (canMoveBody !== undefined && typeof canMoveBody !== 'function')
+    throw TypeError('A full-body movement guard must be a function.');
+  function moveBody(body, dx, dy, radius, { allowWater = false, state = null } = {}) {
     const mode = body.spec ? 'car' : 'foot';
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (radius * 0.65)));
     let collided = false;
@@ -15,6 +17,20 @@ export function createSurfaceMovement(terrain) {
       const grounded = Math.abs(body.z - body.groundZ) < 0.1 && !(body.vz > 0);
       const z = grounded && difference >= -6 ? body.z + difference : body.z;
       if (terrain.isBlocked(x, y, radius, z, { ignoreWater: allowWater })) return false;
+      if (
+        canMoveBody &&
+        canMoveBody({
+          body,
+          from: { x: body.x, y: body.y, z: body.z },
+          to: { x, y, z },
+          radius,
+          allowWater,
+          mode,
+          state,
+          sceneId: null,
+        }) !== true
+      )
+        return false;
       body.x = x;
       body.y = y;
       body.z = z;

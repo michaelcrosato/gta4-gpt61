@@ -23,6 +23,9 @@ Open http://localhost:5173. Use WASD/arrows to move, E to interact/enter a vehic
 Shift to sprint/brake, mouse/click to aim/fire, R to reload, M for the city map,
 T for the phone, and Escape to pause. Touch controls and gamepads are supported.
 The menu includes full controls, audio/camera settings, and continue/save support.
+For melee, select fists or a tool with Q, hold right mouse to guard, then use F
+to counter or Z to disarm after a block. On touch, open MORE ACTIONS for GUARD
+and DISARM.
 
 The exterior world contains 65 original neighborhoods and 194
 site addresses, with coastal landforms, graded bridges and road bores, swimming,
@@ -43,7 +46,7 @@ persistent occupants and saves; indoor witnesses report the exterior entrance.
 The garage has a paid tools counter and vehicle repair bay, the bar serves paid
 drinks, and the lanes offer paid bowling and food. Harbor Metro operates four
 services across 26 station complexes with 56 directional stop roles, phone
-destinations, boarding/alighting, fares, signals and saved journeys. Physical
+destinations, boarding/alighting, fares, signals and saved journeys. Train
 clearance, native rendering and frozen-snapshot browser checks pass; the broader
 city and transport inventory remain in development.
 
@@ -83,8 +86,25 @@ Known 0.5 campaign saves retain their progress and receipt identities when
 unplayed mission content changes; unknown versions or changed owned missions
 are rejected rather than silently replacing progress.
 
-The other eighteen authored missions still need physical integration; the full
-ninety-mission scope remains active. The first two missions’ production-input
+After Late Meter, speak to the living Felix inside dispatch for **Two Seats
+Open**. Guard Dax’s actual blade attack and disarm him; his wrist
+injury, bandage and both collectors’ physical retreat persist in saves. Felix
+rides along while Nadia and Tess fill the remaining passenger seats. Deliver
+Tess through her real doorway, then Nadia into dispatch, before choosing one of
+three original outfits at Pier Goods with the single co-op voucher. Bea and
+Felix must be present for the final conversation. The purchase spends the
+voucher once and equips the actual selected outfit.
+
+The third mission uses calibrated body/ceiling checks and rebuilt rail spans at
+Dispatch and Tess’s street. Known old saves migrate their fleet, occupied
+resources and supported bodies without resetting their clocks, fares or story.
+The wider public headroom rebuild remains open: other low decks, bridges and
+underground chambers are not yet certified for full standing access. Some of
+those unfinished routes can reject a full-height body during the third mission
+and its approach.
+
+The other seventeen authored missions still need physical integration; the full
+ninety-mission scope remains active. The first three missions’ production-input
 checks earn no source completion credit or full natural browser playthrough
 claim. All four additional jobs have not yet been
 completed in one natural input run. See the [verification record](docs/verification.md)

@@ -17,7 +17,7 @@ import {
   validateRailDispatch,
   restoreRailDispatch,
 } from './rail-dispatcher.js';
-import { createRailClearance } from './rail-clearance.js';
+import { createConstructedRailClearance } from './constructed-rail-clearance.js';
 const dispatchers = new WeakMap();
 const clearances = new WeakMap();
 
@@ -48,7 +48,7 @@ function dispatcherFor(state, world) {
 function clearanceFor(world) {
   let clearance = clearances.get(world);
   if (!clearance) {
-    clearance = createRailClearance(world);
+    clearance = createConstructedRailClearance(world);
     clearances.set(world, clearance);
   }
   return clearance;

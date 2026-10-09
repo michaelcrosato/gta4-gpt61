@@ -37,6 +37,9 @@ function vehicleBlocks(state, specs, x, y, radius, z, sceneId, ignore) {
 }
 export function createCampaignPhysicalContext(state, engine) {
   const { world, terrain, specs, scenes, localPath } = engine;
+  for (const name of ['isBodyBlocked', 'bodySegmentBlocked', 'preferLocalFootPaths'])
+    if (engine[name] !== undefined && typeof engine[name] !== 'function')
+      throw TypeError('Invalid physical body query: ' + name);
   const query = (id) => scenes.queries(state, id);
   const location = (portal) => world.locations.find((l) => l.id === portal.locationId);
   const invited = (id) =>
@@ -57,8 +60,26 @@ export function createCampaignPhysicalContext(state, engine) {
   };
   const geometry = (id, ignore) => ({
     isBlocked: (x, y, r, z) =>
-      query(id).isBlocked(x, y, r, z) || vehicleBlocks(state, specs, x, y, r, z, id, ignore),
+      query(id).isBlocked(x, y, r, z) ||
+      (engine.isBodyBlocked && engine.isBodyBlocked(x, y, r, z, id) !== false) ||
+      vehicleBlocks(state, specs, x, y, r, z, id, ignore),
     surfaceHeight: (x, y, z) => (id ? INTERIOR_LAYOUTS[id].floorZ : terrain.surfaceHeight(x, y, z)),
+    ...(engine.bodySegmentBlocked && engine.preferLocalFootPaths?.() === true
+      ? {
+          segmentBlocked: (a, b, radius) =>
+            engine.bodySegmentBlocked(a, b, radius, id) !== false ||
+            vehicleBlocks(
+              state,
+              specs,
+              (a.x + b.x) / 2,
+              (a.y + b.y) / 2,
+              radius + distance(a, b) / 2,
+              Math.min(a.z ?? 0, b.z ?? 0),
+              id,
+              ignore,
+            ),
+        }
+      : {}),
   });
   const local = (actor, target, id, ignore) => {
     if (typeof localPath !== 'function') return [];
@@ -78,9 +99,10 @@ export function createCampaignPhysicalContext(state, engine) {
     }).map((p) => ({ ...p, sceneId: id }));
   };
   const exterior = (actor, target) => {
-    if (distance(actor, target) < 140) {
+    const checkedLocal = engine.preferLocalFootPaths?.() === true;
+    if (distance(actor, target) < 140 || checkedLocal) {
       const path = local(actor, target, null);
-      if (path.length) return path;
+      if (path.length || checkedLocal) return path;
     }
     return findRoute(world, actor, target, { mode: 'foot', includeZ: true }).map((p) => ({
       ...p,
@@ -200,8 +222,8 @@ export function createCampaignPhysicalContext(state, engine) {
           Math.abs((to.z ?? 0) - (entry.z ?? 0)) > 1e-6
         )
           return false;
-        if (geometry(null).isBlocked(to.x, to.y, 7, to.z ?? 0)) return false;
       } else return false;
+      if (geometry(to.sceneId).isBlocked(to.x, to.y, 7, to.z ?? 0)) return false;
       Object.assign(actor, {
         x: to.x,
         y: to.y,

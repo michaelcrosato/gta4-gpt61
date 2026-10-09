@@ -1,0 +1,11 @@
+{
+  "boundary": "Normal New Game via published0.6 catalogue; no input/state mutation.",
+  "sha256": "584983b889dbc7cc7923ab66c3cd1700c0da6b4e29ce12f704b813e79f29317f",
+  "contentFingerprint": "38b480d9",
+  "receiptNamespace": "38b480d9",
+  "active": "LL-ST-001",
+  "stage": "berth",
+  "checkpoints": [
+    "start"
+  ]
+}

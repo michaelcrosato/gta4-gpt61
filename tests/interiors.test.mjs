@@ -45,6 +45,8 @@ const world = {
     { id: 'blue-hour-lanes', x: 411, y: 654 },
     { id: 'dockside-rooms', x: 129, y: 308 },
     { id: 'impound-annex', x: 293, y: 389 },
+    { id: 'tess-flat', x: 729, y: 308 },
+    { id: 'pier-goods', x: 231, y: 308 },
   ],
 };
 function state() {
@@ -90,19 +92,38 @@ test('authored original layouts have distinct dimensions, floor zones, physical 
     'dockside-rooms',
     'impound-annex',
     'lantern-bar',
+    'pier-goods',
     'saira-garage',
+    'tess-flat',
     'voss-dispatch',
   ]);
   assert.equal(
     new Set(Object.values(INTERIOR_LAYOUTS).map((room) => `${room.width}x${room.height}`)).size,
-    6,
+    8,
   );
   for (const room of Object.values(INTERIOR_LAYOUTS)) {
     assert.ok(room.walls.length >= 5);
     assert.ok(room.props.length >= 5);
     assert.ok(room.doors.some((door) => door.exit));
-    assert.ok(room.hooks.length >= 2);
-    assert.ok(room.floorRegions.length >= 2);
+    if (room.id === 'tess-flat') {
+      assert.equal(room.hooks.length, 1);
+      assert.equal(room.hooks[0].service, 'tess-contact');
+    } else if (room.id === 'pier-goods') {
+      assert.equal(room.hooks.length, 1);
+      assert.equal(room.hooks[0].service, 'pier-goods-selector');
+    } else assert.ok(room.hooks.length >= 2);
+    if (['tess-flat', 'pier-goods'].includes(room.id)) {
+      assert.deepEqual(room.floorRegions, [
+        {
+          id: `${room.id}-main-floor`,
+          x: 10,
+          y: 10,
+          w: room.width - 20,
+          h: room.height - 20,
+          material: room.id === 'pier-goods' ? 'worn-linoleum' : 'timber',
+        },
+      ]);
+    } else assert.ok(room.floorRegions.length >= 2);
     assert.ok(Object.isFrozen(room));
   }
   assert.ok(
@@ -181,7 +202,9 @@ test('unsupported city addresses do not become generic rooms and authored demos 
   assert.equal(interiorAvailability('LL-CITY-LOC001').status, 'unimplemented');
   assert.equal(interiorAvailability('LL-CITY-LOC161').status, 'unimplemented');
   assert.equal(interiorAvailability('felix-office').roomId, 'voss-dispatch');
-  assert.equal(PORTAL_DEFINITIONS.length, 6);
+  assert.equal(PORTAL_DEFINITIONS.length, 8);
+  assert.equal(interiorAvailability('LL-CITY-LOC174').roomId, 'tess-flat');
+  assert.equal(interiorAvailability('LL-CITY-LOC034').roomId, 'pier-goods');
   const s = state();
   assert.equal(enterInterior(s, 'LL-CITY-LOC001', { world }).ok, false);
   assert.equal(s.scene.kind, 'exterior');

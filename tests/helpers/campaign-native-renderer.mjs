@@ -344,12 +344,14 @@ export async function createJourneyRenderer(sourceRoot, options = {}) {
         scene.draw(r, s);
       },
       onRenderedClues: record,
+      getActorDressing: options.getActorDressing,
     }),
   );
   const interior = withDocument(() =>
     createInteriorRenderer(game, simulation.VEHICLE_SPECS, {
       drawRoomDetails: (r, s) => scene.drawRoomDetails(r, s),
       onRenderedClues: record,
+      getActorDressing: options.getActorDressing,
     }),
   );
   const sourceHashes = Object.fromEntries(

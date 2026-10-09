@@ -8,6 +8,14 @@ const angleDifference = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const sameScene = (actor, ctx) =>
   ctx.sceneId === undefined ||
   (actor.sceneId ?? (actor.scene?.kind === 'interior' ? actor.scene.id : null)) === ctx.sceneId;
+const physicalScene = (actor) =>
+  actor.sceneId ?? (actor.scene?.kind === 'interior' ? actor.scene.id : null);
+const bodyPose = (actor) => ({
+  x: actor.x,
+  y: actor.y,
+  z: actor.z ?? 0,
+  sceneId: physicalScene(actor),
+});
 const vehicles = (state, ctx) => ctx.vehicles?.() ?? state.vehicles;
 const aircraft = (state, ctx) => ctx.aircraft?.() ?? state.policeAircraft ?? [];
 const civilians = (state, ctx) => ctx.civilians?.() ?? state.pedestrians;
@@ -312,6 +320,10 @@ export function initializeCombat(state, pickups = []) {
   player.defenseStarted ??= -10;
   player.counterUntil ??= -10;
   player.counterTarget ??= null;
+  player.counterSerial ??= 0;
+  player.counterWindow ??= null;
+  player.disarmSerial ??= 0;
+  player.lastDisarm ??= null;
   player.dodgeRemaining ??= 0;
   player.dodgeAngle ??= 0;
   player.heldObject ??= null;
@@ -420,6 +432,7 @@ export function hitCombatant(state, victim, damage, owner, ctx, kind = 'bullet')
     owner === 'player' &&
     ctx.reportCrime &&
     !state.hostiles.includes(victim) &&
+    ctx.isHostile?.(victim) !== true &&
     state.time >= (victim.nextCrimeReport || 0)
   ) {
     ctx.reportCrime({
@@ -500,23 +513,50 @@ export function startActorMelee(
   actor,
   id,
   ctx,
-  { heavy = false, kind = 'strike', targetId = null } = {},
+  { heavy = false, kind = 'strike', targetId = null, hand = 'right' } = {},
 ) {
-  if (actor.meleeAction || actor.fireCooldown > 0 || actor.health <= 0) return false;
+  if (
+    actor.meleeAction ||
+    actor.fireCooldown > 0 ||
+    actor.health <= 0 ||
+    actor.staggerRemaining > 0 ||
+    actor.vehicleId ||
+    actor.inVehicle
+  )
+    return false;
   const weapon = WEAPONS[id],
     isPlayer = actor === state.player;
+  if (!weapon || weapon.mode !== 'melee' || !['right', 'left'].includes(hand)) return false;
+  const condition = ctx.handImpairment?.(actor, hand),
+    impaired = condition?.active === true && condition.affectedHand === hand;
+  if (
+    impaired &&
+    (!Number.isFinite(condition.damageScale) ||
+      condition.damageScale <= 0 ||
+      condition.damageScale > 1 ||
+      !Number.isFinite(condition.recoveryScale) ||
+      condition.recoveryScale < 1 ||
+      condition.recoveryScale > 2)
+  )
+    return false;
   const stamina = heavy ? 24 : id === 'club' ? 15 : 7;
   if (isPlayer && actor.stamina < stamina) return false;
   if (isPlayer) actor.stamina -= stamina;
-  const windup = kind === 'counter' ? 0.07 : weapon.windup * (heavy ? 1.35 : 1);
+  const windup = kind === 'counter' ? 0.07 : weapon.windup * (heavy ? 1.35 : 1),
+    baseDuration = weapon.fireInterval * (heavy ? 1.25 : 1),
+    recoveryScale = impaired ? condition.recoveryScale : 1;
   actor.meleeAction = {
     weapon: id,
     kind,
+    hand,
     elapsed: 0,
-    duration: weapon.fireInterval * (heavy ? 1.25 : 1),
+    duration: impaired ? windup + (baseDuration - windup) * recoveryScale : baseDuration,
     windup,
     hit: false,
-    damage: weapon.damage * (heavy ? 1.55 : kind === 'counter' ? 1.7 : 1),
+    damage:
+      weapon.damage *
+      (heavy ? 1.55 : kind === 'counter' ? 1.7 : 1) *
+      (impaired ? condition.damageScale : 1),
     reach: weapon.reach + (heavy ? 3 : 0),
     arc: weapon.arc,
     targetId,
@@ -536,6 +576,19 @@ function defendMelee(state, attacker, damage, ctx) {
     const perfect = state.time - player.defenseStarted <= 0.3;
     player.counterTarget = attacker.id;
     player.counterUntil = state.time + 0.8;
+    player.counterSerial = (player.counterSerial ?? 0) + 1;
+    player.counterWindow = {
+      id: `combat-counter:${player.counterSerial}`,
+      serial: player.counterSerial,
+      attackerId: attacker.id,
+      weapon: attacker.weapon ?? 'unarmed',
+      attackWeapon: attacker.meleeAction.weapon,
+      openedAt: state.time,
+      expiresAt: player.counterUntil,
+      perfect,
+      playerPose: bodyPose(player),
+      attackerPose: bodyPose(attacker),
+    };
     attacker.staggerRemaining = perfect ? 0.85 : 0.4;
     if (!perfect) ctx.damagePlayer(damage * 0.18);
     effect(state, ctx, perfect ? 'parry' : 'block', player);
@@ -543,10 +596,17 @@ function defendMelee(state, attacker, damage, ctx) {
 }
 
 export function updateMelee(state, dt, ctx) {
-  for (const actor of [state.player, ...hostileList(state, ctx)].filter((actor) =>
+  for (const actor of [...new Set([state.player, ...hostileList(state, ctx)])].filter((actor) =>
     sameScene(actor, ctx),
   )) {
     const action = actor.meleeAction;
+    if (
+      actor !== state.player &&
+      !state.hostiles.includes(actor) &&
+      !state.police.includes(actor) &&
+      actor.health > 0
+    )
+      actor.fireCooldown = Math.max(0, (actor.fireCooldown ?? 0) - dt);
     actor.staggerRemaining = Math.max(0, (actor.staggerRemaining || 0) - dt);
     if (!action || actor.health <= 0) continue;
     action.elapsed += dt;
@@ -558,6 +618,9 @@ export function updateMelee(state, dt, ctx) {
           .filter(
             (victim) =>
               victim.health > 0 &&
+              (!action.targetId || victim.id === action.targetId) &&
+              sameScene(victim, ctx) &&
+              Math.abs((actor.z ?? 0) - (victim.z ?? 0)) <= 8 &&
               distance(actor, victim) <= action.reach &&
               Math.abs(angleDifference(angleTo(actor, victim), actor.angle)) <= action.arc &&
               ctx.hasLineOfSight(actor, victim),
@@ -576,6 +639,7 @@ export function updateMelee(state, dt, ctx) {
           )
             ctx.damageVehicle(vehicle, action.damage * 0.45, 'player', action.kind);
       } else if (
+        Math.abs((actor.z ?? 0) - (state.player.z ?? 0)) <= 8 &&
         distance(actor, state.player) <= action.reach &&
         ctx.hasLineOfSight(actor, state.player)
       ) {
@@ -584,6 +648,116 @@ export function updateMelee(state, dt, ctx) {
     }
     if (action.elapsed >= action.duration) actor.meleeAction = null;
   }
+}
+
+function consumeCounter(player) {
+  player.counterUntil = -10;
+  player.counterTarget = null;
+  player.counterWindow = null;
+}
+function actualBladeWindow(state, target) {
+  const player = state.player,
+    w = player.counterWindow;
+  return (
+    w &&
+    w.id === `combat-counter:${w.serial}` &&
+    Number.isSafeInteger(w.serial) &&
+    w.serial > 0 &&
+    w.serial <= player.counterSerial &&
+    w.attackerId === target.id &&
+    w.weapon === target.weapon &&
+    w.attackWeapon === 'knife' &&
+    w.openedAt <= state.time &&
+    w.expiresAt > state.time &&
+    w.expiresAt === w.openedAt + 0.8 &&
+    w.expiresAt === player.counterUntil &&
+    physicalScene(w.playerPose) === physicalScene(player) &&
+    physicalScene(w.attackerPose) === physicalScene(target) &&
+    Math.abs(w.playerPose.z - w.attackerPose.z) <= 8 &&
+    distance(w.playerPose, w.attackerPose) <= WEAPONS.knife.reach + 3
+  );
+}
+function committedDisarm(state, target, ctx) {
+  const player = state.player,
+    weapon = target.weapon,
+    spec = WEAPONS[weapon],
+    blade = weapon === 'knife',
+    counter = player.counterWindow ? JSON.parse(JSON.stringify(player.counterWindow)) : null,
+    ammo = target.ammo ? target.ammo.clip + target.ammo.reserve : spec.clipSize;
+  let dropId = null;
+  if (blade) {
+    if (player.stamina < 7 || state.pickups.length >= 600) return false;
+    player.stamina -= 7;
+    dropId = ctx.id('disarmed-weapon');
+    state.pickups.push({
+      id: dropId,
+      type: 'weapon',
+      weapon,
+      name: spec.name,
+      ...bodyPose(target),
+      ammo: 0,
+      available: true,
+      remaining: 0,
+      despawnRemaining: 120,
+    });
+    player.meleeAction = {
+      weapon: 'unarmed',
+      kind: 'disarm',
+      elapsed: 0,
+      duration: 0.35,
+      windup: 0,
+      hit: true,
+      damage: 0,
+      reach: 0,
+      arc: 0,
+      targetId: target.id,
+      sweep: 1,
+    };
+    player.fireCooldown = Math.max(player.fireCooldown, 0.35);
+  } else if (!acquireWeapon(state, weapon, ammo)) return false;
+  target.weapon = 'unarmed';
+  target.ammo = { clip: 0, reserve: 0 };
+  target.meleeAction = null;
+  target.staggerRemaining = 1.1;
+  target.hitReaction = { kind: 'disarm', until: state.time + 0.35 };
+  consumeCounter(player);
+  player.disarmSerial = (player.disarmSerial ?? 0) + 1;
+  const receipt = {
+    id: `combat-disarm:${player.disarmSerial}`,
+    serial: player.disarmSerial,
+    at: state.time,
+    owner: 'player',
+    targetId: target.id,
+    weapon,
+    method: 'guard-disarm',
+    hand: 'right',
+    destination: blade ? 'ground' : 'player',
+    dropId,
+    ammo: blade ? 0 : ammo,
+    counter,
+    playerPose: bodyPose(player),
+    targetPose: bodyPose(target),
+    targetHealth: target.health,
+  };
+  player.lastDisarm = JSON.parse(JSON.stringify(receipt));
+  target.disarmReceipt = JSON.parse(JSON.stringify(receipt));
+  effect(state, ctx, 'disarm', target, { targetId: target.id, weapon, receiptId: receipt.id });
+  if (blade) recordAttack(state, player, 'unarmed', 'disarm', ctx);
+  const freeze = (v) => {
+    if (v && typeof v === 'object') {
+      Object.values(v).forEach(freeze);
+      Object.freeze(v);
+    }
+    return v;
+  };
+  const observed = ctx.onDisarm?.(freeze(JSON.parse(JSON.stringify(receipt))));
+  if (observed && typeof observed.then === 'function')
+    throw Error('Disarm observers must be synchronous.');
+  ctx.notify?.(
+    blade ? `${spec.name} disarmed and dropped.` : `${spec.name} disarmed and taken.`,
+    'success',
+  );
+  return true;
 }
 
 export function combatDefenseInput(state, input, ctx) {
@@ -603,32 +777,41 @@ export function combatDefenseInput(state, input, ctx) {
         ? Math.atan2(input.moveY, input.moveX)
         : player.angle + Math.PI / 2;
   }
-  const target = [...state.hostiles, ...state.police].find(
-    (actor) => actor.id === player.counterTarget && actor.health > 0,
-  );
-  if (!target || state.time > player.counterUntil || distance(player, target) > 31) return;
+  const matches = [...new Set(hostileList(state, ctx))].filter(
+      (actor) =>
+        actor !== player &&
+        actor.id === player.counterTarget &&
+        actor.health > 0 &&
+        sameScene(actor, ctx) &&
+        physicalScene(actor) === physicalScene(player),
+    ),
+    target = matches.length === 1 ? matches[0] : null;
+  if (
+    !target ||
+    state.time > player.counterUntil ||
+    distance(player, target) > 31 ||
+    Math.abs((player.z ?? 0) - (target.z ?? 0)) > 8 ||
+    target.inVehicle ||
+    target.vehicleId ||
+    Math.abs(angleDifference(angleTo(player, target), player.angle)) >= 1.2 ||
+    ctx.hasLineOfSight?.(player, target) !== true
+  )
+    return;
   if (
     input.disarm &&
     !state.lastInput.disarm &&
     target.weapon &&
-    WEAPONS[target.weapon].mode !== 'melee'
+    Object.hasOwn(WEAPONS, target.weapon) &&
+    (WEAPONS[target.weapon].mode !== 'melee' ||
+      (target.weapon === 'knife' && actualBladeWindow(state, target)))
   ) {
-    const weapon = target.weapon,
-      ammo = target.ammo ? target.ammo.clip + target.ammo.reserve : WEAPONS[weapon].clipSize;
-    acquireWeapon(state, weapon, ammo);
-    target.weapon = 'unarmed';
-    target.ammo = { clip: 0, reserve: 0 };
-    target.meleeAction = null;
-    target.staggerRemaining = 1.1;
-    player.counterUntil = -10;
-    effect(state, ctx, 'disarm', target);
-    ctx.notify(`${WEAPONS[weapon].name} disarmed and taken.`, 'success');
+    committedDisarm(state, target, ctx);
   } else if (input.counter && !state.lastInput.counter) {
     player.fireCooldown = 0;
     player.meleeAction = null;
     player.angle = angleTo(player, target);
-    startActorMelee(state, player, 'unarmed', ctx, { kind: 'counter', targetId: target.id });
-    player.counterUntil = -10;
+    if (startActorMelee(state, player, 'unarmed', ctx, { kind: 'counter', targetId: target.id }))
+      consumeCounter(player);
   }
 }
 
@@ -1137,6 +1320,80 @@ export function validateCombatSave(state, world) {
   const point = (item) => item && finite(item.x, 0, world.width) && finite(item.y, 0, world.height);
   const p = state.player;
   const elevation = worldElevation(world);
+  const proofId = (value) =>
+    typeof value === 'string' &&
+    /^[a-z0-9][a-z0-9:._-]{0,159}$/i.test(value) &&
+    !['constructor', 'prototype', '__proto__', 'toJSON'].includes(value);
+  const proofPose = (v) =>
+    point(v) &&
+    finite(v.z, elevation.min, elevation.max) &&
+    (v.sceneId === null || typeof v.sceneId === 'string');
+  const validWindow = (w) =>
+    w &&
+    w.id === `combat-counter:${w.serial}` &&
+    Number.isSafeInteger(w.serial) &&
+    finite(w.serial, 1, p.counterSerial ?? 0) &&
+    proofId(w.attackerId) &&
+    Object.hasOwn(WEAPONS, w.weapon) &&
+    WEAPONS[w.attackWeapon]?.mode === 'melee' &&
+    finite(w.openedAt, 0, state.time) &&
+    finite(w.expiresAt, w.openedAt, 1e9) &&
+    Math.abs(w.expiresAt - w.openedAt - 0.8) < 1e-6 &&
+    typeof w.perfect === 'boolean' &&
+    proofPose(w.playerPose) &&
+    proofPose(w.attackerPose) &&
+    physicalScene(w.playerPose) === physicalScene(w.attackerPose) &&
+    Math.abs(w.playerPose.z - w.attackerPose.z) <= 8 &&
+    distance(w.playerPose, w.attackerPose) <= 50;
+  const validDisarm = (r) =>
+    r &&
+    Number.isSafeInteger(r.serial) &&
+    finite(r.serial, 1, p.disarmSerial ?? 0) &&
+    r.id === `combat-disarm:${r.serial}` &&
+    r.owner === 'player' &&
+    proofId(r.targetId) &&
+    Object.hasOwn(WEAPONS, r.weapon) &&
+    r.weapon !== 'unarmed' &&
+    (WEAPONS[r.weapon].mode !== 'melee' || r.weapon === 'knife') &&
+    r.method === 'guard-disarm' &&
+    r.hand === 'right' &&
+    finite(r.at, 0, state.time) &&
+    finite(r.targetHealth, Number.MIN_VALUE, 1000) &&
+    proofPose(r.playerPose) &&
+    proofPose(r.targetPose) &&
+    physicalScene(r.playerPose) === physicalScene(r.targetPose) &&
+    Math.abs(r.playerPose.z - r.targetPose.z) <= 8 &&
+    distance(r.playerPose, r.targetPose) <= 31 &&
+    ((r.counter === null && r.weapon !== 'knife') ||
+      (validWindow(r.counter) &&
+        r.counter.attackerId === r.targetId &&
+        r.counter.weapon === r.weapon &&
+        r.at >= r.counter.openedAt &&
+        (r.weapon === 'knife'
+          ? r.counter.attackWeapon === 'knife' && r.at < r.counter.expiresAt
+          : r.at <= r.counter.expiresAt))) &&
+    (r.weapon === 'knife'
+      ? r.destination === 'ground' && proofId(r.dropId) && r.ammo === 0
+      : r.destination === 'player' &&
+        r.dropId === null &&
+        Number.isInteger(r.ammo) &&
+        finite(r.ammo, 0, 200000));
+  for (const key of ['counterSerial', 'disarmSerial'])
+    if (p[key] !== undefined && (!Number.isSafeInteger(p[key]) || p[key] < 0))
+      throw Error('Invalid saved defense sequence.');
+  if (p.disarmSerial > 0 && p.lastDisarm == null) throw Error('Missing saved committed disarm.');
+  if (
+    p.counterWindow != null &&
+    (!validWindow(p.counterWindow) ||
+      p.counterTarget !== p.counterWindow.attackerId ||
+      p.counterUntil !== p.counterWindow.expiresAt)
+  )
+    throw Error('Unproved saved counter window.');
+  if (
+    p.lastDisarm != null &&
+    (!validDisarm(p.lastDisarm) || p.lastDisarm.serial !== p.disarmSerial)
+  )
+    throw Error('Unproved saved player disarm.');
   if (
     state.combatVersion !== 1 ||
     !Array.isArray(state.ordnance) ||
@@ -1204,11 +1461,43 @@ export function validateCombatSave(state, world) {
       p.heldObject.name.length > 100)
   )
     throw new Error('The saved held object is invalid.');
-  for (const actor of [p, ...state.hostiles, ...state.police]) {
+  for (const actor of [
+    ...new Set([
+      p,
+      ...state.hostiles,
+      ...state.police,
+      ...(state.companions?.actors ?? []),
+      ...Object.values(state.interior?.rooms ?? {}).flatMap((room) => room.actors ?? []),
+    ]),
+  ]) {
+    if (
+      actor.disarmReceipt != null &&
+      (!validDisarm(actor.disarmReceipt) ||
+        actor.disarmReceipt.targetId !== actor.id ||
+        (actor.disarmReceipt.serial === p.lastDisarm?.serial &&
+          JSON.stringify(actor.disarmReceipt) !== JSON.stringify(p.lastDisarm)))
+    )
+      throw Error('Unproved saved actor disarm.');
+    if (actor.disarmReceipt?.destination === 'ground') {
+      const drops = state.pickups.filter((item) => item.id === actor.disarmReceipt.dropId),
+        r = actor.disarmReceipt;
+      if (
+        drops.length > 1 ||
+        (drops.length === 1 &&
+          (drops[0].type !== 'weapon' ||
+            drops[0].weapon !== r.weapon ||
+            drops[0].ammo !== 0 ||
+            physicalScene(drops[0]) !== physicalScene(r.targetPose) ||
+            spatialDistance(drops[0], r.targetPose) > 1e-6))
+      )
+        throw Error('Conflicting saved disarmed weapon drop.');
+    }
     if (
       actor.meleeAction &&
       (!WEAPONS[actor.meleeAction.weapon] ||
         WEAPONS[actor.meleeAction.weapon].mode !== 'melee' ||
+        (actor.meleeAction.hand !== undefined &&
+          !['right', 'left'].includes(actor.meleeAction.hand)) ||
         !finite(actor.meleeAction.elapsed, 0, 5) ||
         !finite(actor.meleeAction.duration, 0.01, 5) ||
         !finite(actor.meleeAction.windup, 0, 3) ||

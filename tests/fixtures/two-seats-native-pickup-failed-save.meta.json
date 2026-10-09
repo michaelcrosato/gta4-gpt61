@@ -1,0 +1,9 @@
+{
+  "boundary": "Genuine completed M1/M2 save then production simulation inputs, real disarm/8injury/SaveContinue/retreat/station parking. Original app bug alternated Nadia escort and board each fixed step. Restoring this as a new declared component regression is not full natural or full-campaign completion. No body/health/clock/mission/receipt edits.",
+  "sourceCandidate": "/tmp/lowlight-two-seats-native-candidate-xdt51ltm",
+  "sourceManifest": "/tmp/lowlight-two-seats-native-candidate-manifest.json",
+  "run": "/tmp/lowlight-two-seats-native-run-mqwttup7",
+  "rawSha256": "bee4eeac2ee634af778df03ddb110c6c52269a543f12a68c1402c3e0fe505616",
+  "runtimeBaseSha256": "43f6eaec59c4c51f45a4df58289350ecada86bf497aec5cf207c9b8d18891c8e",
+  "time": 888.6999999995204
+}

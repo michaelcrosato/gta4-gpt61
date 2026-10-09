@@ -15,6 +15,7 @@ import {
   jumpOrVault,
   toggleCover,
   storyView,
+  storyActorDressing,
   storyPhoneView,
   presentStoryPhoneLine,
   actStoryPhone,
@@ -55,8 +56,11 @@ import { createMapBackground, createMapProjection } from './map-background.js';
 import { createNightCrossingRenderer } from './campaign/scenes.js';
 import { createLateMeterRenderer } from './campaign/late-meter-scenes.js';
 import { getActor } from './companions.js';
+import { isNamedHostile } from './named-hostility.js';
 import { OUTFITS } from './wardrobe.js';
 import { FIRST_ARC_MISSIONS } from './campaign/first-arc.js';
+import { storyChoicePresentation, storyChoiceMarkup } from './campaign/choice-presentation.js';
+import { drawTwoSeatsClosedAccess } from './campaign/two-seats-registration.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -127,6 +131,7 @@ const lateMeterRenderer = createLateMeterRenderer(game, WORLD, {
   getActor: (id) => getActor(state, id),
 });
 const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS, {
+  getActorDressing: storyActorDressing,
   afterGround: (r, renderedState) => {
     storyRenderer.drawGround(r, renderedState);
     lateMeterRenderer.drawGround(r, renderedState);
@@ -134,11 +139,13 @@ const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS, {
   afterScenery: (r, renderedState) => {
     storyRenderer.draw(r, renderedState);
     lateMeterRenderer.draw(r, renderedState);
+    if (renderedState.campaign?.completed?.['LL-ST-002']) drawTwoSeatsClosedAccess(r);
   },
   onRenderedClues: recordStoryRenderedClues,
 });
 const metroRenderer = createRailRenderer(game, WORLD);
 const roomRenderer = createInteriorRenderer(game, VEHICLE_SPECS, {
+  getActorDressing: storyActorDressing,
   drawRoomDetails: (r, renderedState) => lateMeterRenderer.drawRoomDetails(r, renderedState),
   onRenderedClues: recordStoryRenderedClues,
 });
@@ -577,14 +584,20 @@ function renderCaptions(view = storyView(state)) {
     panel = $('dialogue-panel'),
     visible = mode === 'play' && !document.hidden && !dialogs.some((dialog) => dialog.open);
   setStoryPresentationVisibility(state, visible);
+  panel.dataset.intervention = String(!!isTwoSeatsIntervention(view));
   panel.hidden = !line || !visible;
   if (line || view?.cinematic) $('context-prompt').hidden = true;
   document.body.classList.toggle('in-conversation', !!line && visible);
   document.body.classList.toggle('story-scene', visible && !!view?.cinematic);
-  $('touch-more').hidden = !!line;
+  $('touch-more').hidden = !!line && !isTwoSeatsIntervention(view);
   storyContinue.hidden = !line || !(view?.dialogue || view?.ambient);
+  const combatControls = isTwoSeatsIntervention(view)
+    ? matchMedia('(pointer: coarse)').matches
+      ? ' · MORE: GUARD / DISARM'
+      : ' · RIGHT MOUSE: GUARD · Z: DISARM'
+    : '';
   panel.querySelector('span').innerHTML =
-    `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> ${view?.autoDialogue || view?.ambient ? 'CONTINUE · AUTO CAPTIONS' : 'CONTINUE'}`;
+    `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> ${view?.autoDialogue || view?.ambient ? 'CONTINUE · AUTO CAPTIONS' : 'CONTINUE'}${combatControls}`;
   if (line) {
     if ($('dialogue-speaker').textContent !== line.speaker)
       $('dialogue-speaker').textContent = line.speaker;
@@ -615,21 +628,17 @@ storySkip.addEventListener('click', () => {
   $('screen').focus({ preventScroll: true });
 });
 function showStoryChoice(view = storyView(state)) {
-  const choice = view?.choices?.find((entry) => entry.id === 'room-response');
-  if (!view?.active || !choice || !view.choicePending || !view.dialogueReady || view.dialogue)
-    return false;
+  const choice = storyChoicePresentation(view);
+  if (!choice) return false;
   promptedStoryChoice = `${view.missionId}:${view.stageId}:${view.attempt}`;
-  info(
-    'A place to begin.',
-    `<p>Nadia has made space for you. What do you say?</p><div class="story-options">${choice.options.map((option) => `<button data-story-option="${escapeHTML(option.id)}">${escapeHTML(option.text)}</button>`).join('')}</div>`,
-    'NIGHT CROSSING / NADIA',
-  );
+  info(choice.title, storyChoiceMarkup(choice), choice.eyebrow);
   $('info-dialog').dataset.storyPanel = 'choice';
+  if (choice.id === 'outfit') $('info-dialog').dataset.storyChoice = 'outfit';
   for (const button of $('info-content').querySelectorAll('[data-story-option]'))
     button.addEventListener('click', () => {
       const result = selectStoryChoice(state, choice.id, button.dataset.storyOption);
       if (!result.ok) {
-        announce('Wait until Nadia has finished speaking.', true);
+        announce(choice.error, true);
         return;
       }
       closeAllDialogs();
@@ -637,6 +646,27 @@ function showStoryChoice(view = storyView(state)) {
     });
   $('info-content').querySelector('[data-story-option]')?.focus({ preventScroll: true });
   return true;
+}
+function isTwoSeatsIntervention(view) {
+  return view?.active && view.missionId === 'LL-ST-003' && view.stageId === 'dispatch-threat';
+}
+function interventionObjective(view) {
+  if (!isTwoSeatsIntervention(view)) return view?.objective;
+  if (state.twoSeatsRuntime?.run?.disarm)
+    return 'Keep the doorway clear and let both collectors leave. Stay with Felix.';
+  const touch = matchMedia('(pointer: coarse)').matches,
+    opening = state.player.counterWindow;
+  if (opening?.attackerId === 'LL-ARC-DAX' && opening.expiresAt > state.time)
+    return touch
+      ? 'Face Dax. MORE → DISARM while he is exposed.'
+      : 'Face Dax. Press Z to disarm while he is exposed.';
+  if (WEAPONS[state.player.weapon]?.mode !== 'melee')
+    return touch
+      ? 'MORE → SWITCH WEAPON to Unarmed. Guard and disarm; keep the workers safe.'
+      : 'Q: select Unarmed. Hold right mouse to guard, then Z after a block.';
+  return touch
+    ? 'Face Dax. MORE → GUARD ON; after a block, MORE → DISARM. Keep the workers safe.'
+    : 'Face Dax. Hold right mouse to guard, then press Z after a block. Keep the workers safe.';
 }
 function showStoryFailure(view = storyView(state)) {
   if (!view?.failed) return false;
@@ -693,10 +723,7 @@ function updateStoryMenus(view) {
   )
     showStoryFailure(view);
   else if (
-    view?.active &&
-    view.choicePending &&
-    !view.dialogue &&
-    view.dialogueReady &&
+    storyChoicePresentation(view) &&
     promptedStoryChoice !== `${view.missionId}:${view.stageId}:${view.attempt}`
   )
     showStoryChoice(view);
@@ -822,6 +849,7 @@ function pause() {
 }
 function info(title, content, eyebrow = 'LOWLIGHT / FIELD NOTES') {
   delete $('info-dialog').dataset.storyPanel;
+  delete $('info-dialog').dataset.storyChoice;
   $('info-title').textContent = title;
   $('info-content').innerHTML = content;
   $('info-eyebrow').textContent = eyebrow;
@@ -1532,7 +1560,7 @@ function updateHud() {
       : story?.failed
         ? 'The journey was interrupted. Press USE or E for your checkpoint options.'
         : story?.active
-          ? story.objective
+          ? interventionObjective(story)
           : story?.availableAssignment?.objective) ||
     state.mission?.objective ||
     (room
@@ -1631,13 +1659,13 @@ function updateHud() {
   $('game-clock').textContent =
     `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   const candidate = nearestInteractable(state);
-  const choiceReady =
-    story?.active && story.choicePending && story.dialogueReady && !story.dialogue;
+  const choice = storyChoicePresentation(story),
+    choiceReady = !!choice;
   $('context-prompt').hidden =
     (!candidate && !story?.failed && !choiceReady) ||
     !!(state.dialogue || story?.dialogue || story?.ambient || story?.cinematic);
   if (story?.failed) $('context-text').textContent = 'Checkpoint options';
-  else if (choiceReady) $('context-text').textContent = 'Respond to Nadia';
+  else if (choiceReady) $('context-text').textContent = choice.prompt;
   else if (candidate) $('context-text').textContent = candidate.prompt || candidate.name;
   renderCaptions(story);
   renderStoryPhone(story);
@@ -1865,6 +1893,7 @@ game.start({
           (e) =>
             e.kind === 'hostile' ||
             state.hostiles.includes(e) ||
+            isNamedHostile(state, e.id) ||
             ((['police', 'air-search'].includes(e.kind) || e.role === 'air-search') &&
               state.wanted.level >= 2),
         )

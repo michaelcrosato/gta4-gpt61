@@ -1,0 +1,117 @@
+{
+  "boundary": "Actual published engine baseline Humanoid pixels, deterministic native animation t via Math.random=.5, fixed City35/48 zoom4. No story or physics proof.",
+  "sourceEngineSha256": "0129fc94702e79cac58d6c24c71f799cda663c0e3cdc271530cc57a31ed04f15",
+  "width": 220,
+  "height": 210,
+  "colors": {
+    "skin": "#b78a68",
+    "cloth": "#49544c",
+    "coat": "#56604f",
+    "pants": "#323c38",
+    "boot": "#202b25",
+    "hair": "#35312a"
+  },
+  "frames": 30,
+  "rows": [
+    {
+      "pose": "idle",
+      "angle": 0,
+      "sha256": "c89a49564d55ed60623e1a3addb1ee71389030687ae6fcf216679c53fc599aad"
+    },
+    {
+      "pose": "idle",
+      "angle": 1.5707963267948966,
+      "sha256": "98f032e292b0fc813d72eed61d9577fda464c676ef230962f95ec5d07dcfe6d0"
+    },
+    {
+      "pose": "idle",
+      "angle": 3.141592653589793,
+      "sha256": "8fb1e24f38d5aa3d7762e62a5c8f0b729be4f01489396072900913c5978e7330"
+    },
+    {
+      "pose": "idle",
+      "angle": 4.71238898038469,
+      "sha256": "2c6de9115250e0f97d0500974c66ee31f5844d9a61fa5f857270ad9be4677e61"
+    },
+    {
+      "pose": "crouch",
+      "angle": 0,
+      "sha256": "16c8f6002217eb292573d489be5aa02007b4a48374b46b971bb1a56b77bf71a9"
+    },
+    {
+      "pose": "crouch",
+      "angle": 1.5707963267948966,
+      "sha256": "bf223ae63082de92a06e185f3671079664dbba77d3fa3e1e4bfc1e506e9329d7"
+    },
+    {
+      "pose": "crouch",
+      "angle": 3.141592653589793,
+      "sha256": "053e6bfaa5bf3e52b82edeffdd8d28e6ca6f75741883d9d2fa0a1c677aeb2ca6"
+    },
+    {
+      "pose": "crouch",
+      "angle": 4.71238898038469,
+      "sha256": "dffc55a7300a817a67903a586bf5c9661f1bb5eb8c0dda6252612725c107e39b"
+    },
+    {
+      "pose": "down",
+      "angle": 0,
+      "sha256": "fab7ca81d8814ca5e2f781435b6c939f045ee35342cf45a599f1cf945785262f"
+    },
+    {
+      "pose": "down",
+      "angle": 1.5707963267948966,
+      "sha256": "de5517ee67750d7d271215951d047f155793c782dc3fe2c16cc9f53096c17a98"
+    },
+    {
+      "pose": "down",
+      "angle": 3.141592653589793,
+      "sha256": "92f90e94b4dad9806937660f807cfd5a237d8156eeb5fa0e232e02836e502ef2"
+    },
+    {
+      "pose": "down",
+      "angle": 4.71238898038469,
+      "sha256": "10f3c8f5c511331aac567ef2f898a7cb9a7752fb601ab4468dc4396f22f75666"
+    },
+    {
+      "pose": "guard",
+      "angle": 0,
+      "sha256": "dbe714ad00ddf530a7ddcdc34824e81c4fa94b06fc9f5cf6136bf18f971f106a"
+    },
+    {
+      "pose": "guard",
+      "angle": 1.5707963267948966,
+      "sha256": "d04236d65dc63fa22002eb511310722f5700ebca555a4129d5d1fd7724d18f11"
+    },
+    {
+      "pose": "guard",
+      "angle": 3.141592653589793,
+      "sha256": "db95b43c36532d5d3a1a9b26472e5283671d04c301bd25824a9c30fb9dcfb315"
+    },
+    {
+      "pose": "guard",
+      "angle": 4.71238898038469,
+      "sha256": "de9b8875c29f2ca4b33ee97ae1fc84c381f7d2fc638b20eac3f07165aac253e4"
+    },
+    {
+      "pose": "counter",
+      "angle": 0,
+      "sha256": "ebddac1cfff62422ad7c196a49bf1287e238b9932bf219d8e7a532693b87aa09"
+    },
+    {
+      "pose": "counter",
+      "angle": 1.5707963267948966,
+      "sha256": "90ceabe851b50ad7e952c1d491d1da73b64b6830879520756ae5810948e38211"
+    },
+    {
+      "pose": "counter",
+      "angle": 3.141592653589793,
+      "sha256": "a2ab36769a35afffc6c639d7f03bb949c5df37dc006a9df0dee2a7fea76994df"
+    },
+    {
+      "pose": "counter",
+      "angle": 4.71238898038469,
+      "sha256": "2c0bf99ea8423db6a8f0170e5b855445e6c69c25eec55517e9d903aeb021f44b"
+    }
+  ]
+}
