@@ -691,3 +691,50 @@ and build checks pass. Its exact app hashes are in
 `/tmp/lowlight-05-candidate3-manifest.json`; no unrelated passing workflow was
 repeated for the one-line eligibility change. Final Python harness formatting
 and the legacy-driver fail-fast guard do not change successful gameplay inputs.
+
+## City startup lookup correction (0.5.1)
+
+City parcel allocation repeatedly rebuilt static road rectangles and scanned
+every road. It now compiles each used padding once into the existing stable
+spatial index. Queries retain original road order and apply the original strict
+overlap check; the cached structures are private to generation. Roads finish
+construction before these indexes are created.
+
+The complete serialized city (919,848 bytes) and derived world (20,918,659 bytes)
+match the unmodified 0.5 baseline exactly, including values, IDs and order.
+Twelve new regressions also compare initial/240-step state and per-frame RNG
+for five seeds in legacy and canonical-story modes. Legacy controls actually
+move, sprint and fire four rounds; canonical controls retain the real cinematic
+locks. The full candidate passes **616 JavaScript tests**, **16 publication
+tests**, syntax, formatting, scope integrity, whitespace and build checks.
+
+Six interleaved fresh Node processes per build measured median city-module
+import at 1696→486 ms and simulation-module import at 3287→2253 ms. These are
+fresh processes with ordinary filesystem caching, not cold OS-cache or browser
+FPS measurements. Raw equivalence and timing evidence remains under
+`/tmp/lowlight-next-performance/reports`; the test oracle is committed in
+`tests/fixtures/city-startup-baseline.json`.
+
+The durable [browser startup check](../tests/browser-startup.py) separately ran
+three paired fresh browser contexts per build/engine, alternating order, at
+1440×900 and device scale 1. The baseline was frozen published 0.5 on port 5179;
+the optimized candidate was `/tmp/lowlight-051-candidate-3hsraoif` on port 5180.
+
+| Engine | Baseline readiness | Optimized readiness | Reduction |
+| --- | ---: | ---: | ---: |
+| Chromium | 4012 ms | 3121 ms | 22.2% |
+| WebKit | 4117 ms | 3700 ms | 10.1% |
+| Firefox | 4153 ms | 3404 ms | 18.0% |
+
+Complete world and initial-state hashes matched across both builds within each
+engine; checked sources were unchanged throughout measurement. Startup samples
+recorded no engine/page/console errors. Genuine New Game started Night Crossing
+with all four actors/player healthy and no recorded engine/page errors or
+overflow. All three arrival PNGs were inspected. Three actual 0.5 saves also
+loaded and re-saved without changing player/companion state: a pre-service home
+save, a completed arrival and a WebKit-generated interrupted save. Explicit
+retry of the interrupted save restored its real checkpoint successfully.
+Report: [/tmp/lowlight-051-browser-startup/report.json](/tmp/lowlight-051-browser-startup/report.json).
+These bounded headless desktop measurements do not establish cold physical-device
+startup, acceptable sustained/mobile FPS or real Safari behavior. No content,
+save schema, geometry or source-completion claim changes with this patch.

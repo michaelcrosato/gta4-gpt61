@@ -1,5 +1,6 @@
 /** Original Harbor City spatial blueprint. Geometry is authored; gameplay integration and interiors remain unfinished. */
 import { WORLD as PROLOGUE } from './prologue-world.js';
+import { createSpatialIndex } from './spatial-index.js';
 
 // Runtime contains original names and stable catalogue IDs only. Source names remain in the research documents.
 const CATALOGUE = {
@@ -3615,7 +3616,6 @@ function createBlueprint() {
     LANDFORMS.some((form) => pointInPolygon(point, form.polygon)) &&
     !LAKES.some((lake) => pointInRect(point, lake));
   const dryRect = (rect) => rectPoints(rect).every(insideLand);
-  const roadConflict = (rect, pad = 4) => roads.some((road) => overlap(rect, roadBox(road, pad)));
   function addRoad(id, points, width = 72, extra = {}) {
     const ids = [];
     if (
@@ -4289,15 +4289,33 @@ function createBlueprint() {
     runtimeStatus: 'unimplemented',
   });
 
+  // All authored roads are complete before parcel allocation. Capture each
+  // padding's original roadBox arithmetic once; the index is only a broad
+  // phase, so strict overlap and original road order remain authoritative.
+  const roadVolumeIndexes = new Map();
+  function nearbyRoadVolumes(rect, padding = 0) {
+    let index = roadVolumeIndexes.get(padding);
+    if (!index) {
+      const volumes = roads.map((road) => ({ road, bounds: roadBox(road, padding) }));
+      index = createSpatialIndex(volumes, { getBounds: (volume) => volume.bounds });
+      roadVolumeIndexes.set(padding, index);
+    }
+    return index.queryRect(rect);
+  }
+  const roadConflict = (rect, pad = 4) =>
+    nearbyRoadVolumes(rect, pad).some((volume) => overlap(rect, volume.bounds));
+
   function candidates(area) {
     const result = [],
-      pool = roads.filter(
-        (road) =>
-          road.access.includes('foot') &&
-          road.z1 === 0 &&
-          road.z2 === 0 &&
-          overlap(area.bounds, roadBox(road)),
-      );
+      pool = nearbyRoadVolumes(area.bounds)
+        .filter(
+          ({ road, bounds }) =>
+            road.access.includes('foot') &&
+            road.z1 === 0 &&
+            road.z2 === 0 &&
+            overlap(area.bounds, bounds),
+        )
+        .map((volume) => volume.road);
     for (const road of pool) {
       const length = Math.hypot(road.x2 - road.x1, road.y2 - road.y1),
         dx = (road.x2 - road.x1) / length,
@@ -4783,7 +4801,9 @@ function createBlueprint() {
         wet = LAKES.some((lake) => overlap(tile, lake)) || !rectPoints(tile).some(insideLand);
       const safeWet =
         wet &&
-        !roads.some((road) => !road.tunnel && overlap(tile, roadBox(road, 2))) &&
+        !nearbyRoadVolumes(tile, 2).some(
+          ({ road, bounds }) => !road.tunnel && overlap(tile, bounds),
+        ) &&
         !siteLots.some((lot) => overlap(tile, lot)) &&
         !buildings.some((b) => overlap(tile, b));
       if (safeWet) {
