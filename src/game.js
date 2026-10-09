@@ -21,6 +21,7 @@ import { findRoute, snapToRoad } from './navigation.js';
 import { weaponSound } from './weapon-art.js';
 import { createMinigameView } from './minigame-view.js';
 import { restoreActivity } from './activity-save.js';
+import { createMapBackground, createMapProjection } from './map-background.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -87,6 +88,7 @@ game.reduceMotion = settings.reduceMotion;
 game.audio.setVolume(settings.volume);
 game.cam.smooth = 0.18;
 const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS);
+const mapBackground = createMapBackground(WORLD);
 const dialogs = [$('pause-dialog'), $('info-dialog'), $('map-dialog')];
 const touch = { x: 0, y: 0, id: null };
 const noticeHistory = new Set();
@@ -297,7 +299,7 @@ function start(continuing = false) {
   $('screen').focus({ preventScroll: true });
   game.paused = false;
   game.cam.snap = true;
-  game.focus(state.player.x, state.player.y, 0);
+  game.focus(state.player.x, state.player.y, state.player.z || 0);
   game.cam.offset = matchMedia('(pointer: coarse)').matches ? [0, -25] : [0, 10];
   game.input.clear();
   lastHud = state.time - 1;
@@ -557,41 +559,20 @@ function drawMap(canvas, full = false) {
   const g = canvas.getContext('2d'),
     width = canvas.width,
     height = canvas.height;
-  const scale = full ? Math.min(width / WORLD.width, height / WORLD.height) : 0.37;
-  const originX = full ? (width - WORLD.width * scale) / 2 : width / 2 - state.player.x * scale;
-  const originY = full ? (height - WORLD.height * scale) / 2 : height / 2 - state.player.y * scale;
-  const pt = (x, y) => [originX + x * scale, originY + y * scale];
-  g.clearRect(0, 0, width, height);
-  g.fillStyle = '#182e28';
-  g.fillRect(0, 0, width, height);
-  for (const d of WORLD.districts) {
-    g.fillStyle = E.mix(d.color, '#203d31', 0.78);
-    const q = pt(d.x, d.y);
-    g.fillRect(...q, d.w * scale, d.h * scale);
-  }
-  for (const w of WORLD.water) {
-    g.fillStyle = '#1b3d43';
-    g.fillRect(...pt(w.x, w.y), w.w * scale, w.h * scale);
-  }
-  for (const b of WORLD.buildings) {
-    g.fillStyle = '#526654';
-    g.fillRect(...pt(b.x, b.y), b.w * scale, b.h * scale);
-  }
-  g.lineCap = 'butt';
-  for (const road of WORLD.roads) {
-    g.strokeStyle = '#263d31';
-    g.lineWidth = road.width * scale;
-    g.beginPath();
-    g.moveTo(...pt(road.x1, road.y1));
-    g.lineTo(...pt(road.x2, road.y2));
-    g.stroke();
-    g.strokeStyle = '#667c58';
-    g.lineWidth = 1;
-    g.stroke();
-  }
+  const projection = createMapProjection(WORLD, width, height, { full, center: state.player });
+  const { scale, project: pt } = projection;
+  mapBackground.draw(g, projection);
   const destination = state.waypoint || state.mission?.target;
   if (destination) {
-    const route = findRoute(WORLD, state.player, destination),
+    const route = findRoute(
+        WORLD,
+        { x: state.player.x, y: state.player.y, z: state.player.groundZ ?? state.player.z ?? 0 },
+        destination,
+        {
+          mode: state.player.vehicleId ? 'car' : 'foot',
+          includeZ: true,
+        },
+      ),
       b = pt(destination.x, destination.y);
     g.strokeStyle = '#c5b46a';
     g.lineWidth = full ? 3 : 2;
@@ -650,12 +631,6 @@ function drawMap(canvas, full = false) {
       g.arc(...pt(l.x, l.y), 4, 0, Math.PI * 2);
       g.fill();
     }
-    g.font = 'bold 12px monospace';
-    g.textAlign = 'center';
-    for (const d of WORLD.districts) {
-      g.fillStyle = '#c0cbaa';
-      g.fillText(d.name.toUpperCase(), ...pt(d.x + d.w / 2, d.y + 55));
-    }
     if (mapCursor) {
       const q = pt(mapCursor.x, mapCursor.y);
       g.strokeStyle = '#eaf0d0';
@@ -691,20 +666,32 @@ function showMap() {
   drawMap($('city-map'), true);
 }
 $('pause-map').addEventListener('click', showMap);
+$('map-dialog').querySelector('.map-instruction').textContent =
+  'Select a street, or use arrow keys and Enter, to set a waypoint. Paths are green; rail is gray; elevated roads are pale gold; tunnels are dashed blue; closed crossings are dashed red.';
 $('city-map').addEventListener('click', (event) => {
   const cv = event.currentTarget,
-    rect = cv.getBoundingClientRect(),
-    scale = Math.min(cv.width / WORLD.width, cv.height / WORLD.height);
-  const x =
-    (((event.clientX - rect.left) * cv.width) / rect.width - (cv.width - WORLD.width * scale) / 2) /
-    scale;
-  const y =
-    (((event.clientY - rect.top) * cv.height) / rect.height -
-      (cv.height - WORLD.height * scale) / 2) /
-    scale;
+    rect = cv.getBoundingClientRect();
+  const { x, y } = createMapProjection(WORLD, cv.width, cv.height, {
+    full: true,
+    center: state.player,
+  }).unproject(
+    ((event.clientX - rect.left) * cv.width) / rect.width,
+    ((event.clientY - rect.top) * cv.height) / rect.height,
+  );
   if (x >= 0 && x <= WORLD.width && y >= 0 && y <= WORLD.height) {
-    const snapped = snapToRoad(WORLD, { x, y });
-    if (snapped) state.waypoint = { x: snapped.x, y: snapped.y, name: 'Your waypoint', radius: 15 };
+    const snapped = snapToRoad(
+      WORLD,
+      { x, y, z: state.player.groundZ ?? state.player.z ?? 0 },
+      { mode: state.player.vehicleId ? 'car' : 'foot', includeZ: true },
+    );
+    if (snapped)
+      state.waypoint = {
+        x: snapped.x,
+        y: snapped.y,
+        z: snapped.z,
+        name: 'Your waypoint',
+        radius: 15,
+      };
     drawMap(cv, true);
   }
 });
@@ -726,8 +713,19 @@ $('city-map').addEventListener('keydown', (event) => {
     mapCursor = { x: state.player.x, y: state.player.y };
   } else if (event.key === 'Enter') {
     event.preventDefault();
-    const snapped = snapToRoad(WORLD, mapCursor);
-    if (snapped) state.waypoint = { x: snapped.x, y: snapped.y, name: 'Your waypoint', radius: 15 };
+    const snapped = snapToRoad(
+      WORLD,
+      { ...mapCursor, z: state.player.groundZ ?? state.player.z ?? 0 },
+      { mode: state.player.vehicleId ? 'car' : 'foot', includeZ: true },
+    );
+    if (snapped)
+      state.waypoint = {
+        x: snapped.x,
+        y: snapped.y,
+        z: snapped.z,
+        name: 'Your waypoint',
+        radius: 15,
+      };
   } else return;
   drawMap(event.currentTarget, true);
 });
@@ -800,6 +798,7 @@ function updateHud() {
   const p = state.player,
     ammo = p.ammo[p.weapon],
     definition = WEAPONS[p.weapon];
+  document.body.classList.toggle('in-conversation', !!state.dialogue);
   $('cash').textContent = `$${Math.round(p.money).toLocaleString('en-US')}`;
   $('health-bar').style.width = `${Math.max(0, p.health)}%`;
   $('armour-bar').style.width = `${Math.max(0, p.armour)}%`;
@@ -811,13 +810,19 @@ function updateHud() {
     'aria-label',
     `Armour ${Math.round(p.armour)} percent`,
   );
-  $('weapon-name').textContent = p.vehicleId
-    ? VEHICLE_SPECS[currentVehicle(state)?.spec]?.name || 'VEHICLE'
-    : definition.name;
-  $('ammo').innerHTML =
-    definition.mode === 'melee'
+  $('weapon-name').textContent = p.swimming
+    ? p.stamina < 30
+      ? 'SWIMMING / FLOAT TO REST'
+      : 'SWIMMING'
+    : p.vehicleId
+      ? VEHICLE_SPECS[currentVehicle(state)?.spec]?.name || 'VEHICLE'
+      : definition.name;
+  $('ammo').innerHTML = p.swimming
+    ? `${Math.max(0, Math.round(p.stamina))}% <small>STAMINA</small>`
+    : definition.mode === 'melee'
       ? '<small>READY</small>'
       : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
+  $('ammo').style.whiteSpace = p.swimming ? 'nowrap' : '';
   $('wanted-stars').textContent = '★'.repeat(state.wanted.level);
   $('wanted-stars').style.color = ['search', 'cooling'].includes(state.wanted.status)
     ? '#9daf9f'
@@ -837,12 +842,27 @@ function updateHud() {
     : state.wanted.level
       ? state.wanted.status.toUpperCase()
       : '';
-  const district =
-    WORLD.districts.find((d) => p.x >= d.x && p.x < d.x + d.w && p.y >= d.y && p.y < d.y + d.h) ||
-    WORLD.districts[1];
-  $('district-name').textContent = district.name.toUpperCase();
-  $('street-name').textContent =
-    `${district.name.toUpperCase()} / ${p.vehicleId ? 'DRIVING' : 'ON FOOT'}`;
+  const { areaName, districtName } = mapBackground.place(state);
+  const placeName = state.place?.name || areaName || districtName;
+  const travelMode = p.swimming ? 'SWIMMING' : p.vehicleId ? 'DRIVING' : 'ON FOOT';
+  $('district-name').textContent = placeName.toUpperCase();
+  $('district-announcement').querySelector('span').textContent = districtName.toUpperCase();
+  $('street-name').textContent = `${placeName.toUpperCase()} / ${travelMode}`;
+  Object.assign($('street-name').style, {
+    minWidth: '0',
+    maxWidth: 'calc(100% - 34px)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  });
+  const swimHint = p.swimming
+    ? ` Stamina ${Math.round(p.stamina)} percent. Hold RUN to swim faster. Float without moving to rest and regain stamina.`
+    : '';
+  $('street-name').title = `${placeName}, ${districtName} / ${travelMode}.${swimHint}`;
+  $('minimap').setAttribute(
+    'aria-label',
+    `Local street map: ${placeName}, ${districtName}. ${travelMode}.${swimHint}`,
+  );
   const hour = Math.floor(state.clock),
     minute = Math.floor((state.clock - hour) * 60);
   $('game-clock').textContent =
@@ -1002,14 +1022,19 @@ game.start({
     const ground = game.view.screenDirToGround(...movement);
     let aimAngle, aimTarget;
     const targetable = [...state.hostiles, ...state.police, ...(state.policeAircraft || [])].filter(
-      (actor) => actor.health > 0 && !actor.inVehicle,
+      (actor) =>
+        actor.health > 0 && !actor.inVehicle && (actor.z || 0) < 0 === (state.player.z || 0) < 0,
     );
     const padAim = input.padAim;
     if (padAim) {
       const worldAim = game.view.screenDirToGround(...padAim);
       aimAngle = Math.atan2(worldAim[1], worldAim[0]);
     } else if (input.mouse.active && input.aimSource === 'mouse') {
-      const mouse = game.mouseGround();
+      const pointer = input.mouseScreen(),
+        heightOffset = game.view.p(0, 0, state.player.z || 0),
+        mouse = pointer
+          ? game.view.toGround(pointer[0] - heightOffset[0], pointer[1] - heightOffset[1])
+          : null;
       if (mouse) aimAngle = Math.atan2(mouse[1] - state.player.y, mouse[0] - state.player.x);
       const projectedPointer = input.mouseScreen();
       if (projectedPointer) {
@@ -1079,7 +1104,7 @@ game.start({
     game.focus(
       state.player.x + (vehicle ? Math.cos(vehicle.angle) * vehicle.speed * 0.14 : 0),
       state.player.y + (vehicle ? Math.sin(vehicle.angle) * vehicle.speed * 0.14 : 0),
-      0,
+      state.player.z || 0,
     );
     if (state.player.health < lastHealth) {
       game.hitFx(state.player.x, state.player.y, 15, {
@@ -1183,5 +1208,6 @@ if (new URLSearchParams(location.search).has('debug')) {
       updateHud();
     },
     refresh: updateHud,
+    mapStats: () => mapBackground.stats(),
   };
 }

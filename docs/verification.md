@@ -26,7 +26,7 @@ node scripts/scope-status.mjs --require-verified
 git diff --check
 ```
 
-The current complete JavaScript test run passed **165 tests**: 21 simulation,
+The 0.2 core baseline JavaScript test run passed **165 tests**: 21 simulation,
 23 combat, 31 police, 36 minigame, 25 activity-save, three interaction,
 10 road-routing, 10 engine pixel-clipping, and six static floor-cache checks.
 The repository
@@ -268,3 +268,114 @@ The activity Continue cases were rerun after strict save validation was wired
 in; all three engines resumed real mid-roll snapshots without another fee.
 Those reports are under
 [/tmp/lowlight-activities-qa/validation-save-only](/tmp/lowlight-activities-qa/validation-save-only).
+
+
+## Expanded city integration (0.3)
+
+The runtime now uses the original authored exterior blueprint: 65 neighborhoods
+and 194 site addresses over a 12,000 by 10,000 world. These are playable exterior
+geometry, rather than produced interior rooms or completed city audit records.
+Source-map status stays `planned` until the complete acceptance contract for an
+individual record has been implemented and reviewed. Station/platform/route
+geometry is present, while trains, station transfers, boats, gondola operation,
+tolls and site interiors remain unfinished.
+
+Terrain uses exact landform/lake collision, indexed obstacles, three-dimensional
+wall sight checks and tunnel space/earth blocking. Road topology is compiled
+once per world/access mode, including real ramp/deck/bore grades. Cars and people
+follow their own connected ground layer; cars remain behind visible bridge side
+barriers, while a person leaving a span falls toward ground/water. Surface
+swimming strokes consume stamina, idle floating restores it, weapon use is
+blocked, and exhausted strokes cause damage.
+Underwater diving is not implemented.
+
+Regional traffic/pedestrian generation uses stable local seeds and identities.
+Active/dormant body records preserve damage, theft and death across revisits and
+saves. Legacy, nearby, occupied, stolen, owned, mission, police and reporting
+bodies are protected from normal streaming removal. The active population
+budgets are soft limits when gameplay protection requires retaining more bodies.
+Ambient routes currently stay on local accessible ground streets; cross-city
+traffic trips and elevated-road ambient traffic remain production work.
+
+The added movement/runtime tests exercise a complete ascent/span/descent,
+underpass separation, deck barriers and falling, jumping over a ramp, road bores
+and solid earth, swimming permission, negative-height gunfire/saves, high-roof
+aim/save bounds, physical pedestrian routes and population revisits. The
+blueprint checks sample every car-accessible road at 21 points with the actual
+terrain collision radius, preserve dry supply access, and require nonzero flat
+spans/bores for each relevant crossing. These checks supplement individual
+spatial/terrain/navigation/cache tests; they do not certify all source scenarios.
+
+The natural opening driver is [browser-opening.py](../tests/browser-opening.py).
+It reads state to choose browser inputs and never writes actor position, health,
+money, inventory, wanted state, mission state, RNG or simulation clock. Earlier
+recorded attempts completed First Shift and reached second-job combat, followed
+by a real police-pursuit death. Those results are retained as partial progress,
+not four-job completion. The driver permits normal clinic recovery and retry.
+
+[Browser city checks](../tests/browser-city.py) compare cached and direct native
+ground RGBA pixels, then capture declared exterior/deck/bore/lake fixtures.
+[Browser map checks](../tests/browser-map.py) exercise native map geometry,
+projection/waypoint alignment and layer-aware camera behavior. Geography fixtures
+relocate the player or starter taxi and are explicitly separate from natural
+travel and campaign playthrough evidence. Frame samples are short automated
+measurements, rather than sustained real-device performance acceptance.
+
+
+The integrated-city natural attempt additionally confirmed actual clinic recovery
+after the second-job pursuit: the starter taxi was destroyed, Mara died, the
+assignment failed, and the clinic charged $80 while restoring health to 100 and
+clearing wanted attention. The driver then tried to reuse that destroyed taxi;
+this is a harness limitation, not evidence that the game cannot accept a healthy
+replacement vehicle. Four-job natural completion remains unproven at this point.
+
+The city raster checker passed **36 native RGBA comparisons** (12 in each of
+Chromium, Firefox and WebKit) and **27 declared scene captures** across the five
+districts, opening, bridge, bore and lake. Cached/direct ground pixels matched
+exactly. The control smoke check passed all three engines. Title and opening
+matrices produced **48 clean captures** over 14 viewport sizes; PNGs were reviewed
+in contact sheets, with small-phone portrait/landscape captures also inspected at
+full size. Reports live under `/tmp/lowlight-city-qa/final`,
+`/tmp/lowlight-city-smoke`, `/tmp/lowlight-city-title-matrix`, and
+`/tmp/lowlight-city-game-matrix`. Subsequent touch conversation overlap repairs
+receive focused recapture/checks before publication.
+
+Short 1440 by 900 scene samples after lamp indexing measured approximately
+60 frames/second in Chromium and Firefox and **21.6–34.8** in WebKit. Earlier
+WebKit samples before that indexing measured 14.9–24.3. These are separate short
+automated desktop samples; they do not establish phone, sustained-play or
+physical Safari performance. WebKit performance is still a release gate.
+
+
+The 0.3 city integration's complete JavaScript suite passed **278 tests**, and
+the publication suite again passed **16 Python tests**. Syntax checks cover all
+21 game modules; format, whitespace, catalogue-integrity and static-build checks
+passed. The stricter source-completion audit still exits with its expected code
+`2`: campaign, systems, city acceptance and research work remain unfinished.
+
+
+Publication captures extended the city check to finance, coastal and civic
+facades: **36 declared scenes** passed across the three engines, together with
+the same **36 exact cached/direct ground comparisons**. Their report is under
+`/tmp/lowlight-city-qa/publication`; the latest WebKit desktop frame sample range
+was 20.7–33.6. The natural sports-coupe approach regression also passed through
+real walking/E input after its driver threshold was corrected; it establishes
+vehicle entry, not completion of the four opening assignments.
+
+
+Touch layout repairs passed five profile checks across conversation, ordinary
+play, the longest current objective with queued notices, and six-star HUD states.
+Objective text, newest notifications, minimap and controls had no measured target
+overlaps or page overflow. Tablet and wide ordinary layouts retained their prior
+geometry. Reports/captures are under `/tmp/lowlight-touch-layout/after`; the
+focused Chromium/Firefox/WebKit map regression passed after these repairs.
+Real iOS Safari and physical device input remain outside this automated evidence.
+
+
+The final gameplay matrix after the touch repairs again produced **24 clean
+captures** over all 14 viewport sizes. Its contact sheet and small-phone
+landscape PNG were inspected. The final control smoke check passed all three
+engines. Reports are `/tmp/lowlight-city-game-publication-matrix` and
+`/tmp/lowlight-city-smoke-publication`. The staged city snapshot independently
+passed the 278-test JavaScript suite and 16 publication tests, plus syntax,
+format, catalogue-integrity and build checks.

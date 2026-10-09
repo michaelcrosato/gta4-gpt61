@@ -1,5 +1,6 @@
+import { worldElevation } from './world-elevation.js';
 /** Observation-driven dispatch, road pursuit, arrest and six escalating response tiers. */
-import { findRoute, snapToRoad } from './navigation.js';
+import { findRoute, snapToRoad, createRoadNetwork } from './navigation.js';
 import { WEAPONS } from './combat.js';
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -155,6 +156,7 @@ export function forcePoliceWanted(state, level, point, ctx, observedAt = state.t
     wanted.lastSeen = {
       x: clamp(point?.x ?? state.player.x, ctx.world.bounds.left + 8, ctx.world.bounds.right - 8),
       y: clamp(point?.y ?? state.player.y, ctx.world.bounds.top + 8, ctx.world.bounds.bottom - 8),
+      ...((point?.z ?? state.player.z) ? { z: point?.z ?? state.player.z } : {}),
     };
     wanted.lastSeenTime = observedAt;
   }
@@ -233,7 +235,7 @@ export function reportObservedCrime(state, crime, ctx) {
       severity,
       time: state.time,
       remaining: 1.4 + ctx.random() * 1.6,
-      point: { x: point.x, y: point.y },
+      point: { x: point.x, y: point.y, ...(point.z ? { z: point.z } : {}) },
       heading: state.player.angle,
       speed: state.player.speed || 0,
       vehicleId: state.player.vehicleId,
@@ -273,19 +275,7 @@ function updateReports(state, dt, ctx) {
   );
 }
 function roadJunctions(world) {
-  const vertical = world.roads.filter((road) => road.x1 === road.x2),
-    horizontal = world.roads.filter((road) => road.y1 === road.y2),
-    points = [];
-  for (const a of vertical)
-    for (const b of horizontal)
-      if (
-        b.y1 >= Math.min(a.y1, a.y2) &&
-        b.y1 <= Math.max(a.y1, a.y2) &&
-        a.x1 >= Math.min(b.x1, b.x2) &&
-        a.x1 <= Math.max(b.x1, b.x2)
-      )
-        points.push({ x: a.x1, y: b.y1 });
-  return points;
+  return createRoadNetwork(world).nodes.filter((node) => node.edges.size >= 3);
 }
 function deploymentPoint(state, ctx, offset = 260) {
   for (let attempt = 0; attempt < 16; attempt++) {
@@ -294,14 +284,14 @@ function deploymentPoint(state, ctx, offset = 260) {
     const radius = offset + Math.floor(count / 4) * 55;
     const known = state.wanted.lastSeen,
       desired = { x: known.x + Math.cos(angle) * radius, y: known.y + Math.sin(angle) * radius };
-    const point = snapToRoad(ctx.world, desired);
+    const point = snapToRoad(ctx.world, { ...desired, z: known.z || 0 }, { includeZ: true });
     if (
       point &&
-      !ctx.isBlocked(point.x, point.y, 10) &&
+      !ctx.isBlocked(point.x, point.y, 10, point.z || 0) &&
       !state.vehicles.some((car) => car.health > 0 && distance(point, car) < 36) &&
       !state.police.some((actor) => actor.health > 0 && distance(point, actor) < 20)
     )
-      return { x: point.x, y: point.y };
+      return { x: point.x, y: point.y, z: point.z || 0 };
   }
   return null;
 }
@@ -316,6 +306,7 @@ function officer(state, ctx, point, role = 'patrol', tier = state.wanted.level) 
     x: point.x,
     y: point.y,
     z: point.z || 0,
+    groundZ: point.z || 0,
     angle: angleTo(point, state.wanted.lastSeen),
     health: tactical ? 120 : marksman ? 95 : 85,
     armour: tactical ? 65 : marksman ? 25 : 0,
@@ -344,6 +335,8 @@ function cruiser(state, ctx, response = 'patrol', point = deploymentPoint(state,
     spec,
     x: point.x,
     y: point.y,
+    z: point.z || 0,
+    groundZ: point.z || 0,
     angle: angleTo(point, state.wanted.lastSeen),
     speed: 0,
     health: armored ? 340 : 170,
@@ -377,7 +370,7 @@ function cruiser(state, ctx, response = 'patrol', point = deploymentPoint(state,
 }
 function roadblock(state, ctx, point, cordon = false) {
   const id = ctx.id(cordon ? 'cordon' : 'roadblock'),
-    nearest = snapToRoad(ctx.world, point);
+    nearest = snapToRoad(ctx.world, point, { includeZ: true });
   if (!nearest) return null;
   const road = ctx.world.roads[nearest.roadIndex],
     vertical = road.x1 === road.x2;
@@ -385,6 +378,7 @@ function roadblock(state, ctx, point, cordon = false) {
     id,
     x: nearest.x,
     y: nearest.y,
+    z: nearest.z || 0,
     vehicleIds: [],
     officerIds: [],
     persistent: cordon,
@@ -394,6 +388,8 @@ function roadblock(state, ctx, point, cordon = false) {
     const carPoint = {
       x: nearest.x + (vertical ? side * 17 : 0),
       y: nearest.y + (vertical ? 0 : side * 17),
+      z: nearest.z || 0,
+      groundZ: nearest.z || 0,
     };
     const car = {
       id: ctx.id('blocker'),
@@ -419,12 +415,13 @@ function roadblock(state, ctx, point, cordon = false) {
       policeRouteIndex: 0,
       nextRoute: 0,
     };
-    if (ctx.isBlocked(car.x, car.y, 10)) continue;
+    if (ctx.isBlocked(car.x, car.y, 10, car.z || 0)) continue;
     state.vehicles.push(car);
     record.vehicleIds.push(car.id);
     const actorPoint = {
       x: nearest.x + (vertical ? side * 31 : 25),
       y: nearest.y + (vertical ? 25 : side * 31),
+      z: nearest.z || 0,
     };
     const member = officer(state, ctx, actorPoint, cordon ? 'cordon' : 'search');
     member.anchor = { x: actorPoint.x, y: actorPoint.y };
@@ -439,7 +436,10 @@ function deployRoadblocks(state, ctx, count, cordon = false) {
   const known = state.wanted.lastSeen;
   const junctions = roadJunctions(ctx.world)
     .filter(
-      (point) => distance(point, known) > 130 && distance(point, known) < (cordon ? 1050 : 650),
+      (point) =>
+        Math.abs((point.z || 0) - (known.z || 0)) < 6 &&
+        distance(point, known) > 130 &&
+        distance(point, known) < (cordon ? 1050 : 650),
     )
     .sort(
       (a, b) =>
@@ -527,7 +527,10 @@ function deploy(state, ctx) {
 }
 function routeBody(body, destination, state, ctx, dt, speed, radius = 8) {
   if (state.time >= body.nextRoute || !body.policeRoute?.length) {
-    body.policeRoute = findRoute(ctx.world, body, destination);
+    body.policeRoute = findRoute(ctx.world, body, destination, {
+      mode: body.spec ? 'car' : 'foot',
+      includeZ: true,
+    });
     body.policeRouteIndex = 0;
     body.nextRoute = state.time + 1.2;
   }
@@ -554,10 +557,13 @@ function disembark(state, car, ctx) {
     const point = {
       x: car.x + Math.cos(car.angle + Math.PI / 2) * (index ? 24 : -24),
       y: car.y + Math.sin(car.angle + Math.PI / 2) * (index ? 24 : -24),
+      z: car.z || 0,
     };
-    if (!ctx.isBlocked(point.x, point.y, 7)) {
+    if (!ctx.isBlocked(point.x, point.y, 7, point.z || 0)) {
       member.x = point.x;
       member.y = point.y;
+      member.z = point.z || 0;
+      member.groundZ = car.groundZ || 0;
     }
   }
 }
@@ -617,7 +623,13 @@ function updateCruisers(state, dt, ctx) {
       car.speed *= 0.2;
     }
     for (const other of state.vehicles) {
-      if (other.id === car.id || other.health <= 0 || distance(other, car) > 22) continue;
+      if (
+        other.id === car.id ||
+        other.health <= 0 ||
+        Math.abs((other.z || 0) - (car.z || 0)) > 12 ||
+        distance(other, car) > 22
+      )
+        continue;
       const impact = Math.abs(car.speed - other.speed);
       if (impact > 30) {
         ctx.damageVehicle(other, impact * 0.05);
@@ -633,6 +645,8 @@ function updateCruisers(state, dt, ctx) {
       if (member && member.inVehicle) {
         member.x = car.x;
         member.y = car.y;
+        member.z = car.z || 0;
+        member.groundZ = car.groundZ || 0;
         member.angle = car.angle;
       }
     }
@@ -782,6 +796,8 @@ function arrest(state, officer, ctx) {
   }
   state.player.vehicleId = null;
   state.player.z = 0;
+  state.player.groundZ = 0;
+  state.player.swimming = false;
   state.player.vz = 0;
   state.player.speed = 0;
   state.player.surrendering = false;
@@ -898,7 +914,11 @@ export function updatePolicing(state, dt, input, ctx) {
   wanted.observed = observers.length + aircraft.length > 0;
   state.policeDispatch.observedBy = [...observers, ...aircraft].map((actor) => actor.id);
   if (wanted.observed) {
-    wanted.lastSeen = { x: state.player.x, y: state.player.y };
+    wanted.lastSeen = {
+      x: state.player.x,
+      y: state.player.y,
+      ...(state.player.z ? { z: state.player.z } : {}),
+    };
     wanted.lastSeenTime = state.time;
     wanted.unseen = 0;
     wanted.timer = 0;
@@ -958,6 +978,7 @@ export function validatePoliceSave(state, world) {
   const point = (value) =>
     value && finite(value.x, 0, world.width) && finite(value.y, 0, world.height);
   const dispatch = state.policeDispatch;
+  const elevation = worldElevation(world);
   if (
     state.policeVersion !== 1 ||
     !dispatch ||
@@ -995,7 +1016,7 @@ export function validatePoliceSave(state, world) {
         (actor.role !== undefined &&
           !['patrol', 'search', 'tactical', 'cordon', 'overwatch'].includes(actor.role)) ||
         (actor.armour !== undefined && !finite(actor.armour, 0, 200)) ||
-        (actor.z !== undefined && !finite(actor.z, 0, 250)) ||
+        (actor.z !== undefined && !finite(actor.z, elevation.min, elevation.max)) ||
         (actor.inVehicle !== undefined && typeof actor.inVehicle !== 'boolean') ||
         (actor.policeRoute &&
           (!Array.isArray(actor.policeRoute) ||
@@ -1033,7 +1054,7 @@ export function validatePoliceSave(state, world) {
     state.policeAircraft.some(
       (air) =>
         !point(air) ||
-        !finite(air.z, 0, 250) ||
+        !finite(air.z, 0, elevation.max) ||
         !finite(air.health, 0, 500) ||
         !finite(air.angle, -10, 10) ||
         !point(air.searchlight) ||

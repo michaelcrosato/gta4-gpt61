@@ -14,8 +14,10 @@ is who gets to decide what rebuilding means, and who must pay for it.
 The city comprises Breakwater, Saint Brigid, Glassward, The Narrows, and Ironhaven.
 These need different street geometry, architecture, residents, landmarks,
 transport, interiors, lighting, traffic, sound, and mission opportunities. The
-current connected road grid is a simulation baseline; five colored rectangles do
-not satisfy the finished-city requirement.
+current exterior world has 65 original neighborhood layouts, coastal landforms,
+194 site addresses, graded crossings, and district populations. Interiors,
+working transit and the complete traversal/fleet content are still required
+before the city can pass its production audit.
 
 The visual direction uses procedural pixel geometry, rain-muted stone, warm
 windows, cool streets, clear animation silhouettes, and restrained gold interface
@@ -82,7 +84,10 @@ permission to stop after a slice.
 
 ## Current implementation and evidence
 
-Implemented foundation: continuous five-district road grid; procedural buildings,
+Implemented foundation: a continuous coastal exterior world across five
+districts and 65 neighborhoods, with graded bridges and road bores, surface
+swimming, spatial collision/sight queries, persistent regional populations,
+and bounded ground/map/building caches; procedural buildings,
 cars, and articulated character rendering; keyboard/gamepad/touch movement;
 on-foot and vehicle collisions; 17 weapon roles with original equipment art,
 finite supply/reloads, timed melee defense/counters/disarms, scoped vertical
@@ -99,7 +104,7 @@ settings, gear purchasing, and basic phone.
 
 The phone currently shows mission/contact information. It does not implement the
 complete call, relationship, date, email, web, and multiplayer entry systems.
-Likewise, five vehicle specifications, four assignments, a road grid,
+Likewise, five vehicle specifications, four assignments, exterior site geometry,
 and synthesized background music are foundation evidence, not reference-wide
 parity.
 

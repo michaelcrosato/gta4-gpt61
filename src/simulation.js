@@ -8,6 +8,10 @@ import {
   validatePoliceSave,
 } from './police.js';
 import { WORLD, ROAD_XS as roadXs, ROAD_YS as roadYs } from './world.js';
+import { createTerrain } from './terrain.js';
+import { createSurfaceMovement } from './surface-movement.js';
+import { worldElevation } from './world-elevation.js';
+import { initializeAmbient, updateAmbient, validateAmbient } from './ambient-city.js';
 import {
   WEAPONS,
   SHOP_WEAPONS,
@@ -27,6 +31,9 @@ export { WORLD, WEAPONS };
 /** LOWLIGHT's deterministic, renderer-independent city simulation. */
 const TAU = Math.PI * 2;
 const SAVE_VERSION = 1;
+export const TERRAIN = createTerrain(WORLD);
+const ELEVATION = worldElevation(WORLD);
+const surfaceMovement = createSurfaceMovement(TERRAIN);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
@@ -428,6 +435,8 @@ function createVehicle(state, definition) {
     spec: definition.spec || 'sedan',
     x: definition.x,
     y: definition.y,
+    z: definition.z || 0,
+    groundZ: definition.z || 0,
     angle: definition.angle || 0,
     speed: 0,
     health: spec.health,
@@ -446,6 +455,7 @@ export function createSimulation(seed = 61) {
   const state = {
     version: SAVE_VERSION,
     rng: (Number(numericSeed) || 61) >>> 0,
+    initialSeed: (Number(numericSeed) || 61) >>> 0,
     sequence: 0,
     time: 0,
     clock: 20.25,
@@ -593,6 +603,8 @@ export function createSimulation(seed = 61) {
   initializeCombat(state, WORLD.pickups || []);
   initializePolicing(state);
   startMission(state, 'first-shift');
+  initializeAmbient(state, WORLD);
+  updateAmbient(state, WORLD, 0, ambientContext(state));
   return state;
 }
 
@@ -606,65 +618,13 @@ function circleRectCollision(x, y, radius, rect) {
   return Math.hypot(x - nearX, y - nearY) < radius;
 }
 export function isBlocked(x, y, radius = 7, z = 0) {
-  if (
-    x - radius < WORLD.bounds.left ||
-    x + radius > WORLD.bounds.right ||
-    y - radius < WORLD.bounds.top ||
-    y + radius > WORLD.bounds.bottom
-  )
-    return true;
-  return (
-    WORLD.buildings.some(
-      (building) => z < (building.height || 40) && circleRectCollision(x, y, radius, building),
-    ) ||
-    (WORLD.obstacles || []).some(
-      (obstacle) => z < obstacle.height && circleRectCollision(x, y, radius, obstacle),
-    )
-  );
+  return TERRAIN.isBlocked(x, y, radius, z);
 }
-function moveBody(body, dx, dy, radius) {
-  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (radius * 0.65)));
-  let collided = false;
-  for (let i = 0; i < steps; i += 1) {
-    const nextX = body.x + dx / steps;
-    const nextY = body.y + dy / steps;
-    if (!isBlocked(nextX, nextY, radius, body.z || 0)) {
-      body.x = nextX;
-      body.y = nextY;
-      continue;
-    }
-    collided = true;
-    if (!isBlocked(nextX, body.y, radius, body.z || 0)) body.x = nextX;
-    if (!isBlocked(body.x, nextY, radius, body.z || 0)) body.y = nextY;
-  }
-  return collided;
+function moveBody(body, dx, dy, radius, options) {
+  return surfaceMovement.moveBody(body, dx, dy, radius, options);
 }
 function hasLineOfSight(a, b) {
-  const length = distance(a, b);
-  const segments = Math.ceil(length / 9);
-  for (let i = 1; i < segments; i += 1) {
-    const fraction = i / segments;
-    const z0 = (a.z || 0) + (a.health !== undefined ? 14 : 0),
-      z1 = (b.z || 0) + (b.health !== undefined ? 14 : 0);
-    const z = z0 + (z1 - z0) * fraction;
-    if (
-      [...WORLD.buildings, ...(WORLD.obstacles || [])].some(
-        (building) =>
-          z <
-            (building.type === 'barrier' || building.type === 'ledge' || building.type === 'fence'
-              ? building.height
-              : building.height || 40) &&
-          circleRectCollision(
-            a.x + (b.x - a.x) * fraction,
-            a.y + (b.y - a.y) * fraction,
-            1,
-            building,
-          ),
-      )
-    )
-      return false;
-  }
-  return true;
+  return TERRAIN.hasLineOfSight(a, b);
 }
 function damagePlayer(state, damage) {
   if (state.player.health <= 0 || state.respawnTimer > 0) return;
@@ -706,7 +666,7 @@ function killPlayer(state) {
   state.player.traversal = null;
   state.player.meleeAction = null;
   state.player.defending = false;
-  state.player.z = 0;
+  state.player.z = state.player.groundZ || 0;
   state.player.vz = 0;
   if (state.mission) failMission(state, 'Mara was incapacitated. The assignment can be retried.');
   state.taxiJob = null;
@@ -724,6 +684,10 @@ function respawn(state) {
     armour: 0,
     speed: 0,
     reloadRemaining: 0,
+    z: 0,
+    groundZ: 0,
+    swimming: false,
+    vz: 0,
   });
   state.wanted = {
     level: 0,
@@ -805,6 +769,7 @@ function combatContext(state) {
     reportCrime: (crime) => reportCrime(state, crime),
     hasLineOfSight,
     isBlocked,
+    surfaceHeight: (x, y, z) => TERRAIN.surfaceHeight(x, y, z),
     moveBody,
     reload: () => reloadWeapon(state),
     notify: (text, kind) => notify(state, text, kind),
@@ -866,6 +831,7 @@ function fireHostile(state, hostile) {
       x: hostile.x,
       y: hostile.y,
       z: (hostile.z || 0) + 13,
+      groundZ: hostile.groundZ || 0,
       vx: Math.cos(angle) * horizontalSpeed,
       vy: Math.sin(angle) * horizontalSpeed,
       vz: weapon.mode === 'rocket' ? (speed * heightDelta) / length : weapon.throwLift,
@@ -936,7 +902,7 @@ function updateBullets(state, dt) {
     bullet.y += bullet.vy * dt;
     if (bullet.vz) {
       bullet.z = (bullet.z || 0) + bullet.vz * dt;
-      if (bullet.z < 0) {
+      if (bullet.z < ELEVATION.min) {
         bullet.remaining = 0;
         continue;
       }
@@ -969,7 +935,9 @@ function updateBullets(state, dt) {
             vehicle.health > 0 &&
             vehicle.id !== state.player.vehicleId &&
             segmentDistance(vehicle, previous, bullet) < VEHICLE_SPECS[vehicle.spec].width * 0.7 &&
-            (bullet.z === undefined || segmentHeight(vehicle, previous, bullet) <= 18),
+            (bullet.z === undefined ||
+              (segmentHeight(vehicle, previous, bullet) >= (vehicle.z || 0) &&
+                segmentHeight(vehicle, previous, bullet) <= (vehicle.z || 0) + 18)),
         )
         .sort((a, b) => distance(a, previous) - distance(b, previous))[0];
       if (car && (!victim || distance(car, previous) < distance(victim, previous))) {
@@ -1031,7 +999,12 @@ function drive(state, vehicle, dt, input) {
     vehicle.speed *= -0.15;
   }
   for (const other of state.vehicles) {
-    if (other.id === vehicle.id || other.health <= 0) continue;
+    if (
+      other.id === vehicle.id ||
+      other.health <= 0 ||
+      Math.abs((other.z || 0) - (vehicle.z || 0)) > 12
+    )
+      continue;
     const minimumDistance = (spec.width + VEHICLE_SPECS[other.spec].width) * 0.69;
     if (distance(vehicle, other) < minimumDistance) {
       const speed = Math.abs(vehicle.speed - other.speed);
@@ -1053,6 +1026,7 @@ function drive(state, vehicle, dt, input) {
   for (const person of [...state.pedestrians, ...state.hostiles, ...state.police]) {
     if (
       person.health <= 0 ||
+      Math.abs((person.z || 0) - (vehicle.z || 0)) > 12 ||
       distance(vehicle, person) > spec.width * 0.65 + 6 ||
       Math.abs(vehicle.speed) < 18
     )
@@ -1074,13 +1048,21 @@ function drive(state, vehicle, dt, input) {
 }
 export function toggleCover(state) {
   const p = state.player;
-  if (p.vehicleId || p.health <= 0 || p.z > 1 || p.traversal) return false;
+  if (
+    p.vehicleId ||
+    p.health <= 0 ||
+    Math.abs(p.z - (p.groundZ || 0)) > 1 ||
+    p.swimming ||
+    p.groundZ < 0 ||
+    p.traversal
+  )
+    return false;
   if (p.cover) {
     p.cover = null;
     return true;
   }
   let best = null;
-  for (const b of WORLD.buildings) {
+  for (const b of TERRAIN.nearbyBuildings(p.x, p.y, 22)) {
     const candidates = [
       {
         x: b.x - 8,
@@ -1121,7 +1103,7 @@ export function toggleCover(state) {
     ];
     for (const point of candidates) {
       const d = distance(p, point);
-      if (d < 20 && (!best || d < best.distance) && !isBlocked(point.x, point.y, 7))
+      if (d < 20 && (!best || d < best.distance) && !isBlocked(point.x, point.y, 7, p.z))
         best = { ...point, buildingId: b.id, distance: d };
     }
   }
@@ -1133,9 +1115,8 @@ export function toggleCover(state) {
   return true;
 }
 function carBlocksFoot(state, x, y, z = 0) {
-  if (z >= 16) return false;
   return state.vehicles.some((car) => {
-    if (car.health <= 0) return false;
+    if (car.health <= 0 || z < (car.z || 0) - 4 || z >= (car.z || 0) + 16) return false;
     const spec = VEHICLE_SPECS[car.spec],
       dx = x - car.x,
       dy = y - car.y,
@@ -1157,14 +1138,25 @@ function movePlayer(state, dx, dy) {
   for (let i = 0; i < steps; i++) {
     const x = p.x + dx / steps,
       y = p.y + dy / steps;
-    if (!carBlocksFoot(state, x, y, p.z)) moveBody(p, dx / steps, dy / steps, 7);
-    else if (!carBlocksFoot(state, x, p.y, p.z)) moveBody(p, dx / steps, 0, 7);
-    else if (!carBlocksFoot(state, p.x, y, p.z)) moveBody(p, 0, dy / steps, 7);
+    if (!carBlocksFoot(state, x, y, p.z))
+      moveBody(p, dx / steps, dy / steps, 7, { allowWater: true });
+    else if (!carBlocksFoot(state, x, p.y, p.z))
+      moveBody(p, dx / steps, 0, 7, { allowWater: true });
+    else if (!carBlocksFoot(state, p.x, y, p.z))
+      moveBody(p, 0, dy / steps, 7, { allowWater: true });
   }
 }
 export function jumpOrVault(state, { vaultOnly = false } = {}) {
   const p = state.player;
-  if (p.vehicleId || p.health <= 0 || p.z > 0 || p.traversal || p.stamina < 16) return false;
+  if (
+    p.vehicleId ||
+    p.health <= 0 ||
+    Math.abs(p.z - (p.groundZ || 0)) > 0.1 ||
+    p.swimming ||
+    p.traversal ||
+    p.stamina < 16
+  )
+    return false;
   let obstacle = null;
   for (const item of WORLD.obstacles || []) {
     const nearest = {
@@ -1182,7 +1174,10 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
         Math.abs(nx) > Math.abs(ny)
           ? { x: nx > 0 ? item.x + item.w + 12 : item.x - 12, y: p.y }
           : { x: p.x, y: ny > 0 ? item.y + item.h + 12 : item.y - 12 };
-      if (!isBlocked(end.x, end.y, 7) && !carBlocksFoot(state, end.x, end.y))
+      if (
+        !isBlocked(end.x, end.y, 7, p.groundZ || 0) &&
+        !carBlocksFoot(state, end.x, end.y, p.groundZ || 0)
+      )
         obstacle = { kind: item.height > 20 ? 'climb' : 'vault', end, height: item.height + 12 };
     }
   }
@@ -1196,14 +1191,17 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
       )
         continue;
       const end = { x: car.x + Math.cos(p.angle) * 29, y: car.y + Math.sin(p.angle) * 29 };
-      if (!isBlocked(end.x, end.y, 7) && !carBlocksFoot(state, end.x, end.y))
+      if (
+        !isBlocked(end.x, end.y, 7, p.groundZ || 0) &&
+        !carBlocksFoot(state, end.x, end.y, p.groundZ || 0)
+      )
         obstacle = { kind: 'vault', end, height: 26 };
     }
   p.cover = null;
   p.crouching = false;
   if (obstacle) {
     // Reject a path that would tunnel through an unrelated building.
-    const clear = WORLD.buildings.every(
+    const clear = TERRAIN.nearbyBuildings(p.x, p.y, 80).every(
       (b) =>
         !Array.from({ length: 8 }, (_, i) => ({
           x: p.x + ((obstacle.end.x - p.x) * (i + 1)) / 8,
@@ -1215,6 +1213,7 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
     p.traversal = {
       ...obstacle,
       start: { x: p.x, y: p.y },
+      groundZ: p.groundZ || 0,
       elapsed: 0,
       duration: obstacle.kind === 'climb' ? 0.95 : 0.62,
     };
@@ -1233,7 +1232,11 @@ function walk(state, dt, input) {
     Number.isFinite(input.aimTarget.x) &&
     Number.isFinite(input.aimTarget.y) &&
     Number.isFinite(input.aimTarget.z)
-      ? { x: input.aimTarget.x, y: input.aimTarget.y, z: clamp(input.aimTarget.z, 0, 250) }
+      ? {
+          x: input.aimTarget.x,
+          y: input.aimTarget.y,
+          z: clamp(input.aimTarget.z, ELEVATION.min, ELEVATION.max),
+        }
       : null;
   if (p.aimTarget) p.angle = angleTo(p, p.aimTarget);
   p.scoped = Boolean(input.aim && WEAPONS[p.weapon].scopeZoom);
@@ -1247,20 +1250,26 @@ function walk(state, dt, input) {
     const t = clamp(action.elapsed / action.duration, 0, 1);
     p.x = action.start.x + (action.end.x - action.start.x) * t;
     p.y = action.start.y + (action.end.y - action.start.y) * t;
-    p.z = Math.sin(Math.PI * t) * action.height;
+    p.z = (action.groundZ || 0) + Math.sin(Math.PI * t) * action.height;
     p.speed = 0;
     if (t === 1) {
-      p.z = 0;
+      p.groundZ = TERRAIN.surfaceHeight(p.x, p.y, action.groundZ || 0);
+      p.z = p.groundZ;
       p.vz = 0;
       p.traversal = null;
     }
     return;
   }
-  if (p.z > 0 || p.vz > 0) {
+  p.groundZ ??= TERRAIN.surfaceHeight(p.x, p.y, p.z);
+  p.vz ||= 0;
+  if (p.z > p.groundZ || p.vz > 0) {
     p.vz -= 220 * dt;
-    p.z = Math.max(0, p.z + p.vz * dt);
-    if (p.z === 0) p.vz = 0;
+    p.z = Math.max(p.groundZ, p.z + p.vz * dt);
+    if (p.z === p.groundZ) p.vz = 0;
   }
+  p.swimming = Boolean(
+    TERRAIN.isWater(p.x, p.y, { ignoreDeck: true }) && p.z <= 0 && p.groundZ >= 0,
+  );
   if (p.dodgeRemaining > 0) {
     p.dodgeRemaining = Math.max(0, p.dodgeRemaining - dt);
     movePlayer(state, Math.cos(p.dodgeAngle) * 125 * dt, Math.sin(p.dodgeAngle) * 125 * dt);
@@ -1287,8 +1296,23 @@ function walk(state, dt, input) {
     }
   }
   const sprint = input.sprint && magnitude > 0 && p.stamina > 0 && !p.crouching && !p.defending;
-  const speed = p.crouching ? 27 : p.defending ? 31 : sprint ? 88 : 51;
-  p.stamina = clamp(p.stamina + (sprint ? -17 : 12) * dt, 0, 100);
+  const speed = p.swimming
+    ? sprint && p.stamina > 0
+      ? 38
+      : 24
+    : p.crouching
+      ? 27
+      : p.defending
+        ? 31
+        : sprint
+          ? 88
+          : 51;
+  p.stamina = clamp(
+    p.stamina + (p.swimming ? (!magnitude ? 6 : sprint ? -12 : -1.8) : sprint ? -17 : 12) * dt,
+    0,
+    100,
+  );
+  if (p.swimming && magnitude > 0 && p.stamina <= 0) damagePlayer(state, 6 * dt);
   p.speed = magnitude ? speed : 0;
   if (magnitude > 0) {
     if (!Number.isFinite(input.aimAngle) && !input.fire && !p.cover) p.angle = Math.atan2(dy, dx);
@@ -1326,6 +1350,14 @@ function updateTraffic(state, dt) {
       vehicle.speed = 0;
   }
 }
+function ambientContext(state) {
+  return {
+    createVehicle: (definition) => createVehicle(state, definition),
+    isBlocked,
+    specs: VEHICLE_SPECS,
+    protectedVehicleIds: ['starter-taxi', 'medicine-van'],
+  };
+}
 function updatePedestrians(state, dt) {
   for (const person of state.pedestrians) {
     if (person.health <= 0) continue;
@@ -1333,6 +1365,15 @@ function updatePedestrians(state, dt) {
     if (person.panic > 0 && distance(person, state.player) < 100) {
       person.angle = angleTo(state.player, person);
       moveBody(person, Math.cos(person.angle) * 43 * dt, Math.sin(person.angle) * 43 * dt, 6);
+    } else if (person.route?.length) {
+      const waypoint = person.route[person.routeIndex];
+      const remaining = distance(person, waypoint);
+      if (remaining < 3) person.routeIndex = (person.routeIndex + 1) % person.route.length;
+      else {
+        person.angle = angleTo(person, waypoint);
+        const travel = Math.min(remaining, person.speed * dt);
+        moveBody(person, Math.cos(person.angle) * travel, Math.sin(person.angle) * travel, 6);
+      }
     } else {
       const direction = Math.sin(person.angle) >= 0 ? 1 : -1;
       person.angle = (direction * Math.PI) / 2;
@@ -1522,9 +1563,15 @@ function updateMission(state, dt) {
 function validExitPoint(state, vehicle) {
   for (const offset of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) {
     const angle = vehicle.angle + offset;
-    const point = { x: vehicle.x + Math.cos(angle) * 25, y: vehicle.y + Math.sin(angle) * 25 };
+    const point = {
+      x: vehicle.x + Math.cos(angle) * 25,
+      y: vehicle.y + Math.sin(angle) * 25,
+      z: vehicle.z || 0,
+      groundZ: vehicle.groundZ || 0,
+    };
     if (
-      !isBlocked(point.x, point.y, 7) &&
+      !isBlocked(point.x, point.y, 7, point.z) &&
+      Math.abs(TERRAIN.surfaceHeight(point.x, point.y, point.groundZ) - point.groundZ) < 6 &&
       !state.vehicles.some((other) => other.id !== vehicle.id && distance(point, other) < 17)
     )
       return point;
@@ -1586,6 +1633,7 @@ function interactionCandidates(state) {
         type: 'vehicle',
         x: vehicle.x,
         y: vehicle.y,
+        z: vehicle.z || 0,
         name: VEHICLE_SPECS[vehicle.spec].name,
         prompt: `Enter ${VEHICLE_SPECS[vehicle.spec].name}`,
         radius: 31,
@@ -1597,7 +1645,7 @@ function interactionCandidates(state) {
     candidates.push({ ...location, prompt: location.description, available: true, radius: 34 });
   return candidates
     .map((item) => ({ ...item, distance: distance(player, item) }))
-    .filter((item) => item.distance < item.radius)
+    .filter((item) => item.distance < item.radius && Math.abs((item.z || 0) - (player.z || 0)) < 16)
     .sort((a, b) => {
       const priority = { objective: 0, mission: 1, pickup: 1.5, vehicle: 2 };
       const currentStage = state.mission
@@ -1851,7 +1899,11 @@ export function interact(state) {
     return candidate;
   }
   if (candidate.type === 'vehicle') {
-    if (state.player.traversal || state.player.z > 2 || state.player.dodgeRemaining > 0) {
+    if (
+      state.player.traversal ||
+      Math.abs(state.player.z - (state.player.groundZ || 0)) > 2 ||
+      state.player.dodgeRemaining > 0
+    ) {
       notify(state, 'Land and finish moving before entering the vehicle.');
       return null;
     }
@@ -1880,6 +1932,8 @@ export function interact(state) {
     state.player.x = vehicle.x;
     state.player.y = vehicle.y;
     state.player.angle = vehicle.angle;
+    state.player.z = vehicle.z || 0;
+    state.player.groundZ = vehicle.groundZ || 0;
     return candidate;
   }
   if (candidate.type === 'exit') {
@@ -1981,7 +2035,9 @@ export function updateSimulation(state, dt, input = {}) {
     if (vehicle) {
       drive(state, vehicle, step, input);
       state.player.cover = null;
-      state.player.z = 0;
+      state.player.z = vehicle.z || 0;
+      state.player.groundZ = vehicle.groundZ || 0;
+      state.player.swimming = false;
       state.player.vz = 0;
       state.player.crouching = false;
       if (Number.isFinite(input.aimAngle) && WEAPONS[state.player.weapon].vehicleAllowed)
@@ -2002,6 +2058,7 @@ export function updateSimulation(state, dt, input = {}) {
     if (state.dialogue && state.time > state.dialogue.expires) state.dialogue = null;
     state.notifications = state.notifications.filter((notice) => notice.expires > state.time);
   }
+  updateAmbient(state, WORLD, elapsed, ambientContext(state));
   const district = WORLD.districts.find(
     (item) =>
       state.player.x >= item.x &&
@@ -2009,7 +2066,21 @@ export function updateSimulation(state, dt, input = {}) {
       state.player.y >= item.y &&
       state.player.y < item.y + item.h,
   );
-  if (district) state.district = district.id;
+  const area = TERRAIN.neighbourhoodAt(state.player.x, state.player.y);
+  if (area?.districtId) state.district = area.districtId;
+  else if (district) state.district = district.id;
+  state.neighbourhood = area?.id || null;
+  const infrastructure = TERRAIN.infrastructureAt(
+    state.player.x,
+    state.player.y,
+    state.player.groundZ || 0,
+  );
+  const place = infrastructure
+    ? [...WORLD.bridges, ...WORLD.tunnels].find((item) => item.id === infrastructure.catalogueId)
+    : null;
+  state.place = place
+    ? { id: place.id, name: place.name, type: infrastructure.tunnel ? 'tunnel' : 'bridge' }
+    : null;
   state.lastInput = Object.fromEntries(
     [
       'confirm',
@@ -2084,6 +2155,8 @@ export function restoreGame(serialized) {
   validateCombatSave(state, WORLD);
   if (state.policeVersion === undefined) initializePolicing(state);
   validatePoliceSave(state, WORLD);
+  if (!state.ambient) initializeAmbient(state, WORLD);
+  validateAmbient(state, WORLD);
   if (
     state.vehicles.length > 200 ||
     state.pedestrians.length > 500 ||
@@ -2093,13 +2166,19 @@ export function restoreGame(serialized) {
   )
     throw new Error('The save contains too many entities.');
   if (
-    state.vehicles.some(
+    [
+      ...state.vehicles,
+      ...Object.values(state.ambient.dormant).flatMap((bucket) => bucket.vehicles),
+    ].some(
       (vehicle) =>
         !validPoint(vehicle) ||
         !VEHICLE_SPECS[vehicle.spec] ||
         !finiteNumber(vehicle.health, 0, 1000) ||
         !finiteNumber(vehicle.angle, -TAU, TAU) ||
-        !finiteNumber(vehicle.speed, -300, 300),
+        !finiteNumber(vehicle.speed, -300, 300) ||
+        (vehicle.z !== undefined && !finiteNumber(vehicle.z, ELEVATION.min, ELEVATION.max)) ||
+        (vehicle.groundZ !== undefined &&
+          !finiteNumber(vehicle.groundZ, ELEVATION.min, ELEVATION.max)),
     )
   )
     throw new Error('The saved vehicles are invalid.');
@@ -2120,7 +2199,12 @@ export function restoreGame(serialized) {
     throw new Error('The saved traffic routes are invalid.');
   if (
     [...state.pedestrians, ...state.hostiles, ...state.police].some(
-      (person) => !validPoint(person) || !finiteNumber(person.health, 0, 1000),
+      (person) =>
+        !validPoint(person) ||
+        !finiteNumber(person.health, 0, 1000) ||
+        (person.z !== undefined && !finiteNumber(person.z, ELEVATION.min, ELEVATION.max)) ||
+        (person.groundZ !== undefined &&
+          !finiteNumber(person.groundZ, ELEVATION.min, ELEVATION.max)),
     )
   )
     throw new Error('The saved people are invalid.');
