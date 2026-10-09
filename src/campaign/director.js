@@ -22,6 +22,9 @@
  * - captureWorld returns the complete JSON simulation/economy/transaction state;
  *   validateWorld returns true only for its actual schema; restoreWorld acks it.
  * - readOutcome supplies a real completed minigame outcome, including quit.
+ * - optional canCompleteStage(stage, context) adds an observed physical staging
+ *   gate AFTER authored conditions; false waits and unknown blocks. Adapters
+ *   without this hook retain the pure director's existing contract.
  * - route events explicitly call activateConcurrentCampaignEvent; no event is
  *   started by a director timer. Unknown rules are not silently skipped.
  */
@@ -1062,6 +1065,12 @@ export function updateCampaignDirector(state, adapters = {}) {
       waiting.push(`${event.id}:concurrent-event-unresolved`);
   }
   if (waiting.length) return { ok: true, waiting: 'observed-conditions', conditions: waiting };
+  if (typeof adapters.canCompleteStage === 'function') {
+    const result = call(adapters, 'canCompleteStage', [frozen(clone(stage)), context(state)]);
+    const observed = result.unmet ? { met: false, unmet: [result.unmet] } : metValue(result.value);
+    if (observed.unmet.length) return gate(observed.unmet);
+    if (!observed.met) return { ok: true, waiting: 'physical-stage-staging' };
+  }
   if (stage.outcomeDialogue && run.dialogue.kind !== 'outcome') {
     const result = call(adapters, 'readOutcome', [frozen(clone(stage)), context(state)]);
     if (result.unmet || !own(stage.outcomeDialogue, result.value))
@@ -1082,9 +1091,24 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
   const mode = options.mode || 'retry-last-checkpoint';
   if (!['retry-last-checkpoint', 'restart-mission', 'return-to-free-roam'].includes(mode))
     return gate(['unknown-retry-mode']);
+  if (
+    options.missionId !== undefined &&
+    (!missionFor(contentOf(adapters), options.missionId) ||
+      (state.active && state.active.missionId !== options.missionId))
+  )
+    return gate(['retry-mission-does-not-match-owner']);
   if (mode === 'return-to-free-roam') return abandonCampaignMission(state, adapters);
-  const run = state.active;
-  if (!run) return gate(['no-active-mission']);
+  const retained =
+      !state.active && options.missionId
+        ? state.suspended.find(
+            (entry) =>
+              entry.missionId === options.missionId &&
+              entry.resumeInfo?.reason === 'return-to-free-roam',
+          )
+        : null,
+    run = state.active || retained;
+  if (!run)
+    return gate([options.missionId ? 'mission-not-retained-for-retry' : 'no-active-mission']);
   const mission = missionFor(contentOf(adapters), run.missionId);
   if (
     options.checkpoint &&
@@ -1100,7 +1124,8 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
         run.checkpoints.at(-1)?.id ||
         'start';
   const snapshot =
-    run.checkpoints.find((entry) => entry.id === preferred) || run.checkpoints.at(-1);
+    run.checkpoints.find((entry) => entry.id === preferred) ||
+    (mode === 'restart-mission' ? null : run.checkpoints.at(-1));
   if (!snapshot) return gate(['no-committed-checkpoint']);
   if (
     snapshot.progressFingerprint !==
@@ -1108,6 +1133,12 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
   )
     return gate(['checkpoint-world-history-conflict']);
   return transaction(state, adapters, `retry:${run.missionId}`, (draft) => {
+    if (retained) {
+      const selected = draft.suspended.find((entry) => entry.missionId === run.missionId);
+      draft.suspended = draft.suspended.filter((entry) => entry !== selected);
+      draft.active = selected;
+      draft.active.resumeInfo = null;
+    }
     const restored = restoreWorld(draft, snapshot.world, adapters, `retry:${snapshot.id}`);
     if (!restored.ok) return restored;
     const active = draft.active;
@@ -1148,6 +1179,7 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
       failedAttempt: run.attempt,
       attempt: active.attempt,
       mode,
+      ...(retained ? { fromSuspended: true } : {}),
     });
     return activate(
       draft,
@@ -1158,8 +1190,14 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
     );
   });
 }
-export function abandonCampaignMission(state, adapters = {}) {
+/** Preserving a retry keeps existing checkpoints; leaving never restores the world. */
+export function abandonCampaignMission(state, adapters = {}, options = {}) {
   validateCampaignDirector(state, adapters);
+  if (
+    !object(options) ||
+    (own(options, 'preserveRetry') && typeof options.preserveRetry !== 'boolean')
+  )
+    return gate(['invalid-preserve-retry-option']);
   if (!state.active) return gate(['no-active-mission']);
   return transaction(state, adapters, 'abandon', (draft) => {
     const run = draft.active;
@@ -1175,13 +1213,28 @@ export function abandonCampaignMission(state, adapters = {}) {
       missionId: run.missionId,
       attempt: run.attempt,
       stageId: run.stageId,
+      ...(options.preserveRetry ? { retryPreserved: true } : {}),
     });
+    if (options.preserveRetry) {
+      run.resumeInfo = {
+        reason: 'return-to-free-roam',
+        afterMission: null,
+        resumption: 'Explicit checkpoint retry or full restart restores the saved physical world.',
+      };
+      draft.suspended.push(run);
+    }
     draft.active = null;
-    return { ok: true, abandoned: run.missionId, reward: false };
+    return {
+      ok: true,
+      abandoned: run.missionId,
+      reward: false,
+      ...(options.preserveRetry ? { retryPreserved: true } : {}),
+    };
   });
 }
 export function suspendCampaignMission(state, adapters = {}, reason = 'additional-onboarding') {
   validateCampaignDirector(state, adapters);
+  if (reason === 'return-to-free-roam') return gate(['reserved-suspension-reason']);
   if (!state.active || state.active.phase === 'failed') return gate(['no-running-mission']);
   return transaction(state, adapters, 'suspend', (draft) => {
     const run = draft.active;
@@ -1213,6 +1266,8 @@ export function resumeCampaignMission(state, missionId, adapters = {}) {
   if (state.active) return gate(['active-mission-must-finish-or-suspend']);
   const run = state.suspended.find((entry) => entry.missionId === missionId);
   if (!run) return gate(['mission-not-suspended']);
+  if (run.resumeInfo?.reason === 'return-to-free-roam')
+    return gate(['retained-mission-requires-explicit-retry']);
   if (run.resumeInfo?.afterMission && !completed(state, run.resumeInfo.afterMission))
     return gate([`dependency:${run.resumeInfo.afterMission}`]);
   const mission = missionFor(contentOf(adapters), missionId),
@@ -1376,6 +1431,44 @@ function validateRun(run, content, state) {
     Object.keys(run).some((key) => !runKeys.includes(key) && key !== 'pendingActivation')
   )
     invalid('run fields');
+  const suspended = state.suspended.includes(run),
+    resume = run.resumeInfo;
+  if (
+    (suspended && resume === null) ||
+    (resume !== null &&
+      (!object(resume) ||
+        Object.keys(resume).length !== 3 ||
+        !['reason', 'afterMission', 'resumption'].every((key) => own(resume, key)) ||
+        !id(resume.reason) ||
+        (resume.afterMission !== null && !id(resume.afterMission)) ||
+        (resume.resumption !== null &&
+          (typeof resume.resumption !== 'string' || resume.resumption.length > 10000))))
+  )
+    invalid('resumption metadata');
+  if (resume?.reason === 'return-to-free-roam') {
+    const token = receipt(state, `${run.missionId}:attempt:${run.attempt}:abandon`),
+      abandoned = state.receipts[token];
+    if (
+      !suspended ||
+      resume.afterMission !== null ||
+      run.attempt !== state.attempts[run.missionId] ||
+      !Array.isArray(run.checkpoints) ||
+      !run.checkpoints.some((checkpoint) => checkpoint?.id === 'start') ||
+      abandoned?.kind !== 'abandon' ||
+      abandoned.missionId !== run.missionId ||
+      abandoned.attempt !== run.attempt ||
+      abandoned.stageId !== run.stageId ||
+      !state.history.some(
+        (entry) =>
+          entry.event === 'mission-abandoned' &&
+          entry.missionId === run.missionId &&
+          entry.attempt === run.attempt &&
+          entry.stageId === run.stageId &&
+          entry.retryPreserved === true,
+      )
+    )
+      invalid('retained retry ownership');
+  }
   if (!stage || stage.concurrentWith || !['running', 'failed'].includes(run.phase))
     invalid('active stage');
   if (own(state.completed, run.missionId)) invalid('completed mission still active');

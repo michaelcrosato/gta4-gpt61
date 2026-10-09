@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Exercise LOWLIGHT's browser controls with machine-installed Playwright.
 
-This is an onboarding and UI regression check, not a complete-game playthrough.
+Canonical New Game uses the actual Night Crossing arrival and driver approach.
+A separately declared legacy save fixture preserves old Continue/onboarding UI
+coverage. This is a partial-story UI regression, not a complete-game playthrough.
 Natural keyboard/touch movement never teleports the player. The reload check
 uses a declared ammunition fixture, and controller checks mock getGamepads;
 they do not establish physical gamepad or real iOS Safari compatibility.
@@ -10,9 +12,11 @@ they do not establish physical gamepad or real iOS Safari compatibility.
 import argparse
 import asyncio
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sys
+import time
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from playwright.async_api import async_playwright
@@ -51,6 +55,9 @@ async def snapshot(page):
       time: lowlight.state.time,
       waypoint: lowlight.state.waypoint,
       dialogue: lowlight.state.dialogue,
+      story: lowlight.storyView(),
+      felixHealth: lowlight.state.companions?.actors.find(a=>a.id==='LL-CHAR-002')?.health,
+      openDialog: (()=>{const d=document.querySelector('dialog[open]');return d?{id:d.id,text:d.innerText}:null})(),
       engineErrors: lowlight.game.errors.map(error => String(error.error || error)),
       reportedFps: lowlight.game.fps,
       stats: {...lowlight.game.stats}
@@ -76,7 +83,142 @@ async def frame_sample(page):
     })""")
 
 
-async def natural_flow(page, report, output, name, phone):
+async def walk_story_route(page, points, trace):
+    """Read authored approach points; movement uses ordinary browser key events."""
+    held = []
+    try:
+        for target in points:
+            began = time.monotonic()
+            while True:
+                move = await page.evaluate("""target => {
+                  const p=lowlight.state.player,g=lowlight.game,dx=target.x-p.x,dy=target.y-p.y;
+                  const choices=[[[0,-1],['w']],[[1,-1],['w','d']],[[1,0],['d']],
+                    [[1,1],['s','d']],[[0,1],['s']],[[-1,1],['s','a']],
+                    [[-1,0],['a']],[[-1,-1],['w','a']]].map(([v,keys])=>{
+                      const direction=g.view.screenDirToGround(...v);
+                      return {keys,score:(direction[0]*dx+direction[1]*dy)/Math.hypot(...direction)};
+                    }).sort((a,b)=>b.score-a.score);
+                  return {distance:Math.hypot(dx,dy),keys:choices[0].keys,x:p.x,y:p.y,z:p.z};
+                }""", target)
+                trace.append({"target": target, **move})
+                if move["distance"] < 3.5:
+                    break
+                require(time.monotonic() - began < 35,
+                        "Actual foot inputs did not reach the authored driver approach")
+                if move["keys"] != held:
+                    for button in held:
+                        await page.keyboard.up(button)
+                    held = move["keys"]
+                    for button in held:
+                        await page.keyboard.down(button)
+                await page.wait_for_timeout(90)
+            for button in held:
+                await page.keyboard.up(button)
+            held = []
+    finally:
+        for button in held:
+            await page.keyboard.up(button)
+
+
+async def canonical_start(page, report, output, name, phone):
+    report["canonical"] = {"fixture": "None: empty storage and actual New Game inputs.", "trace": []}
+    await page.wait_for_function("window.lowlight")
+    require(await page.evaluate("localStorage.getItem('lowlight.save.v1')===null"),
+            "Canonical start requires isolated empty storage")
+    await page.click("#new-game")
+    initial = await snapshot(page)
+    require(initial["story"]["missionId"] == "LL-ST-001"
+            and initial["story"]["stageId"] == "berth"
+            and initial["mission"] is None,
+            "New Game did not begin the canonical ferry arrival")
+    await page.screenshot(path=str(output / f"{name}-canonical-staging.png"))
+    await page.wait_for_function(
+        "lowlight.storyView()?.dialogue && !document.getElementById('dialogue-panel').hidden",
+        timeout=90000)
+    report["canonical"]["reunion"] = await snapshot(page)
+    await page.screenshot(path=str(output / f"{name}-canonical-caption.png"))
+    require(await page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
+            "Canonical arrival has horizontal overflow")
+    await page.click("#menu-button")
+    require(await page.evaluate("!lowlight.state.campaignPresentation.presented && document.getElementById('dialogue-panel').hidden"),
+            "Paused story caption was still presented")
+    await page.click("#resume-game")
+    for index in range(5):
+        await page.wait_for_function(
+            "index=>lowlight.storyView().stageId==='berth' && lowlight.storyView().dialogueIndex===index && lowlight.state.campaignPresentation.presented && !lowlight.game.paused && !document.getElementById('dialogue-panel').hidden",
+            arg=index, timeout=10000)
+        if phone:
+            await touch_tap(page, "#touch-interact")
+        else:
+            await key(page, "e")
+        await page.wait_for_function(
+            "index=>lowlight.storyView().stageId==='taxi' || lowlight.storyView().dialogueIndex>index",
+            arg=index, timeout=5000)
+    await page.wait_for_function("lowlight.storyView().stageId==='taxi'", timeout=5000)
+    points = await page.evaluate("async()=>{const{WORLD}=await import('/src/simulation.js');return WORLD.campaignSceneBindings['pier-berth'].driverWaypoints}")
+    await walk_story_route(page, points, report["canonical"]["trace"])
+    if phone:
+        await touch_tap(page, "#touch-interact")
+    else:
+        await key(page, "e")
+    await page.wait_for_function("lowlight.state.player.vehicleId==='arc-arrival-taxi'", timeout=5000)
+    await page.wait_for_function("lowlight.storyView().dialogue && lowlight.storyView().dialogueReady && lowlight.state.campaignPresentation.presented && !document.getElementById('dialogue-panel').hidden", timeout=20000)
+    seated = await snapshot(page)
+    if phone:
+        await touch_tap(page, "#touch-interact")
+    else:
+        await key(page, "e")
+    require((await snapshot(page))["player"]["vehicleId"] == "arc-arrival-taxi",
+            "Caption acknowledgment exited the actual taxi")
+    await page.keyboard.down("w")
+    await page.wait_for_timeout(800)
+    await page.keyboard.up("w")
+    driven = await snapshot(page)
+    require(driven["felixHealth"] == 100, "The taxi struck its own seated Felix")
+    require(((driven["player"]["x"] - seated["player"]["x"]) ** 2
+             + (driven["player"]["y"] - seated["player"]["y"]) ** 2) ** 0.5 > 1,
+            "Actual canonical taxi acceleration did not move the car")
+    await page.click("#menu-button")
+    await page.click("#save-game")
+    saved = await page.evaluate("JSON.parse(localStorage.getItem('lowlight.save.v1'))")
+    require(saved["state"]["campaign"]["active"]["missionId"] == "LL-ST-001",
+            "Ordinary save lost the active story")
+    require(not saved["state"]["campaignRuntime"]["night"]["services"]["save"],
+            "Ordinary save fabricated a physical shelter-save objective")
+    await page.click("#menu-button")
+    await page.click("#quit-game")
+    await page.reload()
+    await page.wait_for_function("window.lowlight")
+    await page.click("#continue-game")
+    continued = await snapshot(page)
+    require(continued["player"]["vehicleId"] == "arc-arrival-taxi"
+            and continued["story"]["missionId"] == "LL-ST-001"
+            and continued["felixHealth"] == 100,
+            "Canonical Continue lost the real story or occupied taxi")
+    report["canonical"]["continued"] = continued
+    await page.screenshot(path=str(output / f"{name}-canonical-continued.png"))
+    report["checks"].append("canonical New Game: ferry staging, presented captions, actual approach/boarding, E or touch priority, driving, save and Continue")
+    await page.click("#menu-button")
+    await page.click("#quit-game")
+    await page.evaluate("localStorage.removeItem('lowlight.save.v1')")
+    await page.reload()
+
+
+async def legacy_continue_fixture(page, report):
+    report.setdefault("fixtures", []).append(
+        "Initial legacy-mode save generated inside this browser with createSimulation(61); loaded by actual Continue. No mission progress, movement or health mutation.")
+    await page.evaluate("""async()=>{
+      const{createSimulation,saveGame}=await import('/src/simulation.js');
+      localStorage.setItem('lowlight.save.v1',saveGame(createSimulation(61)));
+    }""")
+    await page.reload()
+    await page.wait_for_function("window.lowlight")
+    await page.click("#continue-game")
+    require(await page.evaluate("!lowlight.state.campaign && lowlight.state.mission?.id==='first-shift'"),
+            "Explicit legacy Continue did not restore the old opening")
+
+
+async def legacy_continue_flow(page, report, output, name, phone):
     await page.wait_for_function("window.lowlight")
     await page.wait_for_timeout(550)
     await page.screenshot(path=str(output / f"{name}-title.png"))
@@ -108,12 +250,11 @@ async def natural_flow(page, report, output, name, phone):
     require("city behind" in await page.locator("#info-title").inner_text(),
             "Credits menu did not open")
     await key(page, "Escape")
-    await page.focus("#new-game")
-    await key(page, "Enter")
+    await legacy_continue_fixture(page, report)
     require(await page.evaluate("document.body.dataset.mode") == "play",
-            "New game did not enter play mode")
+            "Legacy Continue did not enter play mode")
     require((await snapshot(page))["mission"]["stage"] == 0,
-            "New game did not start at the opening mission stage")
+            "Legacy Continue did not restore the opening mission stage")
 
     # These are real key events; debug state is only read for assertions.
     for _ in range(3):
@@ -247,8 +388,7 @@ async def natural_flow(page, report, output, name, phone):
         require(ammo == {"clip": 12, "reserve": 13}, "Touch LOAD did not conserve finite ammunition")
         await touch_tap(page, "#menu-button")
         await touch_tap(page, "#quit-game")
-        await touch_tap(page, "#new-game")
-        await touch_tap(page, "#confirm-new-game")
+        await legacy_continue_fixture(page, report)
         require("USE CONTINUE" in await page.locator("#dialogue-panel").inner_text(),
                 "Phone dialogue still asks for a keyboard-only control")
         for _ in range(5):
@@ -346,7 +486,8 @@ async def run_engine(playwright, name, args, output):
         page.on("console", lambda message: report["consoleErrors"].append(message.text)
                 if message.type == "error" else None)
         await page.goto(debug_url(args.url))
-        await natural_flow(page, report, output, name, phone)
+        await canonical_start(page, report, output, name, phone)
+        await legacy_continue_flow(page, report, output, name, phone)
         await controller_contract(browser, debug_url(args.url), report)
         require(not report["pageErrors"], "Browser emitted JavaScript errors")
         require(not report["consoleErrors"], "Browser emitted console errors")
@@ -376,16 +517,33 @@ async def main(args):
     require(output != repository and repository not in output.parents,
             "Generated browser reports must be written outside the repository")
     output.mkdir(parents=True, exist_ok=True)
+    source_root = Path(args.source_root).resolve() if args.source_root else repository
+    require(output != source_root and source_root not in output.parents,
+            "Generated browser reports must be outside the tested source root")
+    sources = {"index.html": source_root / "index.html", "styles.css": source_root / "styles.css",
+               "my-3d2dge.js": source_root / "my-3d2dge.js",
+               "tests/browser-smoke.py": Path(__file__).resolve(),
+               **{str(path.relative_to(source_root)): path
+                  for path in sorted((source_root / "src").rglob("*.js"))}}
+    source_hashes = {name: hashlib.sha256(path.read_bytes()).hexdigest()
+                     for name, path in sources.items()}
     async with async_playwright() as playwright:
         reports = []
         for name in (part.strip() for part in args.engines.split(",")):
             require(name in {"chromium", "webkit", "firefox"}, f"Unknown engine {name}")
             reports.append(await run_engine(playwright, name, args, output))
     result = {"url": args.url, "passed": all(report["passed"] for report in reports),
-              "scope": "Genuine-input onboarding and UI regression; not a full-game playthrough.",
+              "scope": "Canonical arrival/boarding and UI inputs plus explicit legacy Continue regression; not a complete-story or full-game playthrough.",
               "limitations": ["WebKit profile emulates iPhone; real iOS Safari is not tested.",
                               "Controllers are virtual API fixtures; physical hardware is not tested.",
+                              "Legacy Continue uses an initial legacy save fixture generated inside each engine.",
                               "Reload uses a declared ammunition fixture."], "engines": reports}
+    result["localSourceHashes"] = source_hashes
+    result["localSourceRoot"] = str(source_root)
+    result["harnessPath"] = str(Path(__file__).resolve())
+    result["localSourcesChangedDuringRun"] = [name for name, path in sources.items()
+                                             if hashlib.sha256(path.read_bytes()).hexdigest()
+                                             != source_hashes[name]]
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(f"Report and screenshots: {output}", flush=True)
     return 0 if result["passed"] else 1
@@ -395,6 +553,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="http://localhost:5173/", help="Running LOWLIGHT application URL")
     parser.add_argument("--engines", default="chromium,webkit,firefox", help="Comma-separated browser engines")
+    parser.add_argument("--source-root", help="Local source root served by the tested URL, for immutable-candidate hashing")
     parser.add_argument("--output", default="/tmp/lowlight-browser-smoke/" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
                         help="Report/screenshot directory (default: /tmp/lowlight-browser-smoke/<timestamp>)")
     sys.exit(asyncio.run(main(parser.parse_args())))

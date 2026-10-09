@@ -13,6 +13,75 @@ complexes. City catalogue records are requirements and research candidates;
 their presence does not establish produced buildings, working transit or
 source-wide city coverage.
 
+## Campaign integration checkpoint (0.5)
+
+New Game now starts Night Crossing (`LL-ST-001`) on the original ferry scene.
+The production runtime registers this mission explicitly; the other nineteen
+authored definitions remain blocked by missing physical handlers. The full
+ninety-mission requirement remains open, and the source catalogue claims no
+new completion. The four existing jobs are separate additional onboarding.
+
+The durable [campaign journey regression](../tests/campaign-journey.test.mjs)
+uses real simulation movement, steering, braking and interaction inputs from a
+clean canonical state. Caption presentation/acknowledgment and the explicit
+room response use public UI APIs. A declared filesystem adapter performs actual
+save write/readback/commit. The test assigns no actor positions, health, clock,
+director stages or completion receipts. It verifies ferry/reunion, actual
+driver/passenger seats, the ordered berth/fairground/dispatch route with a real
+two-second stop, collision-valid parking, escort/portal entry, one duffel,
+the mandatory response and both consequences, finite food, protected storage,
+six-hour rest, idempotent completion and valid Continue. Its output explicitly
+states that this is not a natural browser playthrough or release validation.
+
+The retained development run at
+[/tmp/lowlight-campaign-regression-i4gmiA/completion-report.json](/tmp/lowlight-campaign-regression-i4gmiA/completion-report.json)
+completed at 245.2 simulation seconds with all three principal characters at
+100 health, no deaths/wanted level and no off-road time or route discontinuity.
+Its source hashes were unchanged during the run. Previous failed attempts
+remain retained, including the genuine seated-passenger self-collision defect
+which was corrected in the shared driving loop.
+
+Browser development evidence is indexed in
+[/tmp/lowlight-campaign-ui/ui-summary.json](/tmp/lowlight-campaign-ui/ui-summary.json).
+Genuine New Game checks cover the ferry, manually presented captions, walking
+to the driver door, real taxi boarding, healthy passenger travel and ordinary
+save/Continue. Five desktop/phone/landscape/tablet profiles cover those controls;
+the final explicit healthy-drive/hint check covers Chromium and WebKit.
+Home checks use declared valid journey-save fixtures, followed by actual
+choices, keyboard approaches, owned wardrobe, food, physical save and rest.
+Chromium, Firefox and three WebKit home profiles passed their bounded workflows.
+A one-shot storage quota rejection actually fired and preserved the previous
+save and both receipt ledgers. Genuine unarmed attacks on Felix after a clean
+arrival produced the native failure/retry flow; same-scene retry restored him
+and cleared held controls. These development checks precede the final candidate
+snapshot and do not prove a complete natural browser mission.
+
+Named actors now share scene-filtered combat, vehicle injury and persistent
+health/death. Nadia's death is an authored mission failure rather than a
+conversation softlock. Direct jump/fire actions obey cinematic/service locks.
+Restore rejects invalid exterior/local companion coordinates and heights.
+Skipping a cinematic speeds up physical movement through collision; it does
+not teleport actors or fabricate a completion receipt.
+
+Metro topology encoding 2 canonicalizes only the signature's insignificant
+derived numeric rounding. World geometry, clearance, reservations and changed
+topology checks remain intact. Previously published same-engine signatures are
+recognized and migrated. The [portable-save browser check](../tests/browser-save-portability.py)
+writes campaign saves through New Game and the actual pause Save button, then
+imports those bytes as disclosed storage fixtures for all nine browser pairs.
+It also checks three same-engine legacy migrations. Working-tree attempts
+retain rejections when authored content changed during the run; they are not
+treated as final candidate passes.
+
+The separately published 0.4.1 garage momentum correction is
+[PR #9](https://github.com/michaelcrosato/gta4-gpt61/pull/9).
+Its focused Chromium/WebKit reports at
+[/tmp/lowlight-garage-hotfix-qa](/tmp/lowlight-garage-hotfix-qa)
+declare damaged-vehicle setup before actual entry, then use ordinary driving,
+paid $120 repair, door opening and physical reverse exit. Both pass. Natural
+additional-onboarding attempts retain pursuit damage, van destruction, clinic
+charges and retries; all four jobs in one natural run remain unproved.
+
 ## Repeatable local checks
 
 ```sh
@@ -541,3 +610,84 @@ or health were changed after room entry. The paid-repair and exterior-return
 PNGs were reviewed. Reports: `/tmp/lowlight-garage-hotfix-qa/chromium` and
 `/tmp/lowlight-garage-hotfix-qa/webkit`. These focused checks do not prove a
 natural four-job or full-campaign playthrough; those remain separate work.
+
+## Frozen campaign candidate checks (0.5)
+
+The first frozen 0.5 candidate at `/tmp/lowlight-05-candidate-l81pig09`
+passed **595 JavaScript tests**, **16 publication tests**, syntax, formatting,
+scope integrity, whitespace and build checks. Its browser regressions passed
+three canonical/legacy control engines, six interior profiles, eighteen activity
+cases, three map engines, three actual Metro journeys, five home-service
+profiles and all twelve portable-save cases (nine engine pairs plus three
+recognized legacy migrations). Title/gameplay matrices produced **48 clean
+captures across 14 viewport sizes**; all were inspected in contact sheets, with
+the small WebKit phone also inspected at full size. The six Metro travel/exit
+PNGs were reviewed. Reports are under `/tmp/lowlight-05-` with suffixes
+`browser-smoke`, `interiors`, `activities`, `map`, `rail`, `campaign-home`,
+`save-portability`, `viewports-title` and `viewports-game`. The exact 48 app-file
+hashes are in `/tmp/lowlight-05-candidate-manifest.json`.
+
+The subsequent failure-branch audit found a genuine progression blocker in
+that candidate: Return to the City discarded the only arrival checkpoints;
+Save/Continue then preserved an unfinished mission without a restart control.
+The clean UI reproduction is retained at
+[/tmp/lowlight-05-abandon-repro/report.json](/tmp/lowlight-05-abandon-repro/report.json).
+The correction retains the interrupted run in the director's existing saved
+suspended-run collection. Its explicit phone/journal retry/full-restart routes
+restore actual checkpoints; leaving, saving and opening panels preserve
+ordinary world costs and dead actors. Interrupted captions cannot continue
+earning display time. Separate tests cover strict ownership, rollback and
+actual world restoration. Final verification of this correction is recorded
+separately from the initial candidate's passing workflows.
+
+Natural legacy onboarding attempt 14 completed First Shift, Collection Day and
+Cold Freight with zero deaths, then reached Glass House's final delivery stage
+before a driver-only destroyed-car reentry mistake. Attempt 15 used a separately
+retained temporary driver; it performed actual garage entry, paid $120 to repair
+the living medicine van from 57.868 health to 190, then opened/reversed through
+the physical exit. It subsequently incurred two real Glass House deaths, a clinic
+charge and a failed retry. Both ran immutable published 0.4.1 on port 5176 with
+no actor/health/ammunition/clock mutations. Reports and exact driver archives
+remain at `/tmp/lowlight-opening-qa/14-context-aware-reentry` and
+`/tmp/lowlight-opening-qa/15-optional-vehicle-foot-return`. These establish
+bounded natural progress and repair behavior, not all-four or canonical
+Night-Crossing-to-onboarding completion.
+
+An isolated headless desktop arrival profile used 1440×900 at device scale 1
+with genuine New Game and no world/actor/clock mutations. Chromium measured
+59.4 FPS in the first five seconds, 59.6 in the next eight, and 60.0 after
+settling at the first dialogue. WebKit measured 30.0, 27.9 and 27.6 respectively.
+Settled mean update/render times were 1.82/4.48 ms in Chromium and 5.23/14.64 ms
+in WebKit; both simulation clocks tracked wall time. Chromium startup sampling
+attributed approximately 1.20 seconds to city generation, 0.97 to rail world
+construction and 1.23 to rail renderer preparation. Rendering dominated its
+later arrival sample. Source hashes stayed unchanged and browser errors were
+absent. The [profile record](/tmp/lowlight-05-profile-candidate1/report.json)
+retains raw profiles and timing limits. These bounded desktop samples identify
+performance work; they do not establish acceptable sustained/mobile gameplay
+or real Safari performance. WebKit performance remains a release gate.
+
+The second frozen candidate at `/tmp/lowlight-05-candidate2-bb9bnbcj`
+passed **604 JavaScript tests**, **16 publication tests**, syntax, formatting,
+scope integrity and build checks. Its complete production-input mission record
+is at `/tmp/lowlight-campaign-regression-d2Kb8P`; no first-arc content fingerprint
+changed after candidate1. Only the director, runtime, simulation and UI changed
+for the retained-interruption correction. Genuine unarmed-failure recovery
+passed both modes on Chromium ultrawide, a small WebKit phone, WebKit tablet
+and Firefox desktop. Each run preserved dead Felix through Return, panels,
+actual save and Continue; only explicit retry/restart restored the world.
+
+The short-landscape check first exposed feet hidden beneath captions, then a
+real companion targeting defect: visible exterior companion bodies were omitted
+from pointer picking. Candidate3 changes only that eligibility filter in
+`game.js`; enemy autoaim remains independently filtered. Both WebKit landscape
+recovery modes pass after the fix, as does an explicit visible-body aiming and
+checkpoint-recovery check on Chromium ultrawide. The original failed reports
+remain retained. Combined evidence covers both recovery modes across all five
+profiles; recovery-panel PNGs were inspected. Reports are at
+[/tmp/lowlight-05-recovery-ui](/tmp/lowlight-05-recovery-ui), with corrected runs in
+`candidate3-landscape` and `candidate3-body-aim`. Candidate3 syntax, formatting
+and build checks pass. Its exact app hashes are in
+`/tmp/lowlight-05-candidate3-manifest.json`; no unrelated passing workflow was
+repeated for the one-line eligibility change. Final Python harness formatting
+and the legacy-driver fail-fast guard do not change successful gameplay inputs.

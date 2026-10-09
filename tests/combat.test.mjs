@@ -432,7 +432,9 @@ test('jump, obstacle vault and ledge climb follow timed height trajectories and 
   assert.ok(jump.player.z > 10);
   tick(jump, 1);
   assert.equal(jump.player.z, 0);
-  for (const obstacle of WORLD.obstacles) {
+  for (const obstacle of WORLD.obstacles.filter(
+    (item) => item.traversable !== false && (item.z ?? 0) === 0 && item.height <= 36,
+  )) {
     const state = free();
     state.player.x = obstacle.x + obstacle.w / 2;
     state.player.y = obstacle.y - 12;

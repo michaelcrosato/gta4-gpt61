@@ -149,6 +149,61 @@ const block = (id, x, y, changes = {}) => ({
   type: 'office',
   ...changes,
 });
+test('a real seated companion changes car-window pixels without drawing a standing body over the roof', () =>
+  withCanvas(() => {
+    const game = { time: 0, real: 0 },
+      draw = createWorldRenderer(game, world(), specs);
+    const car = {
+      id: 'taxi',
+      spec: 'sedan',
+      x: 100,
+      y: 100,
+      z: 0,
+      angle: 0,
+      health: 100,
+      color: '#dfb447',
+    };
+    const base = state({
+      player: { ...state().player, x: 100, y: 100, vehicleId: 'taxi' },
+      vehicles: [car],
+    });
+    const empty = renderer(),
+      occupied = renderer();
+    draw.draw(empty, base);
+    empty.flush();
+    const felix = {
+      id: 'LL-CHAR-002',
+      x: 103.5,
+      y: 103.3,
+      z: 5,
+      sceneId: null,
+      health: 100,
+      angle: 0,
+      speed: 0,
+      vehicleId: 'taxi',
+      seat: 1,
+      inVehicle: true,
+      companionPhase: 'seated',
+    };
+    draw.draw(occupied, { ...base, companions: { actors: [felix] } });
+    occupied.flush();
+    assert.equal(occupied.actors.length, 0);
+    assert.ok(
+      occupied.ctx.canvas.pixels.some((v, i) => v !== empty.ctx.canvas.pixels[i]),
+      'the passenger must be visible through the actual glass',
+    );
+    const exiting = renderer();
+    draw.draw(exiting, {
+      ...base,
+      companions: { actors: [{ ...felix, companionPhase: 'exiting', x: 104, y: 113, z: 0 }] },
+    });
+    assert.equal(
+      exiting.actors.length,
+      1,
+      'physical egress must remain visible while seat ownership is being released',
+    );
+    draw.dispose();
+  }));
 
 test('large-city landform worlds use cropped ground tiles instead of the legacy whole-city atlas', () =>
   withCanvas(() => {
@@ -469,6 +524,10 @@ test('swimming clips the submerged rig, omits held equipment and leg shadow, and
     const OriginalRig = E.Humanoid,
       updates = [];
     E.Humanoid = class {
+      constructor(options) {
+        this.o = { ...options };
+        this.C = { ...options.colors };
+      }
       update(dt, pose) {
         updates.push(pose);
       }
@@ -535,6 +594,10 @@ test('standing on a raised deck is grounded; airborne animation uses height abov
     const OriginalRig = E.Humanoid,
       updates = [];
     E.Humanoid = class {
+      constructor(options) {
+        this.o = { ...options };
+        this.C = { ...options.colors };
+      }
       update(dt, pose) {
         updates.push(pose);
       }

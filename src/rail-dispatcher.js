@@ -418,17 +418,33 @@ function compile(world) {
       releaseBuffer: numeric(gate.releaseBuffer, 'gate release buffer', 0, 500),
     });
   }
+  const topology = {
+    dimensions,
+    resources: [...resources.values()].sort((a, b) => compare(a.id, b.id)),
+    tracks: [...tracks.values()].sort((a, b) => compare(a.id, b.id)),
+    platforms: [...platforms.values()].sort((a, b) => compare(a.id, b.id)),
+    services: [...services.values()].sort((a, b) => compare(a.id, b.id)),
+    gates: [...gates.values()].sort((a, b) => compare(a.id, b.id)),
+  };
+  const legacyFingerprint = hash(JSON.stringify(topology));
+  // Derived trigonometric/length results can differ by a few ulps across JS
+  // engines. Canonical metadata is much finer than the collision tolerance;
+  // all actual geometry remains untouched and is still checked continuously.
   const fingerprint = hash(
-    JSON.stringify({
-      dimensions,
-      resources: [...resources.values()].sort((a, b) => compare(a.id, b.id)),
-      tracks: [...tracks.values()].sort((a, b) => compare(a.id, b.id)),
-      platforms: [...platforms.values()].sort((a, b) => compare(a.id, b.id)),
-      services: [...services.values()].sort((a, b) => compare(a.id, b.id)),
-      gates: [...gates.values()].sort((a, b) => compare(a.id, b.id)),
-    }),
+    JSON.stringify(topology, (_key, value) =>
+      typeof value === 'number' ? Math.round(value * 1e9) / 1e9 : value,
+    ),
   );
-  const data = { dimensions, resources, platforms, tracks, services, gates, fingerprint };
+  const data = {
+    dimensions,
+    resources,
+    platforms,
+    tracks,
+    services,
+    gates,
+    fingerprint,
+    legacyFingerprint,
+  };
   compiledWorlds.set(world, data);
   return data;
 }
@@ -550,6 +566,7 @@ function empty(data) {
   return {
     version: 1,
     topology: data.fingerprint,
+    topologyEncoding: 2,
     dimensions: { ...data.dimensions },
     revision: 0,
     time: 0,
@@ -594,7 +611,11 @@ function seed(state, fleet, data) {
 }
 function validate(saved, data, fleet) {
   safeJSON(saved);
-  if (saved?.version !== 1 || saved.topology !== data.fingerprint) bad('version/topology');
+  const topologyValid =
+    saved?.topologyEncoding === 2
+      ? saved.topology === data.fingerprint
+      : saved?.topologyEncoding === undefined && saved.topology === data.legacyFingerprint;
+  if (saved?.version !== 1 || !topologyValid) bad('version/topology');
   if (
     !saved.dimensions ||
     ['length', 'width', 'height'].some((key) => saved.dimensions[key] !== data.dimensions[key])
@@ -704,6 +725,10 @@ export function validateRailDispatch(saved, world, trains) {
   const data = compile(world);
   return validate(saved, data, fleetData(trains, data));
 }
+export function railDispatchTopology(world) {
+  const data = compile(world);
+  return { encoding: 2, topology: data.fingerprint, legacyTopology: data.legacyFingerprint };
+}
 /** Detached, strict JSON restore; it never invents missing owners or releases. */
 export function restoreRailDispatch(serializedOrObject, world, trains) {
   let value = serializedOrObject;
@@ -716,7 +741,11 @@ export function restoreRailDispatch(serializedOrObject, world, trains) {
     }
   }
   validateRailDispatch(value, world, trains);
-  return copy(value);
+  const migrated = copy(value),
+    data = compile(world);
+  migrated.topology = data.fingerprint;
+  migrated.topologyEncoding = 2;
+  return migrated;
 }
 
 /**

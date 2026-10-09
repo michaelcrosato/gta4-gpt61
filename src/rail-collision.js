@@ -72,7 +72,15 @@ export function railGateBlocked(state, world, x, y, radius = 9, z = 0, from = nu
 export function updateRailImpacts(state, dt, { damagePlayer, damageVehicle, notify = () => {} }) {
   if (!state.transit) return;
   const passengers = new Set(state.transit.passengers.map((passenger) => passenger.id));
-  const bodies = [...state.pedestrians, ...state.police, ...state.hostiles, ...state.vehicles];
+  const bodies = [
+    ...state.pedestrians,
+    ...state.police,
+    ...state.hostiles,
+    ...state.vehicles,
+    ...(state.companions?.actors || []).filter(
+      (actor) => !actor.vehicleId || actor.companionPhase === 'exiting',
+    ),
+  ];
   if (!railPassenger(state)) bodies.push(state.player);
   for (const train of state.transit.trains) {
     if (train.speed < 8) continue;

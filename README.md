@@ -32,7 +32,7 @@ building textures use bounded caches.
 The 0.4.1 patch preserves indoor car momentum while exterior traffic and police
 continue updating, so vehicles can drive normally inside Saira’s Garage.
 
-The 0.4 work adds four real rooms: Voss Dispatch, Saira’s Garage, The Lantern and
+The interior foundation includes Voss Dispatch, Saira’s Garage, The Lantern and
 Blue Hour Lanes. They share the game’s combat, doors, destructible props,
 persistent occupants and saves; indoor witnesses report the exterior entrance.
 The garage has a paid tools counter and vehicle repair bay, the bar serves paid
@@ -49,10 +49,23 @@ Blue Hour Lanes, The Lantern, Saltworks Billiards and Night Owl Arcade offer ful
 bowling, 301 darts, eight-ball and STACKLIGHT matches. The complete campaign,
 city, side content and multiplayer remain in production.
 
-Twenty source-mapped campaign definitions and a deterministic director are
-authored but unintegrated; they earn no source completion credit. The existing
-four jobs remain additional onboarding. Input-only attempts have not yet
-completed all four naturally. See the [verification record](docs/verification.md)
+New Game now begins **Night Crossing**, the first of twenty authored
+source-mapped missions. Mara arrives on a physical ferry, reunites with Felix,
+drives their actual shared taxi through a stopped driving lesson, and reaches
+Dockside Rooms. The shelter has a required conversation choice, owned outfits,
+finite meals, a physical save desk and a six-hour rest. Companions walk, board,
+ride, exit and take damage in the shared simulation; checkpoints restore that
+world. Failed storage writes preserve the previous save and earn no save credit.
+Leaving an interrupted crossing retains its checkpoints; the phone and journal
+offer an explicit retry or full restart after Continue.
+Existing legacy saves still Continue, including the additional four onboarding
+jobs. Metro saves use a portable topology signature across browser engines.
+
+The other nineteen authored missions still need physical integration; the full
+ninety-mission scope remains active. The first mission's production-input
+regression and browser UI checks earn no source completion credit or full
+natural-browser-playthrough claim. All four additional jobs have not yet been
+completed in one natural input run. See the [verification record](docs/verification.md)
 for the retained failures and fixture boundaries.
 
 ```sh
@@ -76,6 +89,8 @@ save/continue regression checks against the development server:
 
 ```sh
 python3 tests/browser-smoke.py --url http://localhost:5173/
+python3 tests/browser-save-portability.py --url http://localhost:5173/
+python3 tests/browser-campaign-interruption.py --url http://localhost:5173/
 python3 tests/browser-activities.py --url http://localhost:5173/
 python3 tests/browser-interiors.py --url http://localhost:5173/
 python3 tests/browser-map.py --url http://localhost:5173/
@@ -89,7 +104,9 @@ iPhone profiles, while the rail journey runs desktop profiles. Reports and scree
 go to `/tmp`, and the script exits with failure if a control or browser check
 fails. It verifies the opening and interface, not the complete campaign. See
 [verification boundaries and evidence](docs/verification.md).
-The activity and city/map scripts declare their venue, budget, late-game and
+The activity, city/map, interior and rail scripts declare legacy-mode save
+baselines to isolate their existing regression contracts. The canonical New
+Game is checked separately. The activity and city/map scripts declare venue, budget, late-game and
 geography fixtures. Rail QA declares completed onboarding, a physical-platform
 relocation and a health/budget fixture, then uses real inputs and normal travel.
 These checks do not replace a natural playthrough from a clean save. Short

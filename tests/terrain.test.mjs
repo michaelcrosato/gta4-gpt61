@@ -117,6 +117,48 @@ test('actors with a health field use the existing fourteen-unit body-eye convent
     false,
   );
 });
+test('raised canopy volumes leave the ground passage open and block only their actual height interval', () => {
+  const terrain = createTerrain(
+    world({ obstacles: [{ x: 40, y: 40, w: 20, h: 20, z: 40, height: 4 }] }),
+  );
+  assert.equal(terrain.isBlocked(50, 50, 7, 0), false);
+  assert.equal(terrain.isBlocked(50, 50, 7, 39), false);
+  assert.equal(terrain.isBlocked(50, 50, 7, 41), true);
+  assert.equal(terrain.isBlocked(50, 50, 7, 44), false);
+  assert.equal(terrain.hasLineOfSight({ x: 0, y: 50, z: 14 }, { x: 100, y: 50, z: 14 }), true);
+  assert.equal(terrain.hasLineOfSight({ x: 0, y: 50, z: 42 }, { x: 100, y: 50, z: 42 }), false);
+  assert.equal(terrain.hasLineOfSight({ x: 50, y: 50, z: 30 }, { x: 50, y: 50, z: 50 }), false);
+  assert.equal(terrain.hasLineOfSight({ x: 50, y: 50, z: 50 }, { x: 50, y: 50, z: 30 }), false);
+});
+test('a seated passenger uses its actual lower eye height inside a sealed road bore', () => {
+  const road = {
+    id: 'bore',
+    x1: 0,
+    y1: 50,
+    x2: 200,
+    y2: 50,
+    width: 40,
+    z1: -18,
+    z2: -18,
+    tunnel: true,
+    access: ['car'],
+  };
+  const terrain = createTerrain(world({ roads: [road], tunnels: [{ id: 'bore' }] }));
+  assert.equal(
+    terrain.hasLineOfSight(
+      { x: 20, y: 50, z: -13, health: 100, eyeHeight: 6 },
+      { x: 100, y: 50, z: -18, health: 100 },
+    ),
+    true,
+  );
+  assert.equal(
+    terrain.hasLineOfSight(
+      { x: 20, y: 50, z: -13, health: 100 },
+      { x: 100, y: 50, z: -18, health: 100 },
+    ),
+    false,
+  );
+});
 
 test('polygon coasts differ from their envelopes and circle bodies cannot clip a diagonal shoreline', () => {
   const terrain = createTerrain(

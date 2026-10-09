@@ -12,12 +12,24 @@ import {
   validateTransit,
 } from './transit.js';
 import { currentSceneId } from './scene-context.js';
-import { createRailDispatcher, validateRailDispatch } from './rail-dispatcher.js';
+import {
+  createRailDispatcher,
+  validateRailDispatch,
+  restoreRailDispatch,
+} from './rail-dispatcher.js';
 import { createRailClearance } from './rail-clearance.js';
 const dispatchers = new WeakMap();
 const clearances = new WeakMap();
 
 export const RAIL_PLAYER_ID = 'mara-voss';
+/** Whole-world checkpoint replacement must rebuild reservations from its saved fleet. */
+export function resetRailRuntime(state) {
+  dispatchers.delete(state);
+}
+export function migrateRailSignals(state, world) {
+  if (state.railSignals && state.railSignals.topologyEncoding === undefined)
+    state.railSignals = restoreRailDispatch(state.railSignals, world, state.transit.trains);
+}
 export function railPassenger(state) {
   return state.transit?.passengers.find((passenger) => passenger.id === RAIL_PLAYER_ID) ?? null;
 }

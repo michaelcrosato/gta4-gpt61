@@ -4,12 +4,41 @@ import {
   createRailDispatcher,
   validateRailDispatch,
   restoreRailDispatch,
+  railDispatchTopology,
 } from '../src/rail-dispatcher.js';
 import { createTransit, updateTransit, restoreTransit } from '../src/transit.js';
 import { CITY_BLUEPRINT } from '../src/city-blueprint.js';
 import { createRailWorld } from '../src/rail-geometry.js';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+test('recognized legacy rail signatures migrate metadata while retaining every physical reservation', () => {
+  const { world } = createRailWorld(CITY_BLUEPRINT),
+    model = createTransit(world),
+    snapshot = createRailDispatcher(world, model.trains).snapshot();
+  assert.equal(snapshot.topologyEncoding, 2);
+  const legacy = clone(snapshot);
+  delete legacy.topologyEncoding;
+  legacy.topology = railDispatchTopology(world).legacyTopology;
+  assert.equal(validateRailDispatch(legacy, world, model.trains), true);
+  const restored = restoreRailDispatch(legacy, world, model.trains);
+  assert.equal(restored.topologyEncoding, 2);
+  assert.equal(restored.topology, snapshot.topology);
+  assert.deepEqual(restored.reservations, snapshot.reservations);
+  assert.deepEqual(restored.closedGates, snapshot.closedGates);
+  assert.equal(legacy.topologyEncoding, undefined, 'migration must not mutate the caller save');
+});
+test('semantic topology fingerprints ignore only sub-nanounit derived noise and still reject actual resource changes', () => {
+  const { world } = createRailWorld(CITY_BLUEPRINT),
+    model = createTransit(world),
+    snapshot = createRailDispatcher(world, model.trains).snapshot();
+  const noise = clone(world);
+  noise.transit.railResources[0].bounds.x += 1e-11;
+  assert.equal(railDispatchTopology(noise).topology, snapshot.topology);
+  const changed = clone(world);
+  changed.transit.railResources[0].bounds.x += 1;
+  assert.notEqual(railDispatchTopology(changed).topology, snapshot.topology);
+  assert.throws(() => validateRailDispatch(snapshot, changed, model.trains), /version\/topology/);
+});
 const config = {
   cars: 1,
   carLength: 24,

@@ -9,7 +9,10 @@ export function worldElevation(world) {
     lowest = Math.min(lowest, road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0);
     highest = Math.max(highest, road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0);
   }
-  for (const building of world.buildings || []) highest = Math.max(highest, building.height || 0);
+  for (const volume of [...(world.buildings || []), ...(world.obstacles || [])]) {
+    lowest = Math.min(lowest, volume.z ?? 0);
+    highest = Math.max(highest, (volume.z ?? 0) + (volume.height ?? 0));
+  }
   const result = Object.freeze({ min: lowest < 0 ? lowest - 30 : 0, max: highest + 100 });
   limits.set(world, result);
   return result;

@@ -4,6 +4,7 @@ import { WEAPONS } from './combat.js';
 import { createCityGroundRenderer } from './city-ground.js';
 import { createSpatialIndex } from './spatial-index.js';
 import { createTerrain } from './terrain.js';
+import { outfitAppearance } from './wardrobe.js';
 const E = globalThis.My3D2dge;
 const hash = (value) => {
   let h = 2166136261;
@@ -439,6 +440,11 @@ export function createWorldRenderer(game, world, specs, options = {}) {
   function drawVehicle(r, car, state) {
     if (!shouldDrawActor(car) || !r.visible(car.x, car.y, car.z || 0, 60, 70, 70)) return;
     const spec = specs[car.spec] || specs.sedan;
+    const occupants = (state.companions?.actors || []).filter(
+      (actor) => actor.vehicleId === car.id && actor.companionPhase !== 'exiting',
+    );
+    if (state.player.vehicleId === car.id)
+      occupants.push({ ...state.player, id: 'mara-voss', seat: 0 });
     const L = (spec.length || 28) / 2,
       W = (spec.width || 14) / 2;
     const c = Math.cos(car.angle),
@@ -480,17 +486,39 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       const color = car.color || '#9e9471';
       prism(g, L, W, 3, 7, color);
       prism(g, L * 0.46, W * 0.8, 7, 12, color, E.shade(color, 0.16));
-      for (const x of [-L * 0.47, L * 0.47])
-        E.px.poly(
-          g,
-          [
-            point(x, -W * 0.77, 8),
-            point(x, W * 0.77, 8),
-            point(x * 0.7, W * 0.7, 11),
-            point(x * 0.7, -W * 0.7, 11),
-          ],
-          '#46676a',
-        );
+      for (const x of [-L * 0.47, L * 0.47]) {
+        const glass = [
+          point(x, -W * 0.77, 8),
+          point(x, W * 0.77, 8),
+          point(x * 0.7, W * 0.7, 11),
+          point(x * 0.7, -W * 0.7, 11),
+        ];
+        E.px.poly(g, glass, '#46676a');
+        const windowPixels = (x, y, w, h, color) => {
+          for (let row = Math.round(y); row < Math.round(y) + h; row++)
+            for (let col = Math.round(x); col < Math.round(x) + w; col++) {
+              const signs = glass.map((a, i) => {
+                const b = glass[(i + 1) % glass.length];
+                return (b[0] - a[0]) * (row + 0.5 - a[1]) - (b[1] - a[1]) * (col + 0.5 - a[0]);
+              });
+              if (signs.every((v) => v >= -1e-7) || signs.every((v) => v <= 1e-7))
+                E.px.rect(g, col, row, 1, 1, color);
+            }
+        };
+        for (const person of occupants) {
+          const front = (person.seat ?? 1) < 2;
+          if (front !== x > 0) continue;
+          const side = (person.seat ?? 1) === 0 || (person.seat ?? 1) === 2 ? -1 : 1;
+          const head = point((front ? 1 : -1) * L * 0.39, side * W * 0.44, 9.6);
+          const skin =
+            person.id === 'mara-voss'
+              ? outfitAppearance(state).colors.skin
+              : person.colors?.skin || (hash(person.id) > 0.5 ? '#c69b7c' : '#916f58');
+          windowPixels(head[0] - 1, head[1] + 1, 3, 2, '#344b50');
+          windowPixels(head[0] - 1, head[1] - 1, 3, 2, skin);
+          windowPixels(head[0] - 1, head[1] - 2, 3, 1, '#35312a');
+        }
+      }
       if (car.spec === 'taxi') prism(g, 3, 2, 12, 15, '#ded492');
       if (car.kind === 'police' || car.spec === 'police') {
         const q1 = point(1, -3, 13),
@@ -553,7 +581,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
   }
 
   function drawPerson(r, person, type, dt) {
-    if (person.inVehicle) return;
+    if ((person.inVehicle || person.vehicleId) && person.companionPhase !== 'exiting') return;
     if (!shouldDrawActor(person) || !r.visible(person.x, person.y, person.z || 0, 35, 50, 50))
       return;
     const rig = rigFor(person, type);
@@ -564,14 +592,22 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       facing: person.angle || 0,
       vx: person.health > 0 ? person.vx || Math.cos(person.angle || 0) * (person.speed || 0) : 0,
       vy: person.health > 0 ? person.vy || Math.sin(person.angle || 0) * (person.speed || 0) : 0,
-      pose: person.health <= 0 ? 'down' : person.crouching ? 'crouch' : undefined,
+      pose:
+        person.health <= 0
+          ? 'down'
+          : person.crouching || ['boarding', 'exiting'].includes(person.companionPhase)
+            ? 'crouch'
+            : undefined,
       point:
         type !== 'pedestrian' &&
         person.health > 0 &&
         WEAPONS[person.weapon]?.mode !== 'melee' &&
         !person.meleeAction,
       attack: meleeAnimation(person.meleeAction),
-      stance: person.weapon === 'unarmed' ? 'guard' : undefined,
+      stance:
+        person.weapon === 'unarmed' && (person.defending || person.meleeAction)
+          ? 'guard'
+          : undefined,
     });
     if (!person.z) r.shadow(person.x, person.y, 7, 0.3, '#14231e');
     r.actor(
@@ -923,16 +959,27 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           cityGround.drawElevated(r);
         }
       } else drawFloor(r);
+      options.afterGround?.(r, state);
       const visible = underground ? [] : visibleBuildings(r);
       stats.visibleBuildings = visible.length;
       for (const b of visible) drawBuilding(r, b, state);
       if (options.drawScenery) options.drawScenery(r, state);
       else if (!underground) streetFurniture(r, state);
+      options.afterScenery?.(r, state);
       retireRigs();
       for (const car of state.vehicles) drawVehicle(r, car, state);
       for (const person of state.pedestrians) drawPerson(r, person, 'pedestrian', 1 / 60);
       for (const person of state.police) drawPerson(r, person, 'police', 1 / 60);
       for (const person of state.hostiles) drawPerson(r, person, 'hostile', 1 / 60);
+      const renderedIds = new Set(
+        [...state.pedestrians, ...state.police, ...state.hostiles].map((person) => person.id),
+      );
+      for (const person of state.companions?.actors || [])
+        if (
+          !renderedIds.has(person.id) &&
+          (person.sceneId ?? null) === (state.interior?.active?.roomId ?? null)
+        )
+          drawPerson(r, person, 'pedestrian', 1 / 60);
       for (const craft of state.policeAircraft || []) drawPoliceAircraft(r, craft);
       if (state.mission?.stageType === 'interact' && state.mission.target) {
         const t = state.mission.target;
@@ -952,6 +999,17 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       }
       const p = state.player;
       if (!p.vehicleId && shouldDrawActor(p)) {
+        const appearance = outfitAppearance(state);
+        if (hero._lowlightOutfit !== appearance.id) {
+          hero._lowlightOutfit = appearance.id;
+          hero.o.outfit = appearance.outfit;
+          hero.o.sleeves = appearance.sleeves;
+          Object.assign(hero.C, appearance.colors);
+          hero.C.clothDk = E.shade(hero.C.cloth, -0.3);
+          hero.C.clothLt = E.shade(hero.C.cloth, 0.25);
+          hero.C.pantsDk = E.shade(hero.C.pants, -0.3);
+          hero.C.bootDk = E.shade(hero.C.boot, -0.3);
+        }
         hero.update(1 / 60, {
           x: p.x,
           y: p.y,
@@ -971,7 +1029,10 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           attack: p.swimming ? undefined : meleeAnimation(p.meleeAction),
           air: (p.z || 0) - (p.groundZ || 0) > 3 && !p.traversal,
           climb: p.traversal?.kind === 'climb',
-          stance: !p.swimming && p.weapon === 'unarmed' ? 'guard' : undefined,
+          stance:
+            !p.swimming && p.weapon === 'unarmed' && (p.defending || p.meleeAction)
+              ? 'guard'
+              : undefined,
           pose: p.swimming
             ? 'cast'
             : p.health <= 0
@@ -1044,23 +1105,25 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           );
         });
       for (const obstacle of underground ? [] : world.obstacles || []) {
-        if (!r.visible(obstacle.x, obstacle.y, 0, 60, 90, 90)) continue;
-        r.queue(obstacle.x + obstacle.w / 2, obstacle.y + obstacle.h / 2, 0, (g) => {
+        const z = obstacle.z ?? 0;
+        if (obstacle.render === false || !r.visible(obstacle.x, obstacle.y, z, 60, 90, 90))
+          continue;
+        r.queue(obstacle.x + obstacle.w / 2, obstacle.y + obstacle.h / 2, z, (g) => {
           r.box(
             g,
             obstacle.x,
             obstacle.y,
-            0,
+            z,
             obstacle.x + obstacle.w,
             obstacle.y + obstacle.h,
-            obstacle.height,
+            z + obstacle.height,
             obstacle.color || '#7e8b75',
             '#596b5d',
           );
           E.px.line(
             g,
-            ...r.w(obstacle.x, obstacle.y, obstacle.height + 1),
-            ...r.w(obstacle.x + obstacle.w, obstacle.y, obstacle.height + 1),
+            ...r.w(obstacle.x, obstacle.y, z + obstacle.height + 1),
+            ...r.w(obstacle.x + obstacle.w, obstacle.y, z + obstacle.height + 1),
             '#c4c7a2',
           );
         });

@@ -14,6 +14,19 @@ import {
   selectMetroStop,
   jumpOrVault,
   toggleCover,
+  storyView,
+  presentStoryDialogue,
+  acknowledgeStory,
+  selectStoryChoice,
+  retryStory,
+  leaveStory,
+  skipStoryCinematic,
+  prepareStorySave,
+  commitStorySave,
+  rollbackStorySave,
+  setCampaignStorageVerifier,
+  setStoryPresentationVisibility,
+  chooseWardrobeOutfit,
   WORLD,
   MISSIONS,
   WEAPONS,
@@ -26,12 +39,15 @@ import { quoteTransitFare } from './transit.js';
 import { createInteriorRenderer } from './interior-renderer.js';
 import { interiorScene } from './interiors.js';
 import { currentSceneId, scenePeople, inScene } from './scene-context.js';
-import { createRoomMap, exteriorMapPosition } from './room-map.js';
+import { createRoomMap, createRoomMapProjection, exteriorMapPosition } from './room-map.js';
 import { findRoute, snapToRoad } from './navigation.js';
 import { weaponSound } from './weapon-art.js';
 import { createMinigameView } from './minigame-view.js';
 import { restoreActivity } from './activity-save.js';
 import { createMapBackground, createMapProjection } from './map-background.js';
+import { createNightCrossingRenderer } from './campaign/scenes.js';
+import { OUTFITS } from './wardrobe.js';
+import { FIRST_ARC_MISSIONS } from './campaign/first-arc.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -97,12 +113,17 @@ game.pauseOverlay = false;
 game.reduceMotion = settings.reduceMotion;
 game.audio.setVolume(settings.volume);
 game.cam.smooth = 0.18;
-const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS);
+const storyRenderer = createNightCrossingRenderer(game, WORLD);
+const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS, {
+  afterGround: (r, renderedState) => storyRenderer.drawGround(r, renderedState),
+  afterScenery: (r, renderedState) => storyRenderer.draw(r, renderedState),
+});
 const metroRenderer = createRailRenderer(game, WORLD);
 const roomRenderer = createInteriorRenderer(game, VEHICLE_SPECS);
 const roomMap = createRoomMap();
 const mapBackground = createMapBackground(WORLD);
 const dialogs = [$('pause-dialog'), $('info-dialog'), $('map-dialog')];
+$('info-dialog').setAttribute('aria-labelledby', 'info-title');
 const touch = { x: 0, y: 0, id: null };
 const noticeHistory = new Set();
 let mapCursor = null;
@@ -110,7 +131,34 @@ let lastAttackSerial = 0;
 const combatEffectsSeen = new Set();
 const touchCombat = { crouch: false, aim: false, block: false };
 let displayedSceneId = null,
+  displayedRestoreEpoch = null,
+  displayedCameraEpoch = null,
   sceneMovementBlocked = false;
+let renderedStoryLine = null,
+  promptedStoryChoice = null,
+  promptedStoryFailure = null;
+setCampaignStorageVerifier((bytes) => localStorage.getItem(SAVE_KEY) === bytes);
+
+const storyContinue = document.createElement('button');
+$('dialogue-panel').setAttribute('role', 'status');
+$('dialogue-panel').setAttribute('aria-live', 'polite');
+$('dialogue-panel').setAttribute('aria-atomic', 'true');
+storyContinue.id = 'story-continue';
+storyContinue.className = 'story-caption-action';
+storyContinue.textContent = 'CONTINUE';
+storyContinue.hidden = true;
+$('dialogue-panel').append(storyContinue);
+const storySkip = document.createElement('button');
+storySkip.id = 'story-skip';
+storySkip.className = 'story-skip';
+storySkip.textContent = 'SKIP SCENE';
+storySkip.hidden = true;
+$('game-hud').append(storySkip);
+const storyRestFade = document.createElement('div');
+storyRestFade.className = 'story-rest-fade';
+storyRestFade.setAttribute('aria-hidden', 'true');
+storyRestFade.hidden = true;
+$('screen').after(storyRestFade);
 const activityUI = createMinigameView({
   audio: game.audio,
   onSnapshot(session) {
@@ -215,9 +263,13 @@ function announce(text, error = false) {
   setTimeout(() => item.remove(), 5000);
 }
 function syncScene(force = false) {
-  const id = currentSceneId(state);
-  if (!force && id === displayedSceneId) return false;
+  const id = currentSceneId(state),
+    epoch = storyView(state)?.inputEpoch ?? 0;
+  if (!force && id === displayedSceneId && epoch === displayedRestoreEpoch) return false;
+  if (displayedRestoreEpoch !== null && epoch !== displayedRestoreEpoch) lastSave = state.time;
   displayedSceneId = id;
+  displayedRestoreEpoch = epoch;
+  renderedStoryLine = null;
   const axes = game.input.padAxes || [0, 0];
   sceneMovementBlocked = Math.hypot(axes[0] || 0, axes[1] || 0) > (game.input.deadzone ?? 0.18);
   game.input.clear();
@@ -244,7 +296,9 @@ function syncScene(force = false) {
 
 function processInteraction(result) {
   const changed = syncScene();
-  if (result?.type === 'save') storeProgress(true);
+  if (result?.type === 'story-save') storeShelterProgress();
+  else if (result?.type === 'wardrobe') showWardrobe();
+  else if (result?.type === 'save') storeProgress(true);
   else if (result?.type === 'activity') openActivity(result.activity);
   else if (result?.type === 'workshop') showWeaponShop();
   else if (result?.type === 'journal') showJournal();
@@ -252,6 +306,10 @@ function processInteraction(result) {
   return changed || dialogs.some((dialog) => dialog.open);
 }
 function storeProgress(manual = false) {
+  if (storyView(state)?.failed) {
+    if (manual) announce('Retry the journey before saving. Your last save is kept.', true);
+    return false;
+  }
   try {
     localStorage.setItem(SAVE_KEY, saveGame(state));
     saved = localStorage.getItem(SAVE_KEY);
@@ -261,6 +319,206 @@ function storeProgress(manual = false) {
       announce('This browser could not save progress. Check available local storage.', true);
   }
   lastSave = state.time;
+}
+function storeShelterProgress() {
+  const prepared = prepareStorySave(state);
+  if (!prepared.ok) {
+    announce('Share the meal, then use the room’s save point.', true);
+    return false;
+  }
+  let previous;
+  try {
+    previous = localStorage.getItem(SAVE_KEY);
+    const bytes = saveGame(prepared.candidate);
+    localStorage.setItem(SAVE_KEY, bytes);
+    if (localStorage.getItem(SAVE_KEY) !== bytes) throw Error('Save readback failed.');
+    if (!commitStorySave(state, prepared, { bytes }).ok) throw Error('Save confirmation failed.');
+    saved = bytes;
+    lastSave = state.time;
+  } catch {
+    rollbackStorySave(state, prepared);
+    try {
+      if (previous === null) localStorage.removeItem(SAVE_KEY);
+      else if (previous !== undefined) localStorage.setItem(SAVE_KEY, previous);
+    } catch {
+      /* A browser that denies storage cannot repair it; retain the in-memory save. */
+    }
+    announce('This browser could not save progress. Your last confirmed save is kept.', true);
+    return false;
+  }
+  announce('Progress saved at Dockside Rooms.');
+  updateHud();
+  return true;
+}
+function storyTarget(view = storyView(state)) {
+  if (!view?.active || !view.target) return null;
+  const names = {
+    berth: 'Felix at Pier Eight',
+    taxi: 'Felix’s co-op taxi',
+    drill: view.route?.index <= 1 ? 'Promenade muster sign' : 'Voss Dispatch',
+    shelter: 'Dockside Rooms',
+    rest: view.target.prompt || 'Shared room',
+  };
+  return { ...view.target, name: names[view.stageId] || view.title };
+}
+function exteriorStoryTarget() {
+  const target = storyTarget();
+  if (!target || inScene(target, null)) return target;
+  const home = WORLD.campaignSceneBindings?.['dockside-rooms'];
+  return target.sceneId === home?.roomId
+    ? { ...home.entry, sceneId: null, name: 'Dockside Rooms entrance' }
+    : null;
+}
+function storyLineKey(view) {
+  if (view?.dialogue)
+    return `${view.missionId}:${view.stageId}:${view.attempt}:${view.dialogueIndex}`;
+  return view?.ambient ? `${view.ambient.receipt}:${view.ambient.index}` : null;
+}
+function renderCaptions(view = storyView(state)) {
+  const line = view?.dialogue || view?.ambient || state.dialogue,
+    panel = $('dialogue-panel'),
+    visible = mode === 'play' && !document.hidden && !dialogs.some((dialog) => dialog.open);
+  setStoryPresentationVisibility(state, visible);
+  panel.hidden = !line || !visible;
+  if (line || view?.cinematic) $('context-prompt').hidden = true;
+  document.body.classList.toggle('in-conversation', !!line && visible);
+  document.body.classList.toggle('story-scene', visible && !!view?.cinematic);
+  $('touch-more').hidden = !!line;
+  storyContinue.hidden = !line || !(view?.dialogue || view?.ambient);
+  panel.querySelector('span').innerHTML =
+    `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> ${view?.autoDialogue || view?.ambient ? 'CONTINUE · AUTO CAPTIONS' : 'CONTINUE'}`;
+  if (line) {
+    if ($('dialogue-speaker').textContent !== line.speaker)
+      $('dialogue-speaker').textContent = line.speaker;
+    if ($('dialogue-text').textContent !== line.text) $('dialogue-text').textContent = line.text;
+  }
+  renderedStoryLine = visible && !panel.hidden ? storyLineKey(view) : null;
+  if (renderedStoryLine) presentStoryDialogue(state);
+  storySkip.hidden = !visible || !view?.cinematic || !!line;
+  storySkip.disabled = !!view?.cinematic?.skipRequested;
+  storySkip.textContent = view?.cinematic?.skipRequested ? 'SCENE CONTINUING…' : 'SKIP SCENE';
+  storyRestFade.hidden = !visible || view?.shelterAction?.kind !== 'rest';
+  if (!storyRestFade.hidden)
+    storyRestFade.style.opacity = String(Math.sin(Math.PI * view.shelterAction.progress) * 0.9);
+}
+function acknowledgeVisibleStory(view = storyView(state)) {
+  const key = storyLineKey(view);
+  if (!key || key !== renderedStoryLine || $('dialogue-panel').hidden) return false;
+  acknowledgeStory(state);
+  updateHud();
+  return true;
+}
+storyContinue.addEventListener('click', () => {
+  acknowledgeVisibleStory();
+  $('screen').focus({ preventScroll: true });
+});
+storySkip.addEventListener('click', () => {
+  skipStoryCinematic(state);
+  $('screen').focus({ preventScroll: true });
+});
+function showStoryChoice(view = storyView(state)) {
+  const choice = view?.choices?.find((entry) => entry.id === 'room-response');
+  if (!view?.active || !choice || !view.choicePending || !view.dialogueReady || view.dialogue)
+    return false;
+  promptedStoryChoice = `${view.missionId}:${view.stageId}:${view.attempt}`;
+  info(
+    'A place to begin.',
+    `<p>Nadia has made space for you. What do you say?</p><div class="story-options">${choice.options.map((option) => `<button data-story-option="${escapeHTML(option.id)}">${escapeHTML(option.text)}</button>`).join('')}</div>`,
+    'NIGHT CROSSING / NADIA',
+  );
+  $('info-dialog').dataset.storyPanel = 'choice';
+  for (const button of $('info-content').querySelectorAll('[data-story-option]'))
+    button.addEventListener('click', () => {
+      const result = selectStoryChoice(state, choice.id, button.dataset.storyOption);
+      if (!result.ok) {
+        announce('Wait until Nadia has finished speaking.', true);
+        return;
+      }
+      closeAllDialogs();
+      updateHud();
+    });
+  $('info-content').querySelector('[data-story-option]')?.focus({ preventScroll: true });
+  return true;
+}
+function showStoryFailure(view = storyView(state)) {
+  if (!view?.failed) return false;
+  promptedStoryFailure = `${view.missionId}:${view.attempt}:${view.failure?.sequence}`;
+  const line = view.dialogue;
+  info(
+    'The crossing isn’t over.',
+    `${line ? `<p class="story-failure-line"><b>${escapeHTML(line.speaker)}</b> ${escapeHTML(line.text)}</p>` : '<p>The journey was interrupted. Return to your last checkpoint or start the crossing again.</p>'}<div class="story-options"><button id="story-retry" class="primary-button">RETRY CHECKPOINT</button><button id="story-restart">RESTART NIGHT CROSSING</button><button id="story-leave">RETURN TO THE CITY</button></div><p>Your last saved game is kept.</p>`,
+    'NIGHT CROSSING / JOURNEY INTERRUPTED',
+  );
+  $('info-dialog').dataset.storyPanel = 'failure';
+  $('story-retry').addEventListener('click', () => retryStoryFromUi('retry-last-checkpoint'));
+  $('story-restart').addEventListener('click', () => retryStoryFromUi('restart-mission'));
+  $('story-leave').addEventListener('click', () => {
+    if (!leaveStory(state).ok) return;
+    closeAllDialogs();
+    syncScene(true);
+    updateHud();
+    announce('Night Crossing is unfinished. Retry it from your phone or journal.');
+  });
+  $('story-retry').focus({ preventScroll: true });
+  return true;
+}
+function retryStoryFromUi(mode) {
+  const result = retryStory(state, mode);
+  if (!result.ok) {
+    announce('The checkpoint could not be restored. Your saved game is kept.', true);
+    return;
+  }
+  closeAllDialogs();
+  syncScene(true);
+  updateHud();
+}
+function storyRecoveryControls(view, prefix) {
+  return view?.interrupted
+    ? `<p>Your arrival is unfinished. Retry its saved checkpoint, or restart from the crossing’s beginning.</p><div class="story-options"><button id="${prefix}-story-retry" class="primary-button">RETRY LAST CHECKPOINT</button><button id="${prefix}-story-restart">RESTART NIGHT CROSSING</button></div>`
+    : '';
+}
+function bindStoryRecovery(prefix) {
+  $(`${prefix}-story-retry`)?.addEventListener('click', () =>
+    retryStoryFromUi('retry-last-checkpoint'),
+  );
+  $(`${prefix}-story-restart`)?.addEventListener('click', () =>
+    retryStoryFromUi('restart-mission'),
+  );
+}
+function updateStoryMenus(view) {
+  if (mode !== 'play' || dialogs.some((dialog) => dialog.open)) return;
+  if (
+    view?.failed &&
+    promptedStoryFailure !== `${view.missionId}:${view.attempt}:${view.failure?.sequence}`
+  )
+    showStoryFailure(view);
+  else if (
+    view?.active &&
+    view.choicePending &&
+    !view.dialogue &&
+    view.dialogueReady &&
+    promptedStoryChoice !== `${view.missionId}:${view.stageId}:${view.attempt}`
+  )
+    showStoryChoice(view);
+}
+function showWardrobe(message = '') {
+  info(
+    'Something dry for tomorrow.',
+    `${message ? `<p role="status">${escapeHTML(message)}</p>` : ''}<div class="story-options">${(state.wardrobe?.owned || []).map((id) => (OUTFITS[id] ? `<button data-outfit="${id}" aria-pressed="${state.wardrobe.equipped === id}"><b>${escapeHTML(OUTFITS[id].name)}</b><span>${escapeHTML(OUTFITS[id].description)}</span>${state.wardrobe.equipped === id ? '<small>WEARING</small>' : ''}</button>` : '')).join('')}</div>`,
+    'DOCKSIDE ROOMS / WARDROBE',
+  );
+  $('info-dialog').dataset.storyPanel = 'wardrobe';
+  for (const button of $('info-content').querySelectorAll('[data-outfit]'))
+    button.addEventListener('click', () => {
+      const result = chooseWardrobeOutfit(state, button.dataset.outfit);
+      if (result.ok) {
+        showWardrobe(`${OUTFITS[button.dataset.outfit].name} equipped.`);
+        storeProgress();
+      } else announce('Use the wardrobe inside Dockside Rooms to change.', true);
+    });
+  $('info-content')
+    .querySelector(`[data-outfit="${state.wardrobe?.equipped}"]`)
+    ?.focus({ preventScroll: true });
 }
 function closeDialog(dialog) {
   if (dialog.open) dialog.close();
@@ -273,6 +531,8 @@ function closeAllDialogs() {
 function refreshPaused() {
   const wasPaused = game.paused;
   game.paused = mode === 'play' && dialogs.some((d) => d.open);
+  setStoryPresentationVisibility(state, mode === 'play' && !game.paused && !document.hidden);
+  renderCaptions();
   if (wasPaused && !game.paused) {
     game.input.clear();
     $('screen').focus({ preventScroll: true });
@@ -326,6 +586,7 @@ function pause() {
   if (mode === 'play') openDialog($('pause-dialog'));
 }
 function info(title, content, eyebrow = 'LOWLIGHT / FIELD NOTES') {
+  delete $('info-dialog').dataset.storyPanel;
   $('info-title').textContent = title;
   $('info-content').innerHTML = content;
   $('info-eyebrow').textContent = eyebrow;
@@ -343,7 +604,7 @@ function start(continuing = false) {
       );
       return;
     }
-  } else state = createSimulation(61);
+  } else state = createSimulation({ seed: 61, campaign: true });
   mode = 'play';
   document.body.dataset.mode = mode;
   $('title-screen').hidden = true;
@@ -361,6 +622,8 @@ function start(continuing = false) {
   combatEffectsSeen.clear();
   touchCombat.crouch = touchCombat.aim = touchCombat.block = false;
   noticeHistory.clear();
+  promptedStoryChoice = promptedStoryFailure = null;
+  displayedCameraEpoch = null;
   syncScene(true);
   if (continuing) for (const notice of state.notifications) noticeHistory.add(notice.id);
   $('notifications').replaceChildren();
@@ -503,25 +766,46 @@ function applyCamera() {
 }
 applyCamera();
 function showJournal() {
+  const story = storyView(state),
+    arrival = FIRST_ARC_MISSIONS[0],
+    finishedArrival = !!state.campaign?.completed?.[arrival.id],
+    arrivalCard = state.campaign
+      ? `<article class="journal-card"><span class="journal-status">${finishedArrival ? 'COMPLETED' : story?.failed ? 'INTERRUPTED' : story?.active ? 'ACTIVE' : 'UNFINISHED'} / FELIX VOSS</span><h3>${escapeHTML(arrival.title)}</h3><p>${escapeHTML(story?.active ? story.objective : arrival.premise)}</p></article>`
+      : '',
+    shelterNotes = state.storyInventory?.evidence.includes('co-op-arrears')
+      ? '<article class="journal-card"><span class="journal-status">RECORDED / DOCKSIDE ROOMS</span><h3>Co-op arrears</h3><p>The ledger records unpaid reconstruction dispatch work. Nadia kept it at the shared room.</p></article>'
+      : '',
+    shelterKey = state.storyInventory?.keys.includes('dockside-tenancy')
+      ? '<article class="journal-card"><span class="journal-status">KEY / DOCKSIDE ROOMS</span><h3>A place to return</h3><p>Nadia’s spare key opens the shared room. The kettle table, wardrobe and bed are here when you need them.</p></article>'
+      : '';
   info(
     'Nothing comes free.',
-    MISSIONS.map(
-      (m) =>
-        `<article class="journal-card"><span class="journal-status">${state.progress.completed.includes(m.id) ? 'COMPLETED' : state.mission?.id === m.id ? 'ACTIVE' : m.prerequisite && !state.progress.completed.includes(m.prerequisite) ? 'LOCKED' : 'AVAILABLE'} / ${escapeHTML(m.contact)}</span><h3>${escapeHTML(m.title)}</h3><p>${escapeHTML(m.summary)}</p></article>`,
-    ).join(''),
+    arrivalCard +
+      storyRecoveryControls(story, 'journal') +
+      shelterNotes +
+      shelterKey +
+      MISSIONS.map(
+        (m) =>
+          `<article class="journal-card"><span class="journal-status">${state.progress.completed.includes(m.id) ? 'COMPLETED' : state.mission?.id === m.id ? 'ACTIVE' : story?.active || story?.failed || story?.interrupted || (m.prerequisite && !state.progress.completed.includes(m.prerequisite)) ? 'LOCKED' : 'AVAILABLE'} / ${escapeHTML(m.contact)}</span><h3>${escapeHTML(m.title)}</h3><p>${escapeHTML(m.summary)}</p></article>`,
+      ).join(''),
     'LOWLIGHT / JOURNAL',
   );
+  if (story?.interrupted) $('info-dialog').dataset.storyPanel = 'recovery';
+  bindStoryRecovery('journal');
 }
 $('pause-journal').addEventListener('click', showJournal);
 function showPhone() {
+  const story = storyView(state);
   const contact = state.mission
     ? MISSIONS.find((m) => m.id === state.mission.id)?.contact
     : 'Felix Voss';
   info(
     'One missed call.',
-    `<p class="credit-title">${escapeHTML(contact || 'VOSS DISPATCH')}</p><p>${escapeHTML(state.mission?.objective || 'The taxi rank has work if you need cash. Keep in touch with the people who helped you get here.')}</p><button id="phone-journal" class="primary-button">OPEN JOURNAL <span>↗</span></button>${railPassenger(state) ? '<button id="phone-metro" class="primary-button">CHOOSE A METRO STOP</button>' : ''}<p>Voss Dispatch · Saira’s Garage · Southbank Clinic · Signal House</p>`,
+    `<p class="credit-title">${escapeHTML(contact || 'VOSS DISPATCH')}</p>${story?.interrupted ? storyRecoveryControls(story, 'phone') : `<p>${escapeHTML(story?.active ? story.objective : state.mission?.objective || 'The taxi rank has work if you need cash. Keep in touch with the people who helped you get here.')}</p>`}<button id="phone-journal" class="primary-button">OPEN JOURNAL <span>↗</span></button>${railPassenger(state) ? '<button id="phone-metro" class="primary-button">CHOOSE A METRO STOP</button>' : ''}<p>Voss Dispatch · Saira’s Garage · Southbank Clinic · Signal House</p>`,
     'LOWLIGHT / PHONE',
   );
+  if (story?.interrupted) $('info-dialog').dataset.storyPanel = 'recovery';
+  bindStoryRecovery('phone');
   $('phone-journal').addEventListener('click', showJournal);
   $('phone-metro')?.addEventListener('click', showMetroStops);
 }
@@ -663,13 +947,26 @@ function drawMap(canvas, full = false) {
     height = canvas.height;
   if (!full && currentSceneId(state)) {
     roomMap.draw(g, state, { width, height });
+    const target = storyTarget();
+    if (target && inScene(target, currentSceneId(state))) {
+      const point = createRoomMapProjection(interiorScene(state).room, width, height).project(
+        target.x,
+        target.y,
+      );
+      g.strokeStyle = '#e7c875';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(...point, 6, 0, Math.PI * 2);
+      g.stroke();
+    }
     return;
   }
   const origin = exteriorMapPosition(state);
   const projection = createMapProjection(WORLD, width, height, { full, center: origin });
   const { scale, project: pt } = projection;
   mapBackground.draw(g, projection);
-  const destination = [state.waypoint, state.mission?.target].find(
+  const campaignDestination = exteriorStoryTarget();
+  const destination = [state.waypoint, campaignDestination, state.mission?.target].find(
     (target) => target && inScene(target, null),
   );
   if (destination) {
@@ -696,6 +993,18 @@ function drawMap(canvas, full = false) {
     g.beginPath();
     g.arc(...b, full ? 6 : 4, 0, Math.PI * 2);
     g.fill();
+  }
+  if (
+    campaignDestination &&
+    campaignDestination !== destination &&
+    inScene(campaignDestination, null)
+  ) {
+    const point = pt(campaignDestination.x, campaignDestination.y);
+    g.strokeStyle = '#e7c875';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(...point, full ? 8 : 5, 0, Math.PI * 2);
+    g.stroke();
   }
   if (state.wanted.level) {
     g.strokeStyle = '#d2876477';
@@ -770,8 +1079,9 @@ function drawMap(canvas, full = false) {
 }
 function showMap() {
   mapCursor = {
-    ...([state.waypoint, state.mission?.target].find((target) => target && inScene(target, null)) ||
-      exteriorMapPosition(state)),
+    ...([state.waypoint, exteriorStoryTarget(), state.mission?.target].find(
+      (target) => target && inScene(target, null),
+    ) || exteriorMapPosition(state)),
   };
   $('map-dialog').querySelector('.map-instruction').textContent =
     `${currentSceneId(state) ? `You are inside ${interiorScene(state).room.name}. Routes begin at the entrance. ` : ''}${mapInstructions}`;
@@ -912,8 +1222,11 @@ function updateHud() {
   const p = state.player,
     ammo = p.ammo[p.weapon],
     definition = WEAPONS[p.weapon],
-    room = interiorScene(state)?.room;
-  document.body.classList.toggle('in-conversation', !!state.dialogue);
+    room = interiorScene(state)?.room,
+    story = storyView(state),
+    storyActive = story?.active || story?.failed || story?.interrupted,
+    arrivalTaxi =
+      story?.active && story.requiredVehicleId === p.vehicleId ? currentVehicle(state) : null;
   $('cash').textContent = `$${Math.round(p.money).toLocaleString('en-US')}`;
   $('health-bar').style.width = `${Math.max(0, p.health)}%`;
   $('armour-bar').style.width = `${Math.max(0, p.armour)}%`;
@@ -939,9 +1252,11 @@ function updateHud() {
     ? `$${quoteTransitFare(state.transit, metro.id)?.amount || 0} <small>FARE</small>`
     : p.swimming
       ? `${Math.max(0, Math.round(p.stamina))}% <small>STAMINA</small>`
-      : definition.mode === 'melee'
-        ? '<small>READY</small>'
-        : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
+      : arrivalTaxi && definition.mode === 'melee'
+        ? `${Math.max(0, Math.round((arrivalTaxi.health / (arrivalTaxi.maxHealth || VEHICLE_SPECS[arrivalTaxi.spec].health)) * 100))}% <small>VEHICLE</small>`
+        : definition.mode === 'melee'
+          ? '<small>READY</small>'
+          : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
   $('ammo').style.whiteSpace = p.swimming ? 'nowrap' : '';
   $('wanted-stars').textContent = '★'.repeat(state.wanted.level);
   $('wanted-stars').style.color = ['search', 'cooling'].includes(state.wanted.status)
@@ -953,28 +1268,61 @@ function updateHud() {
       ? `Wanted level ${state.wanted.level}: ${state.wanted.status}`
       : 'Not wanted',
   );
-  $('mission-name').textContent = state.mission?.title || room?.name || 'The city is yours.';
+  $('mission-name').textContent =
+    (storyActive && story.title) || state.mission?.title || room?.name || 'The city is yours.';
   $('mission-objective').textContent =
+    (story?.interrupted
+      ? 'Your arrival is unfinished. Open the phone or journal to retry or restart.'
+      : story?.failed
+        ? 'The journey was interrupted. Press USE or E for your checkpoint options.'
+        : story?.active
+          ? story.objective
+          : null) ||
     state.mission?.objective ||
     (room
       ? 'Choose a service or open the door to leave.'
       : 'Find a job, take a fare, or explore Harbor City.');
   const missionLabel = $('mission-name').parentElement.querySelector('.mission-label');
-  const labelMode = room && !state.mission ? 'place' : 'job';
+  const labelMode = storyActive ? 'story' : room && !state.mission ? 'place' : 'job';
   if (missionLabel.dataset.mode !== labelMode) {
     for (const node of missionLabel.childNodes)
       if (node.nodeType === Node.TEXT_NODE)
-        node.textContent = labelMode === 'place' ? ' CURRENT PLACE' : ' CURRENT JOB';
+        node.textContent =
+          labelMode === 'story'
+            ? ' CURRENT STORY'
+            : labelMode === 'place'
+              ? ' CURRENT PLACE'
+              : ' CURRENT JOB';
     missionLabel.dataset.mode = labelMode;
   }
-  const target = state.waypoint || state.mission?.target;
+  const rawStoryTarget = storyTarget(story),
+    campaignTarget =
+      rawStoryTarget?.sceneId && !inScene(rawStoryTarget, currentSceneId(state))
+        ? exteriorStoryTarget()
+        : rawStoryTarget,
+    target = campaignTarget || state.waypoint || state.mission?.target;
   const targetOrigin =
     target && !inScene(target, currentSceneId(state)) ? exteriorMapPosition(state) : p;
   $('mission-distance').textContent = target
-    ? `${Math.round(Math.hypot(targetOrigin.x - target.x, targetOrigin.y - target.y))} m / ${target.name}${currentSceneId(state) && targetOrigin !== p ? ' / FROM ENTRANCE' : ''}`
+    ? `${Math.round(Math.hypot(targetOrigin.x - target.x, targetOrigin.y - target.y))} m / ${target.name || 'Destination'}${currentSceneId(state) && targetOrigin !== p ? ' / FROM ENTRANCE' : ''}`
     : state.wanted.level
       ? state.wanted.status.toUpperCase()
       : '';
+  if (arrivalTaxi && story.stageId === 'taxi')
+    $('mission-distance').textContent = matchMedia('(pointer: coarse)').matches
+      ? 'STICK TO DRIVE / RUN TO BRAKE'
+      : 'WASD OR LEFT STICK / SHIFT OR LT TO BRAKE';
+  if (
+    arrivalTaxi &&
+    story.stageId === 'drill' &&
+    story.route?.index === 1 &&
+    target &&
+    Math.hypot(p.x - target.x, p.y - target.y) <= target.radius
+  ) {
+    const stop = FIRST_ARC_MISSIONS[0].stages.find((stage) => stage.id === 'drill').route.stops[0];
+    $('mission-distance').textContent =
+      `MUSTER STOP / ${Math.min(stop.seconds, story.route.dwell).toFixed(1)} OF ${stop.seconds} s / ${matchMedia('(pointer: coarse)').matches ? 'RUN' : 'SHIFT OR LT'} TO BRAKE`;
+  }
   const { areaName, districtName } = mapBackground.place(state);
   const placeName = room?.name || state.place?.name || areaName || districtName;
   const travelMode = metro
@@ -1019,16 +1367,15 @@ function updateHud() {
   $('game-clock').textContent =
     `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   const candidate = nearestInteractable(state);
-  $('context-prompt').hidden = !candidate || !!state.dialogue;
-  if (candidate) $('context-text').textContent = candidate.prompt || candidate.name;
-  $('dialogue-panel').hidden = !state.dialogue;
-  $('touch-more').hidden = !!state.dialogue;
-  if (state.dialogue) {
-    $('dialogue-speaker').textContent = state.dialogue.speaker;
-    $('dialogue-text').textContent = state.dialogue.text;
-  }
-  $('dialogue-panel').lastElementChild.innerHTML =
-    `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> CONTINUE`;
+  const choiceReady =
+    story?.active && story.choicePending && story.dialogueReady && !story.dialogue;
+  $('context-prompt').hidden =
+    (!candidate && !story?.failed && !choiceReady) ||
+    !!(state.dialogue || story?.dialogue || story?.ambient || story?.cinematic);
+  if (story?.failed) $('context-text').textContent = 'Checkpoint options';
+  else if (choiceReady) $('context-text').textContent = 'Respond to Nadia';
+  else if (candidate) $('context-text').textContent = candidate.prompt || candidate.name;
+  renderCaptions(story);
   for (const notice of state.notifications) {
     if (!noticeHistory.has(notice.id)) {
       noticeHistory.add(notice.id);
@@ -1160,14 +1507,25 @@ game.start({
       selectWeapon(state, list[(list.indexOf(state.player.weapon) + 1) % list.length]);
     }
     if (input.pressed('interact')) {
-      const candidate = nearestInteractable(state);
-      if (candidate?.type === 'weapons') {
-        showWeaponShop();
+      const story = storyView(state);
+      if (story?.failed) {
+        showStoryFailure(story);
         return;
       }
-      const result = interact(state);
-      game.audio.sfx('select');
-      if (processInteraction(result)) return;
+      if (showStoryChoice(story)) return;
+      if (story?.dialogue || story?.ambient) {
+        acknowledgeVisibleStory(story);
+        renderCaptions();
+      } else {
+        const candidate = nearestInteractable(state);
+        if (candidate?.type === 'weapons') {
+          showWeaponShop();
+          return;
+        }
+        const result = interact(state);
+        game.audio.sfx('select');
+        if (processInteraction(result)) return;
+      }
     }
     const requestedMovement = touch.id !== null ? [touch.x, touch.y] : input.move();
     if (sceneMovementBlocked && Math.hypot(...(input.padMove || [0, 0])) < 0.15)
@@ -1179,7 +1537,11 @@ game.start({
     const people = scenePeople(state);
     const targetable = [
       ...people.filter(
-        (actor) => sceneId || state.hostiles.includes(actor) || state.police.includes(actor),
+        (actor) =>
+          sceneId ||
+          state.hostiles.includes(actor) ||
+          state.police.includes(actor) ||
+          state.companions?.actors.includes(actor),
       ),
       ...(state.policeAircraft || []).filter((actor) => inScene(actor, sceneId)),
     ].filter(
@@ -1271,14 +1633,26 @@ game.start({
       updateHud();
       return;
     }
-    state.player.firing = input.down('fire') || input.pressed('fire');
-    const zoom = state.player.scoped ? WEAPONS[state.player.weapon].scopeZoom || 1 : 1;
+    const story = storyView(state),
+      sceneCamera = story?.cinematic,
+      cameraEpoch = `${story?.cameraEpoch ?? 0}:${sceneCamera?.epoch ?? 0}`;
+    state.player.firing =
+      !sceneCamera && !story?.shelterAction && (input.down('fire') || input.pressed('fire'));
+    if (displayedCameraEpoch !== cameraEpoch) {
+      displayedCameraEpoch = cameraEpoch;
+      game.cam.snap = true;
+    }
+    const zoom =
+      sceneCamera?.zoom || (state.player.scoped ? WEAPONS[state.player.weapon].scopeZoom || 1 : 1);
     if (game.zoom !== zoom) game.setZoom(zoom);
     const vehicle = currentVehicle(state);
+    const sceneFocus = sceneCamera?.focus;
     game.focus(
-      state.player.x + (vehicle ? Math.cos(vehicle.angle) * vehicle.speed * 0.14 : 0),
-      state.player.y + (vehicle ? Math.sin(vehicle.angle) * vehicle.speed * 0.14 : 0),
-      state.player.z || 0,
+      sceneFocus?.x ??
+        state.player.x + (vehicle ? Math.cos(vehicle.angle) * vehicle.speed * 0.14 : 0),
+      sceneFocus?.y ??
+        state.player.y + (vehicle ? Math.sin(vehicle.angle) * vehicle.speed * 0.14 : 0),
+      sceneFocus?.z ?? state.player.z ?? 0,
     );
     if (state.player.health < lastHealth) {
       game.hitFx(state.player.x, state.player.y, (state.player.z || 0) + 15, {
@@ -1362,6 +1736,9 @@ game.start({
   draw(r) {
     updateControllerMenus();
     activityUI.tick();
+    const story = storyView(state);
+    renderCaptions(story);
+    updateStoryMenus(story);
     if (mode === 'play' && currentSceneId(state)) roomRenderer.draw(r, state);
     else {
       renderer.draw(r, metroRenderer.renderPlayer(state), {
@@ -1380,6 +1757,7 @@ if (new URLSearchParams(location.search).has('debug')) {
     get state() {
       return state;
     },
+    storyView: () => storyView(state),
     start,
     interact: () => {
       const result = interact(state);
