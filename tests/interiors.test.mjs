@@ -44,6 +44,7 @@ const world = {
     { id: 'lantern-darts', x: 723, y: 918 },
     { id: 'blue-hour-lanes', x: 411, y: 654 },
     { id: 'dockside-rooms', x: 129, y: 308 },
+    { id: 'impound-annex', x: 293, y: 389 },
   ],
 };
 function state() {
@@ -87,13 +88,14 @@ test('authored original layouts have distinct dimensions, floor zones, physical 
   assert.deepEqual(Object.keys(INTERIOR_LAYOUTS).sort(), [
     'blue-hour-lanes',
     'dockside-rooms',
+    'impound-annex',
     'lantern-bar',
     'saira-garage',
     'voss-dispatch',
   ]);
   assert.equal(
     new Set(Object.values(INTERIOR_LAYOUTS).map((room) => `${room.width}x${room.height}`)).size,
-    5,
+    6,
   );
   for (const room of Object.values(INTERIOR_LAYOUTS)) {
     assert.ok(room.walls.length >= 5);
@@ -179,7 +181,7 @@ test('unsupported city addresses do not become generic rooms and authored demos 
   assert.equal(interiorAvailability('LL-CITY-LOC001').status, 'unimplemented');
   assert.equal(interiorAvailability('LL-CITY-LOC161').status, 'unimplemented');
   assert.equal(interiorAvailability('felix-office').roomId, 'voss-dispatch');
-  assert.equal(PORTAL_DEFINITIONS.length, 5);
+  assert.equal(PORTAL_DEFINITIONS.length, 6);
   const s = state();
   assert.equal(enterInterior(s, 'LL-CITY-LOC001', { world }).ok, false);
   assert.equal(s.scene.kind, 'exterior');

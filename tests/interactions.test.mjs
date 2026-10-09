@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import {
   createSimulation,
   nearestInteractable,
@@ -7,7 +9,40 @@ import {
   WORLD,
   WEAPONS,
   MISSIONS,
+  restoreGame,
 } from '../src/simulation.js';
+
+function completedArrivalAtDispatch(y = 700) {
+  const state = restoreGame(
+    gunzipSync(
+      readFileSync(new URL('./fixtures/campaign-0.5-completed-save.json.gz', import.meta.url)),
+    ).toString(),
+  );
+  // Declared doorway pose for an interaction component check. The real saved
+  // completed mission is retained; this is not a walking/mission playthrough.
+  state.interior.active = null;
+  state.scene = { kind: 'exterior', id: 'harbor-city' };
+  Object.assign(state.player, { x: 458, y, z: 0, groundZ: 0, sceneId: null, vehicleId: null });
+  return state;
+}
+
+test('the dispatch doorway remains enterable for Late Meter while optional First Shift is available', () => {
+  const state = completedArrivalAtDispatch();
+  assert.equal(state.campaign.completed['LL-ST-002'], undefined);
+  assert.equal(nearestInteractable(state).type, 'interior-portal');
+  assert.equal(interact(state).ok, true);
+  assert.equal(state.interior.active.roomId, 'voss-dispatch');
+  assert.equal(state.mission, null, 'door entry must not accept an optional job');
+});
+
+test('optional First Shift remains reachable outside the actual office doorway radius', () => {
+  const state = completedArrivalAtDispatch(731);
+  assert.equal(nearestInteractable(state).missionId, 'first-shift');
+  interact(state);
+  assert.equal(state.mission.id, 'first-shift');
+  assert.equal(state.campaign.active, null);
+  assert(state.campaign.completed['LL-ST-001']);
+});
 
 test('the assigned starter taxi wins when its entry radius overlaps the dispatch room door', () => {
   const state = createSimulation();

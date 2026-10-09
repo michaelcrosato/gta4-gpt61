@@ -2,6 +2,7 @@
 import { createTerrain } from './terrain.js';
 import { WEAPONS } from './combat.js';
 import { DOCKSIDE_ROOM_LAYOUT, DOCKSIDE_PORTAL } from './campaign/scenes.js';
+import { IMPOUND_ANNEX_LAYOUT, IMPOUND_ANNEX_PORTAL } from './campaign/late-meter-scenes.js';
 
 const VERSION = 1;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -48,6 +49,7 @@ function frontDoor(x, y, w, h, { vehicle = false } = {}) {
 }
 
 export const INTERIOR_LAYOUTS = freeze({
+  'impound-annex': IMPOUND_ANNEX_LAYOUT,
   'dockside-rooms': DOCKSIDE_ROOM_LAYOUT,
   'voss-dispatch': {
     id: 'voss-dispatch',
@@ -317,6 +319,7 @@ export const INTERIOR_LAYOUTS = freeze({
 /** Only these explicitly authored demonstration portals exist. Research addresses are never auto-filled with generic rooms. */
 export const PORTAL_DEFINITIONS = freeze([
   DOCKSIDE_PORTAL,
+  IMPOUND_ANNEX_PORTAL,
   {
     id: 'voss-dispatch-entry',
     roomId: 'voss-dispatch',

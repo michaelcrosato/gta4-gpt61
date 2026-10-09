@@ -63,13 +63,24 @@ ride, exit and take damage in the shared simulation; checkpoints restore that
 world. Failed storage writes preserve the previous save and earn no save credit.
 Leaving an interrupted crossing retains its checkpoints; the phone and journal
 offer an explicit retry or full restart after Continue.
+After the arrival, Felix physically travels to Voss Dispatch. Bring a working
+taxi to its rank and speak to him inside to begin **Late Meter**. Drive him to
+the impound annex, identify the collector’s rendered jacket and clipboard,
+then use the phone’s contact list to deliver a timed warning. The phone stays
+in the world while people and vehicles move. Felix leaves the annex and boards
+the taxi; the collector walks to his own car, takes its driver seat and follows
+real roads and last sightings. Return Felix and the surviving taxi to dispatch
+after breaking the pursuit. Harm to the clerk or patrol can interrupt the job.
 Existing legacy saves still Continue, including the additional four onboarding
 jobs. Metro saves use a portable topology signature across browser engines.
+Known 0.5 campaign saves retain their progress and receipt identities when
+unplayed mission content changes; unknown versions or changed owned missions
+are rejected rather than silently replacing progress.
 
-The other nineteen authored missions still need physical integration; the full
-ninety-mission scope remains active. The first mission's production-input
-regression and browser UI checks earn no source completion credit or full
-natural-browser-playthrough claim. All four additional jobs have not yet been
+The other eighteen authored missions still need physical integration; the full
+ninety-mission scope remains active. The first two missions’ production-input
+checks earn no source completion credit or full natural browser playthrough
+claim. All four additional jobs have not yet been
 completed in one natural input run. See the [verification record](docs/verification.md)
 for the retained failures and fixture boundaries.
 

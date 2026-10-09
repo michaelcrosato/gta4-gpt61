@@ -113,6 +113,49 @@
           <p id="dialogue-text"></p>
           <span><kbd>E</kbd> CONTINUE</span>
         </div>
+        <button id="story-recognize" class="story-world-action" hidden>
+          IDENTIFY GREY JACKET · E / A
+        </button>
+        <button
+          id="story-phone-toggle"
+          class="story-world-action"
+          hidden
+          aria-controls="story-phone-panel"
+          aria-expanded="false"
+        >
+          CALL FELIX
+        </button>
+        <aside
+          id="story-phone-panel"
+          class="story-phone-panel"
+          aria-labelledby="story-phone-title"
+          hidden
+        >
+          <div class="story-phone-header">
+            <h2 id="story-phone-title">CALL FELIX</h2>
+            <span
+              id="story-phone-clock"
+              role="timer"
+              aria-live="off"
+              aria-label="Warning time remaining"
+            ></span
+            ><button id="story-phone-hide" aria-label="Hide phone; the city keeps moving">×</button>
+          </div>
+          <p id="story-phone-status" role="status" aria-live="polite"></p>
+          <div
+            id="story-phone-contacts"
+            class="story-phone-contacts"
+            aria-label="Known contacts"
+          ></div>
+          <div id="story-phone-caption" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <p id="story-phone-speaker"></p>
+            <p id="story-phone-text"></p>
+          </div>
+          <button id="story-phone-continue" hidden>CONTINUE · E / A</button>
+          <p class="story-phone-hint">
+            The city keeps moving. WASD / left stick to drive. T hides the phone.
+          </p>
+        </aside>
         <div id="notifications" class="notifications" role="status" aria-live="polite"></div>
         <div class="touch-controls" id="touch-controls">
           <div class="joystick" id="joystick" aria-label="Movement control">

@@ -7,10 +7,13 @@ import { WORLD } from '../src/world.js';
 import { createSimulation, updateSimulation } from '../src/simulation.js';
 
 // The oracle was captured from the unmodified 0.5 candidate before caching road
-// bounds. Full snapshots protect values, identities and array/property order;
-// update them only alongside an intentionally reviewed world/behavior change.
+// bounds. Keep this historical city/legacy oracle intact. Late Meter appends
+// reviewed scene geometry and adds composed story/phone state in its own oracle.
 const baseline = JSON.parse(
   await readFile(new URL('./fixtures/city-startup-baseline.json', import.meta.url), 'utf8'),
+);
+const lateMeter = JSON.parse(
+  await readFile(new URL('./fixtures/city-startup-late-meter.json', import.meta.url), 'utf8'),
 );
 const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const input = (frame) =>
@@ -22,16 +25,33 @@ const input = (frame) =>
         ? { moveX: 1 }
         : { moveY: -1, sprint: true, fire: true, aimAngle: 0 };
 
+const { lateMeterDressing, ...priorWorld } = WORLD;
+priorWorld.roads = priorWorld.roads.filter((road) => !road.id.startsWith('late-meter-'));
+priorWorld.obstacles = priorWorld.obstacles.filter((item) => item.id !== 'impound-annex-awning');
+priorWorld.locations = priorWorld.locations.filter((item) => item.id !== 'impound-annex');
+priorWorld.campaignSceneBindings = Object.fromEntries(
+  Object.entries(priorWorld.campaignSceneBindings).filter(([id]) => id !== 'impound-counter'),
+);
+priorWorld.navigationRevision--;
 for (const [label, value] of [
   ['city', CITY_BLUEPRINT],
-  ['world', WORLD],
+  ['world', priorWorld],
 ])
-  test(`road-volume caching preserves the complete serialized ${label}`, () => {
+  test(`Late Meter preserves the complete prior serialized ${label}`, () => {
     assert.equal(Buffer.byteLength(JSON.stringify(value)), baseline[label].bytes);
     assert.equal(hash(value), baseline[label].sha256);
   });
+test('the reviewed Late Meter world includes its exact physical additions', () => {
+  assert.equal(Buffer.byteLength(JSON.stringify(WORLD)), lateMeter.world.bytes);
+  assert.equal(hash(WORLD), lateMeter.world.sha256);
+  assert.equal(WORLD.roads.length - priorWorld.roads.length, 29);
+  assert(lateMeterDressing.serviceWindow);
+});
 
-for (const expected of baseline.seeds)
+for (const expected of [
+  ...baseline.seeds.filter((seed) => seed.mode === 'legacy'),
+  ...lateMeter.seeds,
+])
   test(`seed${expected.seed} ${expected.mode} preserves actors, movement, firing and RNG`, () => {
     const option =
       expected.mode === 'story' ? { seed: expected.seed, campaign: true } : expected.seed;

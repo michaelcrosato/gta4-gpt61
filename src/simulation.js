@@ -26,6 +26,31 @@ import {
 import { railGateBlocked, updateRailImpacts } from './rail-collision.js';
 import { initializeWardrobe, validateWardrobe, equipOutfit } from './wardrobe.js';
 import { initializeCalendar, clockHour, validateCalendar } from './calendar.js';
+import * as PhoneCalls from './phone-calls.js';
+import { CAMPAIGN_CONTENT } from './campaign/director.js';
+import { createCampaignAdapterRouter } from './campaign/adapter-router.js';
+import {
+  createLateMeterParentContext,
+  initializeLateMeterParentState,
+  validateLateMeterParentState,
+} from './campaign/late-meter-parent-context.js';
+import {
+  createLateMeterAdapters,
+  initializeLateMeterRuntime,
+  tickLateMeterRuntime,
+  lateMeterView,
+  actLateMeter,
+  observeLateMeterDamage,
+  observeLateMeterAttack,
+  validateLateMeterRuntime,
+} from './campaign/late-meter-runtime.js';
+import {
+  LATE_METER_APPEARANCES,
+  LATE_METER_CLIPBOARD,
+  lateMeterPropDescriptors,
+  closestLateMeterClipboardPoint,
+  traceLateMeterClipboard,
+} from './campaign/late-meter-scenes.js';
 import * as Companions from './companions.js';
 import { createCampaignPhysicalContext } from './campaign/physical-context.js';
 import { findLocalFootPath } from './local-navigation.js';
@@ -59,6 +84,8 @@ import {
   retryCampaignMission,
   abandonCampaignMission,
   validateCampaignDirector,
+  campaignContentFingerprint,
+  migrateCampaignDirectorContent,
 } from './campaign/director.js';
 import {
   initializeCampaignRuntime,
@@ -121,6 +148,7 @@ import {
   hitCombatant,
   predictThrow,
   startActorMelee,
+  notifyCommittedDamage,
   validateCombatSave,
 } from './combat.js';
 export { WORLD, WEAPONS, currentSceneId, scenePeople };
@@ -133,8 +161,40 @@ const surfaceMovement = createSurfaceMovement(TERRAIN);
 const SCENES = createSceneContext(WORLD, TERRAIN);
 const campaignParents = new WeakMap(),
   physicalContexts = new WeakMap(),
-  storyDialogueCache = new WeakMap();
+  storyDialogueCache = new WeakMap(),
+  lateMeterParents = new WeakMap(),
+  campaignRouters = new WeakMap(),
+  renderedStoryClues = new WeakMap(),
+  phonePresentations = new WeakMap();
 let campaignStorageVerifier = null;
+const campaignObservationHandlers = new WeakMap();
+/** Runtime callbacks stay outside saved state and read the current restored world. */
+export function setCampaignObservationHandlers(state, missionId, handlers) {
+  if (!state || typeof state !== 'object' || !/^LL-ST-\d{3}$/.test(missionId))
+    throw TypeError('Campaign observation registration needs a state and mission owner.');
+  let registry = campaignObservationHandlers.get(state);
+  if (handlers === null) {
+    registry?.delete(missionId);
+    return;
+  }
+  if (
+    !handlers ||
+    typeof handlers !== 'object' ||
+    Array.isArray(handlers) ||
+    Object.keys(handlers).some((key) => !['damage', 'attack'].includes(key)) ||
+    !Object.values(handlers).every((value) => typeof value === 'function') ||
+    !Object.keys(handlers).length
+  )
+    throw TypeError('Campaign observation handlers must be synchronous damage/attack callbacks.');
+  if (!registry) {
+    registry = new Map();
+    campaignObservationHandlers.set(state, registry);
+  }
+  registry.set(missionId, { ...handlers });
+}
+function campaignObservers(state) {
+  return campaignObservationHandlers.get(state)?.get(state.campaign?.active?.missionId);
+}
 export function setCampaignStorageVerifier(verifier) {
   campaignStorageVerifier = verifier;
 }
@@ -209,6 +269,12 @@ function campaignContext(state) {
         resetRailRuntime(s);
         physicalContexts.delete(s);
         campaignParents.delete(s);
+        lateMeterParents.delete(s);
+        campaignRouters.delete(s);
+        renderedStoryClues.delete(s);
+        phonePresentations.delete(s);
+        storyDialogueCache.delete(s);
+        resetNPCVehicleInputs(s);
         return true;
       },
     },
@@ -216,8 +282,267 @@ function campaignContext(state) {
   campaignParents.set(state, parent);
   return parent;
 }
+function initializeStoryPhone(state) {
+  PhoneCalls.initializePhoneCalls(state, {
+    contacts: [
+      { id: 'LL-CHAR-002', name: 'Felix Voss' },
+      { id: 'dispatch-line', name: 'Voss Dispatch' },
+    ],
+  });
+}
+function lateMeterContext(state) {
+  let parent = lateMeterParents.get(state);
+  if (parent) return parent;
+  initializeStoryPhone(state);
+  initializeLateMeterParentState(state);
+  const physical = companionContext(state);
+  parent = createLateMeterParentContext(state, {
+    authoredMission: CAMPAIGN_CONTENT.missions.find((mission) => mission.id === 'LL-ST-002'),
+    ready: {
+      passengers: true,
+      interior: true,
+      phone: true,
+      chase: true,
+      director: true,
+      props: true,
+    },
+    world: WORLD,
+    bindings: WORLD.campaignSceneBindings,
+    terrain: TERRAIN,
+    specs: VEHICLE_SPECS,
+    companionContext: physical,
+    moveActor: (id, dx, dy, radius) => {
+      const actor = Companions.getActor(state, id);
+      return actor ? physical.moveBody(actor, dx, dy, radius) : false;
+    },
+    poseActor: (id, pose) => {
+      const actor = Companions.getActor(state, id);
+      if (!actor) return false;
+      if (pose.angle !== null) actor.angle = pose.angle;
+      actor.sceneAction = pose.action;
+      actor.speed = pose.action === 'walk' ? 18 : 0;
+      return { ok: true };
+    },
+    createVehicle: (definition) => ({ ...createVehicle(state, definition), missionVehicle: true }),
+    drivers: {
+      ready: true,
+      requestDriver: (s, actorId, vehicleId) =>
+        Companions.requestDriver(s, actorId, vehicleId, companionContext(s)),
+      observe: (s, vehicleId) => Companions.driverObservation(s, vehicleId, companionContext(s)),
+      drive: (s, vehicleId, dt, input) => {
+        const active = s.lateMeterRuntime.active,
+          observed = Companions.driverObservation(s, vehicleId, companionContext(s));
+        return queueNPCVehicleInput(s, {
+          vehicleId,
+          actorId: observed?.actorId,
+          dt,
+          input,
+          scope: {
+            missionId: active.missionId,
+            stageId: active.stageId,
+            attempt: active.attempt,
+            activationReceipt: active.receipt,
+          },
+        });
+      },
+      release: releaseNPCVehicleInput,
+    },
+    recognition: {
+      ready: true,
+      observe: (s, id, clues, inputReceipt) => {
+        const proof = renderedStoryClues.get(s)?.get(id),
+          actor = Companions.getActor(s, id);
+        if (
+          !proof ||
+          !actor ||
+          proof.epoch !== storyRestoreEpoch(s) ||
+          s.time - proof.at > 0.2 ||
+          s.time < proof.at ||
+          distance(actor, proof.pose) > 8 ||
+          actorSceneId(actor) !== proof.sceneId ||
+          !WORLD.campaignSceneBindings['impound-counter'].observation.clueIds.every((clue) =>
+            proof.clues.includes(clue),
+          )
+        )
+          return null;
+        return {
+          id: inputReceipt,
+          at: s.time,
+          explicitInput: true,
+          cameraVisible: true,
+          renderedClues: proof.clues,
+        };
+      },
+    },
+    damage: { ready: true, observerBound: true },
+    attacks: {
+      ready: true,
+      observerBound: true,
+      perceived: (s, event, ids) =>
+        ids.some((id) => {
+          const actor = Companions.getActor(s, id);
+          if (!actor || actor.health <= 0 || actorSceneId(actor) !== event.sceneId) return false;
+          const range = distance(actor, event),
+            noisy = WEAPONS[event.weapon]?.mode !== 'melee',
+            facing = Math.abs(normalizeAngle(angleTo(actor, event) - actor.angle)) <= Math.PI / 3;
+          return (
+            range <= (noisy ? 180 : 80) &&
+            (noisy || facing) &&
+            physical.hasLineOfSight(actor, event, event.sceneId)
+          );
+        }),
+    },
+    phone: {
+      ready: true,
+      nonmodal: true,
+      contactAnswered: (s, id) => {
+        const actor = Companions.getActor(s, id);
+        return Boolean(actor?.health > 0 && actorSceneId(actor) === 'impound-annex');
+      },
+      presentationObserved: (s, token) => {
+        const shown = phonePresentations.get(s);
+        return Boolean(
+          shown &&
+          shown.epoch === storyRestoreEpoch(s) &&
+          shown.callId === token.callId &&
+          shown.index === token.index &&
+          shown.dialCount === token.dialCount,
+        );
+      },
+    },
+    acknowledgeCampaignDialogue: (s, token) => {
+      const run = s.campaign?.active;
+      if (
+        run?.missionId !== 'LL-ST-002' ||
+        run.stageId !== 'warn' ||
+        run.dialogue.index !== token.index ||
+        token.owner.receipt !== s.lateMeterRuntime.run.warning.owner?.receipt
+      )
+        return false;
+      return advanceCampaignDialogue(s.campaign, campaignAdapters(s));
+    },
+    chooseCampaignOption: (s, id, option) =>
+      chooseCampaignOption(s.campaign, id, option, campaignAdapters(s)),
+    snapshots: campaignContext(state).snapshots,
+    notify: (message) => notify(state, message),
+  });
+  lateMeterParents.set(state, parent);
+  setCampaignObservationHandlers(state, 'LL-ST-002', {
+    damage: (event) => observeLateMeterDamage(state, event),
+    attack: (event) => observeLateMeterAttack(state, event, lateMeterContext(state)),
+  });
+  return parent;
+}
 function campaignAdapters(state) {
-  return createCampaignAdapters(state, campaignContext(state));
+  let router = campaignRouters.get(state);
+  if (router) return router;
+  const night = createCampaignAdapters(state, campaignContext(state)),
+    late = createLateMeterAdapters(state, lateMeterContext(state)),
+    snapshots = campaignContext(state).snapshots;
+  router = createCampaignAdapterRouter({
+    content: CAMPAIGN_CONTENT,
+    registrations: [
+      { missionId: 'LL-ST-001', adapter: night },
+      { missionId: 'LL-ST-002', adapter: late },
+    ],
+    parent: {
+      captureWorld: () => snapshots.capture(state, { exclude: ['campaign'] }),
+      validateWorld: (snapshot) => snapshots.validate(snapshot),
+      restoreWorld: (snapshot, request) => {
+        const nightEpoch = state.campaignRuntime?.restoreEpoch ?? 0,
+          lateEpoch = state.lateMeterRuntime?.restoreEpoch ?? 0;
+        const result = snapshots.restore(state, snapshot, request);
+        if (!(result === true || result?.ok)) return result;
+        for (const [model, epoch] of [
+          [state.campaignRuntime, nightEpoch],
+          [state.lateMeterRuntime, lateEpoch],
+        ]) {
+          model.restoreEpoch = Math.max(model.restoreEpoch, epoch) + 1;
+          model.lastObservedTime = state.time;
+          model.lastRestoreReason = request.reason;
+        }
+        state.campaignPresentation.presented = false;
+        state.campaignPresentation.visible = false;
+        hideStoryPhone(state);
+        return { ok: true };
+      },
+    },
+  });
+  campaignRouters.set(state, router);
+  return router;
+}
+function storyRestoreEpoch(state) {
+  return (
+    String(state.campaignRuntime?.restoreEpoch ?? 0) +
+    ':' +
+    String(state.lateMeterRuntime?.restoreEpoch ?? 0)
+  );
+}
+/** Renderer records only clues actually drawn in the current camera. Never saved. */
+export function recordStoryRenderedClues(state, actor, clues) {
+  if (!actor || actor.health <= 0 || !Array.isArray(clues)) return;
+  let records = renderedStoryClues.get(state);
+  if (!records) renderedStoryClues.set(state, (records = new Map()));
+  records.set(actor.id, {
+    at: state.time,
+    epoch: storyRestoreEpoch(state),
+    pose: { x: actor.x, y: actor.y },
+    sceneId: actorSceneId(actor),
+    clues: [...clues],
+  });
+}
+export function recognizeStoryActor(state, actorId, inputReceipt) {
+  return actLateMeter(state, { type: 'recognize', actorId, inputReceipt }, lateMeterContext(state));
+}
+export function dialStoryWarning(state, contact, method, inputReceipt) {
+  return actLateMeter(
+    state,
+    { type: 'dial-warning', contact, method, inputReceipt },
+    lateMeterContext(state),
+  );
+}
+export function storyPhoneView(state) {
+  return state.phoneCalls ? PhoneCalls.phoneCallView(state) : null;
+}
+export function presentStoryPhoneLine(state, token) {
+  const view = storyPhoneView(state);
+  if (
+    !view?.line ||
+    view.id !== token.callId ||
+    view.line.index !== token.index ||
+    view.line.dialCount !== token.dialCount
+  )
+    return false;
+  phonePresentations.set(state, { ...token, epoch: storyRestoreEpoch(state) });
+  return lateMeterContext(state).phone.present(state, token.callId, token.index, token.dialCount);
+}
+export function actStoryPhone(state, action) {
+  return lateMeterContext(state).phone.act(state, action);
+}
+export function hideStoryPhone(state) {
+  phonePresentations.delete(state);
+  if (state.phoneCalls) PhoneCalls.setPhonePresentationVisibility(state, false);
+}
+export function startStoryMission(state, missionId) {
+  if (missionId !== 'LL-ST-002' || state.mission || state.campaign?.active || state.wanted.level)
+    return { ok: false, reason: 'assignment-unavailable' };
+  const felix = Companions.getActor(state, 'LL-CHAR-002');
+  if (
+    currentSceneId(state) !== 'voss-dispatch' ||
+    actorSceneId(felix) !== 'voss-dispatch' ||
+    !felix ||
+    felix.health <= 0 ||
+    distance(state.player, felix) > 35
+  )
+    return { ok: false, reason: 'speak-to-felix-at-dispatch' };
+  const result = startCampaignMission(state.campaign, missionId, campaignAdapters(state));
+  if (!result.ok)
+    notify(state, 'Bring a working taxi to the marked dispatch rank, then speak to Felix.');
+  return result;
+}
+/** Actual simulation/world bindings for composed campaign controllers and integration tools. */
+export function createSimulationCampaignAdapters(state) {
+  return campaignAdapters(state);
 }
 function startStory(state) {
   initializeCampaignParentState(state);
@@ -237,15 +562,21 @@ function interruptedStory(state) {
   if (state.campaign?.active) return null;
   return (
     state.campaign?.suspended.find(
-      (run) => run.missionId === 'LL-ST-001' && run.resumeInfo?.reason === 'return-to-free-roam',
+      (run) =>
+        ['LL-ST-001', 'LL-ST-002'].includes(run.missionId) &&
+        run.resumeInfo?.reason === 'return-to-free-roam',
     ) ?? null
   );
 }
 export function storyView(state) {
   if (!state.campaign) return null;
   const context = campaignContext(state),
-    view = campaignRuntimeView(state, context);
-  const key = `${state.campaign.sequence}:${Math.floor(state.time * 10)}:${state.campaignRuntime.restoreEpoch}`;
+    owner = state.campaign.active?.missionId ?? interruptedStory(state)?.missionId,
+    view =
+      owner === 'LL-ST-002'
+        ? lateMeterView(state, lateMeterContext(state))
+        : campaignRuntimeView(state, context);
+  const key = `${state.campaign.sequence}:${Math.floor(state.time * 10)}:${storyRestoreEpoch(state)}`;
   let cached = storyDialogueCache.get(state);
   if (!cached || cached.director !== state.campaign || cached.key !== key) {
     cached = {
@@ -257,9 +588,23 @@ export function storyView(state) {
   }
   const dialogue = cached.dialogue,
     interrupted = interruptedStory(state);
+  const availableAssignment =
+    !state.campaign.active &&
+    !interrupted &&
+    state.campaign.completed['LL-ST-001'] &&
+    !state.campaign.completed['LL-ST-002']
+      ? {
+          id: 'LL-ST-002',
+          title: 'Late Meter',
+          preparation: { ...state.lateMeterRuntime.preparation },
+          objective: 'Bring a working taxi to the dispatch rank, then talk to Felix inside.',
+          target: { ...WORLD.campaignSceneBindings.dispatch.target, sceneId: null },
+        }
+      : null;
   return {
     ...view,
-    title: state.campaign.active || interrupted ? 'Night Crossing' : null,
+    title: CAMPAIGN_CONTENT.missions.find((mission) => mission.id === owner)?.title ?? null,
+    availableAssignment,
     interrupted: interrupted
       ? {
           missionId: interrupted.missionId,
@@ -270,7 +615,10 @@ export function storyView(state) {
     failed: state.campaign.active?.phase === 'failed',
     failure: state.campaign.active?.failure,
     dialogue:
-      view.dialogueReady || state.campaign.active?.phase === 'failed' ? dialogue.line : null,
+      state.campaign.active?.phase === 'failed' ||
+      (view.dialogueSource !== 'phone' && view.dialogueReady)
+        ? dialogue.line
+        : null,
     dialogueIndex: state.campaign.active?.dialogue.index ?? 0,
     attempt: state.campaign.active?.attempt ?? 0,
     ambient: state.campaign.active?.phase === 'running' ? subtitleLine(state) : null,
@@ -292,6 +640,7 @@ function tickStory(state, dt) {
   });
   context.syncSceneProps();
   tickCampaignRuntime(state, dt, context);
+  tickLateMeterRuntime(state, dt, lateMeterContext(state));
   const view = storyView(state),
     presentation = state.campaignPresentation;
   tickSubtitles(state, dt, {
@@ -327,6 +676,7 @@ export function setStoryPresentationVisibility(state, visible) {
   if (!state.campaignPresentation) return;
   state.campaignPresentation.visible = Boolean(visible);
   if (!visible) {
+    hideStoryPhone(state);
     state.campaignPresentation.presented = false;
     if (state.subtitles?.active) state.subtitles.active.presented = false;
   }
@@ -1043,21 +1393,35 @@ function damagePlayer(state, damage) {
   if (damage > 0) state.player.reloadRemaining = 0;
   if (state.player.health <= 0) killPlayer(state);
 }
-function damageVehicle(state, vehicle, damage) {
+function damageVehicle(state, vehicle, damage, owner = 'world', kind = 'vehicle-impact') {
   if (vehicle.health <= 0) return;
-  const previousHealth = vehicle.health;
+  const previousHealth = vehicle.health,
+    previousArmour = vehicle.armour ?? 0;
   if (vehicle.armour > 0) {
     const absorbed = Math.min(vehicle.armour, damage * 0.55);
     vehicle.armour -= absorbed;
     damage -= absorbed;
   }
   vehicle.health = Math.max(0, vehicle.health - damage);
+  const passengerLife = (state.companions?.actors ?? [])
+    .filter((actor) => actor.vehicleId === vehicle.id)
+    .map((actor) => ({ actor, health: actor.health, armour: actor.armour ?? 0 }));
   Companions.applyVehicleImpact(
     state,
     vehicle.id,
     previousHealth - vehicle.health,
     companionContext(state),
   );
+  for (const before of passengerLife)
+    notifyCommittedDamage(
+      state,
+      before.actor,
+      before.health,
+      before.armour,
+      owner,
+      { onDamage: campaignObservers(state)?.damage, sceneId: actorSceneId(before.actor) },
+      kind,
+    );
   if (vehicle.health === 0) {
     vehicle.speed = 0;
     if (state.player.vehicleId === vehicle.id) {
@@ -1067,6 +1431,16 @@ function damageVehicle(state, vehicle, damage) {
       notify(state, 'Vehicle disabled. Get clear and find another ride.', 'danger');
     }
   }
+  notifyCommittedDamage(
+    state,
+    vehicle,
+    previousHealth,
+    previousArmour,
+    owner,
+    { onDamage: campaignObservers(state)?.damage, sceneId: actorSceneId(vehicle) },
+    kind,
+    'vehicle',
+  );
 }
 function killPlayer(state) {
   state.player.health = 0;
@@ -1204,8 +1578,14 @@ function damageSceneProp(state, sceneId, id, amount) {
   return damageInteriorProp(local, id, amount);
 }
 function damageSceneArea(state, sceneId, point, radius, amount) {
-  if (!sceneId) return;
   const geometry = SCENES.queries(state, sceneId);
+  for (const prop of lateMeterPropDescriptors(state)) {
+    const target = closestLateMeterClipboardPoint(point, prop),
+      range = Math.hypot(point.x - target.x, point.y - target.y, (point.z ?? 0) - target.z);
+    if (prop.sceneId === sceneId && range < radius && geometry.hasLineOfSight(point, target))
+      damageCampaignProp(state, prop, amount * Math.max(0.15, 1 - range / radius));
+  }
+  if (!sceneId) return;
   for (const item of INTERIOR_LAYOUTS[sceneId].props) {
     const target = {
       x: item.x + item.w / 2,
@@ -1219,12 +1599,64 @@ function damageSceneArea(state, sceneId, point, radius, amount) {
       damageSceneProp(state, sceneId, item.id, amount * Math.max(0.15, 1 - range / radius));
   }
 }
+function damageCampaignProp(state, descriptor, amount) {
+  const prop = state.campaignRuntime?.sceneProps?.[descriptor.id];
+  if (!prop || prop.state === 'destroyed' || !Number.isFinite(amount) || amount <= 0) return false;
+  prop.health = Math.max(0, (prop.health ?? 100) - amount);
+  if (!prop.health)
+    Object.assign(prop, {
+      state: 'destroyed',
+      ownerActorId: null,
+      visible: false,
+      x: descriptor.x,
+      y: descriptor.y,
+      z: descriptor.z,
+      angle: descriptor.angle,
+      sceneId: descriptor.sceneId,
+    });
+  return true;
+}
+function syncCarriedCampaignProps(state) {
+  const prop = state.campaignRuntime?.sceneProps?.[LATE_METER_CLIPBOARD.id];
+  if (prop?.state !== 'carried') return;
+  const actor = Companions.getActor(state, prop.ownerActorId);
+  if (!actor || actor.health > 0) return;
+  const { forward, right } = prop.attachment,
+    c = Math.cos(actor.angle),
+    s = Math.sin(actor.angle);
+  Object.assign(prop, {
+    state: 'dropped',
+    ownerActorId: null,
+    x: actor.x + forward * c - right * s,
+    y: actor.y + forward * s + right * c,
+    z:
+      SCENES.queries(state, actorSceneId(actor)).surfaceHeight(actor.x, actor.y, actor.z ?? 0) +
+      0.4,
+    angle: actor.angle,
+    sceneId: actorSceneId(actor),
+    health: prop.health ?? 100,
+  });
+}
 function combatContext(state, sceneId = currentSceneId(state)) {
   const geometry = SCENES.queries(state, sceneId);
   return {
     sceneId,
+    onDamage: campaignObservers(state)?.damage,
+    onAttack: campaignObservers(state)?.attack,
     damageProps: (point, radius, amount) => damageSceneArea(state, sceneId, point, radius, amount),
     strikeProps: (actor, action) => {
+      for (const prop of lateMeterPropDescriptors(state)) {
+        const hand = { x: actor.x, y: actor.y, z: (actor.z ?? 0) + (actor.crouching ? 8 : 13) },
+          target = closestLateMeterClipboardPoint(hand, prop),
+          range = Math.hypot(hand.x - target.x, hand.y - target.y, hand.z - target.z);
+        if (
+          prop.sceneId === sceneId &&
+          range <= action.reach &&
+          Math.abs(normalizeAngle(angleTo(actor, target) - actor.angle)) <= action.arc &&
+          geometry.hasLineOfSight(hand, target)
+        )
+          damageCampaignProp(state, prop, action.damage);
+      }
       if (!sceneId) return;
       for (const item of INTERIOR_LAYOUTS[sceneId].props) {
         const point = {
@@ -1254,7 +1686,8 @@ function combatContext(state, sceneId = currentSceneId(state)) {
     damagePlayer: (amount) => {
       if (currentSceneId(state) === sceneId) damagePlayer(state, amount);
     },
-    damageVehicle: (vehicle, amount) => damageVehicle(state, vehicle, amount),
+    damageVehicle: (vehicle, amount, owner, kind) =>
+      damageVehicle(state, vehicle, amount, owner ?? 'world', kind ?? 'explosion'),
     raiseWanted: (level) => reportCrime(state, { type: 'gunfire', severity: level }),
     reportCrime: (crime) => reportCrime(state, { ...crime, sceneId }),
     hasLineOfSight: (a, b) => hasLineOfSight(a, b, state, sceneId),
@@ -1399,14 +1832,21 @@ function updateBullets(state, dt) {
     bullet.y += bullet.vy * dt;
     if (bullet.vz) {
       bullet.z = (bullet.z || 0) + bullet.vz * dt;
-      if (bullet.z < ELEVATION.min) {
-        bullet.remaining = 0;
-        continue;
-      }
     }
     bullet.remaining -= Math.hypot(bullet.vx, bullet.vy, bullet.vz || 0) * dt;
     const previous = { x: bullet.prevX, y: bullet.prevY, z: bullet.prevZ };
+    for (const prop of lateMeterPropDescriptors(state)) {
+      if (prop.sceneId !== sceneId) continue;
+      const contact = traceLateMeterClipboard(previous, bullet, prop);
+      if (
+        contact &&
+        hasLineOfSight(previous, contact, state, sceneId) &&
+        !geometry.isBlocked(contact.x, contact.y, 0.05, contact.z)
+      )
+        damageCampaignProp(state, prop, bullet.damage);
+    }
     if (
+      bullet.z < ELEVATION.min ||
       !hasLineOfSight(previous, bullet, state, sceneId) ||
       geometry.isBlocked(bullet.x, bullet.y, 1, bullet.z || 0)
     ) {
@@ -1424,7 +1864,8 @@ function updateBullets(state, dt) {
       ].filter(
         (person) =>
           person.health > 0 &&
-          segmentDistance(person, previous, bullet) < (person.role === 'air-search' ? 24 : 9) &&
+          segmentDistance(person, previous, bullet) <
+            (person.role === 'air-search' ? 24 : (person.radius ?? 7) + 2) &&
           (bullet.z === undefined ||
             (segmentHeight(person, previous, bullet) >= (person.z || 0) &&
               segmentHeight(person, previous, bullet) <=
@@ -1444,7 +1885,7 @@ function updateBullets(state, dt) {
         )
         .sort((a, b) => distance(a, previous) - distance(b, previous))[0];
       if (car && (!victim || distance(car, previous) < distance(victim, previous))) {
-        damageVehicle(state, car, bullet.damage * 0.65);
+        damageVehicle(state, car, bullet.damage * 0.65, 'player', 'bullet');
         bullet.remaining = 0;
       } else if (victim) {
         hitCombatant(state, victim, bullet.damage, 'player', combatContext(state, sceneId));
@@ -1460,7 +1901,7 @@ function updateBullets(state, dt) {
             state.player.z + (state.player.crouching ? 10 : 18)))
     ) {
       const vehicle = currentVehicle(state);
-      if (vehicle) damageVehicle(state, vehicle, bullet.damage * 1.3);
+      if (vehicle) damageVehicle(state, vehicle, bullet.damage * 1.3, bullet.owner, 'bullet');
       else damagePlayer(state, bullet.damage);
       bullet.remaining = 0;
     }
@@ -1468,7 +1909,181 @@ function updateBullets(state, dt) {
   state.bullets = state.bullets.filter((bullet) => bullet.remaining > 0);
 }
 
-function drive(state, vehicle, dt, input) {
+const npcVehicleInputs = new WeakMap();
+function npcInputState(state) {
+  let controls = npcVehicleInputs.get(state);
+  if (!controls) {
+    controls = { pending: new Map(), managed: new Set() };
+    npcVehicleInputs.set(state, controls);
+  }
+  return controls;
+}
+function npcPlain(value, keys) {
+  return (
+    value &&
+    Object.getPrototypeOf(value) === Object.prototype &&
+    Reflect.ownKeys(value).length === keys.length &&
+    keys.every((key) => {
+      const d = Object.getOwnPropertyDescriptor(value, key);
+      return d?.enumerable && Object.hasOwn(d, 'value');
+    })
+  );
+}
+function npcPhysicalOwner(state, scope) {
+  const model =
+      scope.missionId === 'LL-ST-001'
+        ? state.campaignRuntime
+        : scope.missionId === 'LL-ST-002'
+          ? state.lateMeterRuntime
+          : null,
+    active = model?.active,
+    run = state.campaign?.active,
+    receipt = state.campaign?.receipts?.[scope.activationReceipt];
+  return model &&
+    active?.phase === 'running' &&
+    run?.phase === 'running' &&
+    active.missionId === scope.missionId &&
+    run.missionId === scope.missionId &&
+    active.stageId === scope.stageId &&
+    run.stageId === scope.stageId &&
+    active.attempt === scope.attempt &&
+    run.attempt === scope.attempt &&
+    active.receipt === scope.activationReceipt &&
+    receipt?.kind === 'stage-activation' &&
+    receipt.missionId === scope.missionId &&
+    receipt.stageId === scope.stageId &&
+    receipt.attempt === scope.attempt
+    ? model
+    : null;
+}
+/** Parent queues a single physical-step input after actual mission/driver observation.
+ * Commands are transient; no input survives restore, failure, scope change or expiry.
+ */
+export function queueNPCVehicleInput(state, request) {
+  if (
+    !npcPlain(request, ['vehicleId', 'actorId', 'scope', 'input', 'dt']) ||
+    !npcPlain(request.scope, ['missionId', 'stageId', 'attempt', 'activationReceipt']) ||
+    !npcPlain(request.input, ['up', 'brake', 'left', 'right'])
+  )
+    return { ok: false, unmet: ['invalid-npc-driver-input'] };
+  const { vehicleId, actorId, scope, input, dt } = request;
+  if (
+    typeof vehicleId !== 'string' ||
+    typeof actorId !== 'string' ||
+    !Number.isFinite(dt) ||
+    dt <= 0 ||
+    dt > 0.5 ||
+    !Number.isSafeInteger(scope.attempt) ||
+    scope.attempt < 1 ||
+    !['missionId', 'stageId', 'activationReceipt'].every((key) => typeof scope[key] === 'string') ||
+    !Object.values(input).every((v) => typeof v === 'boolean')
+  )
+    return { ok: false, unmet: ['invalid-npc-driver-input'] };
+  const model = npcPhysicalOwner(state, scope),
+    driver = Companions.driverObservation(state, vehicleId, companionContext(state));
+  if (!model || driver?.actorId !== actorId || driver.controllable !== true)
+    return { ok: false, unmet: ['actual-owned-seated-npc-driver-required'] };
+  const controls = npcInputState(state);
+  controls.pending.set(vehicleId, {
+    actorId,
+    scope: { ...scope },
+    input: { ...input },
+    at: state.time,
+    dt,
+    model,
+    epoch: model.restoreEpoch,
+    campaign: state.campaign,
+  });
+  controls.managed.add(vehicleId);
+  return { ok: true };
+}
+/** Release control, leaving the actual named body/seat and vehicle momentum intact. */
+export function releaseNPCVehicleInput(state, vehicleId, reason = 'released') {
+  const controls = npcInputState(state);
+  controls.pending.delete(vehicleId);
+  if (
+    state.vehicles.some(
+      (v) => v.id === vehicleId && v.companionSeats?.some((seat) => seat.seat === 0),
+    )
+  )
+    controls.managed.add(vehicleId);
+  return { ok: true, vehicleId, reason };
+}
+export function resetNPCVehicleInputs(state) {
+  npcVehicleInputs.delete(state);
+}
+function vehicleControllerOwner(state, vehicle, controller) {
+  if (state.player.vehicleId === vehicle.id) return 'player';
+  if (controller?.actorId) return controller.actorId;
+  const actor = (state.companions?.actors ?? []).find(
+    (body) =>
+      body.vehicleId === vehicle.id &&
+      body.seat === 0 &&
+      body.health > 0 &&
+      Companions.getSeat(state, body.id),
+  );
+  return actor?.id ?? 'world';
+}
+function collisionOwner(state, vehicle, other, controller) {
+  const toward = (from, to) => {
+      const dx = to.x - from.x,
+        dy = to.y - from.y,
+        length = Math.hypot(dx, dy);
+      return length
+        ? Math.max(
+            0,
+            (Math.cos(from.angle) * (from.speed ?? 0) * dx +
+              Math.sin(from.angle) * (from.speed ?? 0) * dy) /
+              length,
+          )
+        : 0;
+    },
+    own = toward(vehicle, other),
+    theirs = toward(other, vehicle);
+  return own > 0 && own >= theirs
+    ? vehicleControllerOwner(state, vehicle, controller)
+    : theirs > 0
+      ? vehicleControllerOwner(state, other)
+      : 'world';
+}
+function updateNPCVehicles(state, dt) {
+  const controls = npcInputState(state),
+    present = new Set();
+  for (const vehicle of state.vehicles) {
+    const leased = vehicle.companionSeats?.some((seat) => seat.seat === 0);
+    if (!leased && !controls.managed.has(vehicle.id)) continue;
+    present.add(vehicle.id);
+    const queued = controls.pending.get(vehicle.id);
+    controls.pending.delete(vehicle.id);
+    if (state.player.vehicleId === vehicle.id) {
+      controls.managed.delete(vehicle.id);
+      continue;
+    }
+    if (vehicle.health <= 0) {
+      controls.managed.delete(vehicle.id);
+      continue;
+    }
+    const driver = Companions.driverObservation(state, vehicle.id, companionContext(state)),
+      model = queued && npcPhysicalOwner(state, queued.scope),
+      usable =
+        queued &&
+        driver?.controllable === true &&
+        driver.actorId === queued.actorId &&
+        model === queued.model &&
+        model.restoreEpoch === queued.epoch &&
+        state.campaign === queued.campaign &&
+        state.time + 1e-6 >= queued.at &&
+        state.time <= queued.at + queued.dt + 1e-6;
+    // Missing control applies real brakes; boarding/egress/death never fabricates a driver.
+    const input = usable ? queued.input : { brake: true };
+    drive(state, vehicle, dt, input, { actorId: driver?.actorId ?? null, player: false });
+    if (!leased && vehicle.speed === 0) controls.managed.delete(vehicle.id);
+  }
+  for (const key of controls.pending.keys()) if (!present.has(key)) controls.pending.delete(key);
+}
+function drive(state, vehicle, dt, input, controller = null) {
+  const playerControlled = controller === null && state.player.vehicleId === vehicle.id,
+    owner = vehicleControllerOwner(state, vehicle, controller);
   const spec = VEHICLE_SPECS[vehicle.spec];
   const throttle = (input.forward || input.up ? 1 : 0) - (input.backward || input.down ? 1 : 0);
   const steering = (input.right ? 1 : 0) - (input.left ? 1 : 0);
@@ -1500,12 +2115,13 @@ function drive(state, vehicle, dt, input) {
   );
   if (collided) {
     if (Math.abs(vehicle.speed) > 40)
-      damageVehicle(state, vehicle, Math.abs(vehicle.speed) * 0.075);
+      damageVehicle(state, vehicle, Math.abs(vehicle.speed) * 0.075, owner);
     vehicle.speed *= -0.15;
   }
   for (const other of state.vehicles) {
     if (
       other.id === vehicle.id ||
+      actorSceneId(other) !== actorSceneId(vehicle) ||
       other.health <= 0 ||
       Math.abs((other.z || 0) - (vehicle.z || 0)) > 12
     )
@@ -1513,6 +2129,7 @@ function drive(state, vehicle, dt, input) {
     const minimumDistance = (spec.width + VEHICLE_SPECS[other.spec].width) * 0.69;
     if (distance(vehicle, other) < minimumDistance) {
       const speed = Math.abs(vehicle.speed - other.speed);
+      const causalOwner = collisionOwner(state, vehicle, other, controller);
       const separationAngle = angleTo(other, vehicle);
       moveBody(
         vehicle,
@@ -1524,12 +2141,19 @@ function drive(state, vehicle, dt, input) {
       vehicle.speed *= -0.1;
       other.speed *= 0.2;
       if (speed > 35) {
-        damageVehicle(state, vehicle, speed * 0.12);
-        damageVehicle(state, other, speed * 0.15);
+        damageVehicle(state, vehicle, speed * 0.12, causalOwner);
+        damageVehicle(state, other, speed * 0.15, causalOwner);
       }
     }
   }
-  for (const person of scenePeople(state)) {
+  const people = scenePeople(state, actorSceneId(vehicle));
+  if (
+    !playerControlled &&
+    !state.player.vehicleId &&
+    actorSceneId(state.player) === actorSceneId(vehicle)
+  )
+    people.push(state.player);
+  for (const person of people) {
     if (
       person.health <= 0 ||
       person.inVehicle ||
@@ -1539,20 +2163,34 @@ function drive(state, vehicle, dt, input) {
       Math.abs(vehicle.speed) < 18
     )
       continue;
-    person.health = Math.max(0, person.health - Math.abs(vehicle.speed) * 0.9);
-    person.panic = 8;
+    const healthBefore = person.health,
+      armourBefore = person.armour ?? 0;
+    if (person === state.player) damagePlayer(state, Math.abs(vehicle.speed) * 0.9);
+    else person.health = Math.max(0, person.health - Math.abs(vehicle.speed) * 0.9);
+    notifyCommittedDamage(
+      state,
+      person,
+      healthBefore,
+      armourBefore,
+      owner,
+      { onDamage: campaignObservers(state)?.damage, sceneId: actorSceneId(person) },
+      'vehicle-impact',
+    );
+    if (person !== state.player) person.panic = 8;
     vehicle.speed *= 0.68;
-    if (!state.hostiles.some((hostile) => hostile.id === person.id))
+    if (owner === 'player' && !state.hostiles.some((hostile) => hostile.id === person.id))
       reportCrime(state, {
         type: person.kind === 'police' ? 'police-assault' : 'hit-and-run',
         severity: person.kind === 'police' ? 3 : 2,
       });
   }
-  state.progress.distanceDriven += distance(vehicle, before);
-  state.player.x = vehicle.x;
-  state.player.y = vehicle.y;
-  state.player.angle = vehicle.angle;
-  state.player.speed = vehicle.speed;
+  if (playerControlled) {
+    state.progress.distanceDriven += distance(vehicle, before);
+    state.player.x = vehicle.x;
+    state.player.y = vehicle.y;
+    state.player.angle = vehicle.angle;
+    state.player.speed = vehicle.speed;
+  }
 }
 export function toggleCover(state) {
   if (state.cinematics?.active || state.shelterServices?.active || railPassenger(state))
@@ -1859,6 +2497,7 @@ function updateTraffic(state, dt) {
   for (const vehicle of state.vehicles) {
     if (!inScene(vehicle, null)) continue;
     if (vehicle.policeControlled) continue;
+    if (vehicle.companionSeats?.some((seat) => seat.seat === 0)) continue;
     if (vehicle.kind !== 'traffic' || vehicle.occupied || vehicle.health <= 0 || !vehicle.route)
       continue;
     const waypoint = vehicle.route[vehicle.routeIndex];
@@ -2230,6 +2869,15 @@ function interactionCandidates(state) {
       const requiredVehicle = currentStage?.requiredVehicle || currentStage?.vehicle;
       const rank = (item) => {
         if (item.type === 'objective' && !item.available) return 2.5;
+        if (
+          item.type === 'interior-portal' &&
+          item.roomId === WORLD.campaignSceneBindings.dispatch.roomId &&
+          !state.campaign?.active &&
+          state.campaign?.completed?.['LL-ST-001'] &&
+          !state.campaign.completed['LL-ST-002'] &&
+          !interruptedStory(state)
+        )
+          return 0.9;
         if (item.type === 'vehicle' && requiredVehicle) {
           const vehicle = state.vehicles.find((vehicle) => vehicle.id === item.id);
           if (vehicle && (vehicle.id === requiredVehicle || vehicle.spec === requiredVehicle))
@@ -2269,6 +2917,35 @@ export function nearestInteractable(state) {
       prompt:
         story.shelterAction.kind === 'rest' ? 'Resting for six hours…' : 'Having a warm meal…',
     };
+  if (story?.recognitionReady)
+    return {
+      id: 'story-recognize',
+      type: 'story-recognize',
+      available: true,
+      distance: 0,
+      prompt: 'Identify the grey jacket and clipboard',
+    };
+  if (
+    !state.campaign?.active &&
+    state.campaign?.completed?.['LL-ST-001'] &&
+    !state.campaign.completed['LL-ST-002'] &&
+    !interruptedStory(state) &&
+    currentSceneId(state) === 'voss-dispatch'
+  ) {
+    const felix = Companions.getActor(state, 'LL-CHAR-002');
+    if (
+      felix?.health > 0 &&
+      actorSceneId(felix) === 'voss-dispatch' &&
+      distance(state.player, felix) <= 35
+    )
+      return {
+        id: 'LL-ST-002',
+        type: 'story-mission',
+        available: true,
+        distance: distance(state.player, felix),
+        prompt: 'Talk to Felix · Late Meter',
+      };
+  }
   if (railPassenger(state)) return railInteraction(state, WORLD);
   if (state.dialogue)
     return {
@@ -2543,6 +3220,21 @@ export function interact(state) {
   if (!candidate) return null;
   if (candidate.type === 'story-dialogue')
     return { type: 'story-dialogue', ...acknowledgeStory(state) };
+  if (candidate.type === 'story-mission')
+    return { type: 'story-mission', ...startStoryMission(state, candidate.id) };
+  if (candidate.type === 'story-recognize') {
+    const result = {
+      type: 'story-recognize',
+      ...recognizeStoryActor(
+        state,
+        'LL-ARC-REEVE',
+        'identify:' + state.time + ':' + state.campaign.sequence,
+      ),
+    };
+    if (!result.ok)
+      notify(state, 'Keep the grey jacket and clipboard in view before identifying him.');
+    return result;
+  }
   if (candidate.type === 'story-scene')
     return { type: 'story-scene', ok: skipStoryCinematic(state) };
   if (candidate.type === 'story-action') return null;
@@ -2621,6 +3313,28 @@ export function interact(state) {
       return null;
     }
     const vehicle = state.vehicles.find((item) => item.id === candidate.id);
+    const admission = Companions.playerDriverAdmission(state, vehicle.id);
+    if (!admission.allowed) {
+      releaseNPCVehicleInput(state, vehicle.id, 'player-admission');
+      if (admission.canPreempt) {
+        const cancelled = Companions.preemptDriverReservation(
+          state,
+          vehicle.id,
+          companionContext(state),
+        );
+        if (!cancelled.ok) return null;
+      } else {
+        if (admission.lease?.alive)
+          Companions.requestExit(state, admission.lease.actorId, companionContext(state));
+        notify(
+          state,
+          admission.lease?.alive
+            ? 'Wait for the driver to step out before entering.'
+            : 'The driver seat is still physically occupied.',
+        );
+        return { ...candidate, ok: false, waiting: 'named-driver-egress' };
+      }
+    }
     if (vehicle.policeControlled) {
       if (Math.abs(vehicle.speed) > 20) {
         notify(state, 'The cruiser is moving too fast to take.');
@@ -2915,7 +3629,10 @@ export function updateSimulation(state, dt, input = {}) {
     }
     if (state.respawnTimer > 0) {
       state.respawnTimer -= step;
+      updateNPCVehicles(state, step);
+      Companions.updateCompanions(state, step, companionContext(state));
       updateAllOrdnance(state, step);
+      syncCarriedCampaignProps(state);
       if (state.respawnTimer <= 0) respawn(state);
       tickStory(state, step);
       continue;
@@ -2956,11 +3673,13 @@ export function updateSimulation(state, dt, input = {}) {
       updatePolice(state, step, input);
     }
     updateRailImpacts(state, step, railOptions(state));
+    updateNPCVehicles(state, step);
     Companions.updateCompanions(state, step, companionContext(state));
     updateBullets(state, step);
     for (const sceneId of new Set([null, ...Object.keys(state.interior?.rooms || {})]))
       updateMelee(state, step, combatContext(state, sceneId));
     updateAllOrdnance(state, step);
+    syncCarriedCampaignProps(state);
     tickStory(state, step);
     if (state.player.health > 0 && !currentSceneId(state)) {
       updateMission(state, step);
@@ -3031,6 +3750,18 @@ function validateSceneLedger(state) {
   const current = currentSceneId(state);
   if ((state.player.sceneId ?? null) !== current)
     throw new Error('The saved player scene is invalid.');
+  const clipboard = state.campaignRuntime?.sceneProps?.[LATE_METER_CLIPBOARD.id];
+  if (clipboard && clipboard.state !== 'carried') {
+    const room = clipboard.sceneId && INTERIOR_LAYOUTS[clipboard.sceneId];
+    if (
+      !(room
+        ? finiteNumber(clipboard.x, -40, room.width + 40) &&
+          finiteNumber(clipboard.y, -40, room.height + 40) &&
+          finiteNumber(clipboard.z, room.floorZ, room.ceilingZ ?? 72)
+        : validPoint(clipboard) && finiteNumber(clipboard.z, ELEVATION.min, ELEVATION.max))
+    )
+      throw Error('The saved clipboard is outside its physical scene.');
+  }
   const entities = [
     ...state.vehicles,
     ...state.pedestrians,
@@ -3144,12 +3875,45 @@ export function restoreGame(serialized, options = {}) {
   initializeShelterServices(state);
   validateShelterServices(state);
   initializeCinematics(state);
-  if (state.campaign || state.campaignMode === 'story') {
+  if (
+    state.campaign ||
+    state.campaignMode === 'story' ||
+    state.campaignRuntime ||
+    state.lateMeterRuntime ||
+    state.campaignEffects ||
+    state.lateMeterEffects
+  ) {
     initializeCampaignParentState(state);
+    initializeStoryPhone(state);
+    initializeLateMeterParentState(state);
     validateCampaignParentState(state);
     validateCampaignRuntime(state);
+    validateLateMeterRuntime(state);
+    validateLateMeterParentState(state);
+    PhoneCalls.validatePhoneCalls(state);
+    const appearances = {
+      'LL-ARC-REEVE': LATE_METER_APPEARANCES.reeve,
+      'LL-ARC-YARA': LATE_METER_APPEARANCES.yara,
+      'holt-collector-watch': LATE_METER_APPEARANCES.watcher,
+    };
+    for (const actor of state.companions.actors)
+      if (
+        (actor.appearance || appearances[actor.id]) &&
+        JSON.stringify(actor.appearance) !== JSON.stringify(appearances[actor.id])
+      )
+        throw Error('The saved named appearance is not registered.');
+    if (
+      state.campaignRuntime.sceneProps['reeve-repossession-clipboard'] &&
+      !state.lateMeterEffects.receipts['late-meter:prop:reeve-repossession-clipboard']
+    )
+      throw Error('The collector prop has no physical registration.');
     validateCinematics(state, campaignContext(state).cinematicContext);
-  } else validateCinematics(state, {});
+  } else {
+    validateCinematics(state, {});
+    if (state.phoneCalls) PhoneCalls.validatePhoneCalls(state);
+    if (state.companions.actors.some((actor) => actor.appearance))
+      throw Error('The saved named appearance has no registered campaign state.');
+  }
   const hadSavedTransit = state.transit !== undefined;
   initializeRail(state, WORLD);
   if (!hadSavedTransit) updateRail(state, WORLD, 0, railOptions(state));
@@ -3340,9 +4104,15 @@ export function restoreGame(serialized, options = {}) {
     for (const key of optionalKeys) if (state[key] === undefined) state[key] = baseline[key];
   }
   if (state.campaign && !options.physicalOnly) {
-    validateCampaignDirector(state.campaign, campaignAdapters(state));
+    const adapters = campaignAdapters(state);
+    if (state.campaign.contentFingerprint !== campaignContentFingerprint(adapters))
+      state.campaign = migrateCampaignDirectorContent(state.campaign, adapters);
+    validateCampaignDirector(state.campaign, adapters);
     const active = state.campaign.active,
-      physical = state.campaignRuntime.active;
+      physical =
+        active?.missionId === 'LL-ST-002'
+          ? state.lateMeterRuntime.active
+          : state.campaignRuntime.active;
     if (
       active &&
       (!physical ||
@@ -3353,13 +4123,17 @@ export function restoreGame(serialized, options = {}) {
     )
       throw Error('The saved physical assignment and story director disagree.');
     const interrupted = interruptedStory(state);
+    const interruptedPhysical =
+      interrupted?.missionId === 'LL-ST-002'
+        ? state.lateMeterRuntime.active
+        : state.campaignRuntime.active;
     if (
       interrupted &&
-      (!physical ||
-        physical.missionId !== interrupted.missionId ||
-        physical.stageId !== interrupted.stageId ||
-        physical.attempt !== interrupted.attempt ||
-        physical.phase !== 'finished')
+      (!interruptedPhysical ||
+        interruptedPhysical.missionId !== interrupted.missionId ||
+        interruptedPhysical.stageId !== interrupted.stageId ||
+        interruptedPhysical.attempt !== interrupted.attempt ||
+        !['finished', 'suspended'].includes(interruptedPhysical.phase))
     )
       throw Error('The saved interrupted assignment and physical world disagree.');
   }
@@ -3367,5 +4141,6 @@ export function restoreGame(serialized, options = {}) {
     throw Error('The saved story director is missing.');
   state.lastInput = {};
   state.saveRequested = false;
+  hideStoryPhone(state);
   return state;
 }

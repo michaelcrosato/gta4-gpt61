@@ -10,6 +10,11 @@ import {
   vehicleOccupants,
   vehicleCapacity,
   companionSeatPose,
+  driverSeatPose,
+  requestDriver,
+  driverObservation,
+  playerDriverAdmission,
+  preemptDriverReservation,
   requestBoard,
   requestExit,
   requestEscort,
@@ -695,6 +700,723 @@ test('a missing occupied vehicle is never reported as a living seated passenger'
   tick(state, context);
   assert.equal(companionObservation(state, actor.id).seated, false);
   assert.equal(companionObservation(state, actor.id).failure.kind, 'vehicle-missing');
+});
+
+// Driver tests use the same declared actual terrain/surface-movement fixture,
+// with vehicle footprint collision enabled. Vehicle movement is an explicit
+// parent physical callback; these are not a Harbor City/NPC pursuit playthrough.
+function driverFixture(options = {}) {
+  const h = fixture(options),
+    vehicle = h.state.vehicles[0];
+  vehicle.occupied = false;
+  const actor = add(h.state, 'LL-ARC-REEVE', { x: 103.48, y: -70 });
+  const blocked = h.context.isBlocked,
+    moveBody = h.context.moveBody;
+  const carBlocks = (x, y, radius, z, sceneId, ignored) =>
+    h.state.vehicles.some((car) => {
+      if (
+        car.id === ignored ||
+        car.health <= 0 ||
+        (car.sceneId ?? null) !== sceneId ||
+        z < (car.z ?? 0) - 4 ||
+        z >= (car.z ?? 0) + 16
+      )
+        return false;
+      const spec = specs[car.spec],
+        c = Math.cos(car.angle),
+        s = Math.sin(car.angle),
+        dx = x - car.x,
+        dy = y - car.y,
+        a = dx * c + dy * s,
+        b = -dx * s + dy * c;
+      return (
+        Math.hypot(
+          a - Math.max(-spec.length / 2, Math.min(spec.length / 2, a)),
+          b - Math.max(-spec.width / 2, Math.min(spec.width / 2, b)),
+        ) <
+        radius - 1e-6
+      );
+    });
+  h.context.isBlocked = (x, y, radius, z, sceneId, metadata = {}) =>
+    blocked(x, y, radius, z, sceneId) ||
+    carBlocks(x, y, radius, z, sceneId, metadata.ignoreVehicleId);
+  h.context.moveBody = (body, dx, dy, radius, metadata = {}) => {
+    const count = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 3));
+    const ignored = ['boarding', 'exiting'].includes(metadata.phase)
+      ? metadata.ignoreVehicleId
+      : null;
+    for (let index = 0; index < count; index++) {
+      if (
+        carBlocks(
+          body.x + dx / count,
+          body.y + dy / count,
+          radius,
+          body.z,
+          body.sceneId ?? null,
+          ignored,
+        )
+      )
+        return true;
+      if (moveBody(body, dx / count, dy / count, radius)) return true;
+    }
+    return false;
+  };
+  h.context.findRoute = (body, target) => {
+    if ((body.sceneId ?? null) !== target.sceneId) return undefined;
+    const sameSide = (body.y - vehicle.y) * (target.y - vehicle.y) >= 0;
+    if (vehicle.angle === 0 && !sameSide) {
+      const rear = vehicle.x - specs[vehicle.spec].length / 2 - 12;
+      return [
+        { x: rear, y: body.y, z: 0, sceneId: target.sceneId },
+        { x: rear, y: target.y, z: 0, sceneId: target.sceneId },
+        target,
+      ];
+    }
+    return [target];
+  };
+  const parentMoveVehicle = (dx, dy, dt = 0.5) => {
+    const before = { x: vehicle.x, y: vehicle.y };
+    moveBody(vehicle, dx, dy, specs[vehicle.spec].width * 0.62);
+    vehicle.speed = Math.hypot(vehicle.x - before.x, vehicle.y - before.y) / dt;
+  };
+  return { ...h, actor, vehicle, parentMoveVehicle };
+}
+function driverBoarded(options = {}) {
+  const h = driverFixture(options);
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, true);
+  until(
+    h.state,
+    h.context,
+    () => driverObservation(h.state, h.vehicle.id, h.context)?.seated === true,
+  );
+  return h;
+}
+
+test('explicit NPC driver request reserves zero but only physical door approach/boarding creates a controllable driver', () => {
+  const h = driverFixture(),
+    beforeVehicle = clone(h.vehicle),
+    start = { x: h.actor.x, y: h.actor.y };
+  const result = requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  assert.deepEqual(result, { ok: true, seated: false, seat: 0 });
+  assert.equal(getSeat(h.state, h.actor.id), null);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, false);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).reserved, true);
+  const sequence = h.state.companions.sequence;
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, true);
+  assert.equal(h.state.companions.sequence, sequence);
+  until(h.state, h.context, () => h.actor.companionPhase === 'boarding');
+  assert.equal(getSeat(h.state, h.actor.id), null);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, false);
+  assert(Math.hypot(h.actor.x - start.x, h.actor.y - start.y) > 30);
+  until(
+    h.state,
+    h.context,
+    () => driverObservation(h.state, h.vehicle.id, h.context)?.controllable === true,
+  );
+  const observation = driverObservation(h.state, h.vehicle.id, h.context);
+  assert.equal(observation.seat, 0);
+  assert.equal(observation.alive, true);
+  assert.equal(h.actor.radius, 3);
+  assert.equal(h.actor.collisionHeight, 8);
+  assert.equal(h.actor.eyeHeight, 6);
+  close(observation.eye.z, h.actor.z + 6);
+  assert.equal(h.vehicle.x, beforeVehicle.x);
+  assert.equal(h.vehicle.y, beforeVehicle.y);
+  roundTrip(h.state, h.context);
+});
+
+test('driver geometry uses the actual opposite front door and canonical seat pose at the annex sedan heading', () => {
+  const h = driverFixture();
+  Object.assign(h.vehicle, { x: 400, y: 463, angle: Math.PI });
+  Object.assign(h.actor, { x: 400, y: 490 });
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  until(h.state, h.context, () => h.actor.companionPhase === 'boarding');
+  const transition = h.state.companions.records.find((r) => r.id === h.actor.id).transition;
+  assert(Math.hypot(transition.from.x - 396.52, transition.from.y - 479.5) <= 1.001);
+  assert(transition.from.y > h.vehicle.y, 'Driver approaches the south side, not passenger side.');
+  until(h.state, h.context, () => Boolean(getSeat(h.state, h.actor.id)));
+  const pose = driverSeatPose(h.vehicle, h.context);
+  close(pose.x, 396.52);
+  close(pose.y, 466.3);
+  close(h.actor.x, pose.x);
+  close(h.actor.y, pose.y);
+  assert.throws(() => companionSeatPose(h.vehicle, 0, h.context), /passenger seat/);
+  roundTrip(h.state, h.context);
+});
+
+test('one driver and three actual passengers share four distinct seats without lending zero to passenger requests', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const ids = ['one', 'two', 'three'];
+  for (const id of ids) {
+    add(h.state, id);
+    const result = requestBoard(h.state, id, h.vehicle.id, h.context);
+    assert(result.seat >= 1);
+  }
+  until(h.state, h.context, () => vehicleOccupants(h.state, h.vehicle.id).length === 4);
+  assert.deepEqual(
+    vehicleOccupants(h.state, h.vehicle.id).map((seat) => seat.seat),
+    [0, 1, 2, 3],
+  );
+  assert.equal(requestBoard(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+  add(h.state, 'fifth');
+  assert.equal(requestBoard(h.state, 'fifth', h.vehicle.id, h.context).reason, 'full');
+  roundTrip(h.state, h.context);
+});
+
+test('Mara, anonymous occupied drivers, external owners and another NPC reservation block seat zero acquisition', () => {
+  for (const kind of ['player', 'anonymous', 'external', 'other-npc']) {
+    const h = driverFixture();
+    if (kind === 'player') h.state.player.vehicleId = h.vehicle.id;
+    if (kind === 'anonymous') h.vehicle.occupied = true;
+    if (kind === 'external')
+      h.context.externalSeatOwners = () => [{ actorId: 'external-driver', seat: 0 }];
+    if (kind === 'other-npc') {
+      const other = add(h.state, 'another-driver', { x: 90, y: -70 });
+      assert.equal(requestDriver(h.state, other.id, h.vehicle.id, h.context).ok, true);
+    }
+    assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+    assert.equal(getSeat(h.state, h.actor.id), null);
+  }
+  const h = driverFixture();
+  const alias = add(h.state, 'LL-CHAR-001');
+  assert.equal(
+    requestDriver(h.state, alias.id, h.vehicle.id, h.context).reason,
+    'player-is-not-npc-driver',
+  );
+});
+
+test('a late parent driver-seat conflict stops boarding without teleporting or taking Mara control and cannot be saved', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  h.state.player.vehicleId = h.vehicle.id;
+  const before = { x: h.actor.x, y: h.actor.y };
+  tick(h.state, h.context);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y }, before);
+  assert(driverObservation(h.state, h.vehicle.id, h.context).unmet);
+  assert.equal(getSeat(h.state, h.actor.id), null);
+  assert.throws(() => validateCompanions(h.state, h.context), /player driver seat collision/);
+});
+
+test('driver egress keeps ownership until the actual door path completes and prevents command races', () => {
+  const h = driverBoarded();
+  requestExit(h.state, h.actor.id, h.context);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, false);
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+  tick(h.state, h.context);
+  assert.equal(h.actor.companionPhase, 'exiting');
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).owned, true);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, false);
+  const other = add(h.state, 'waiting-driver', { x: 90, y: -70 });
+  assert.equal(requestDriver(h.state, other.id, h.vehicle.id, h.context).ok, false);
+  roundTrip(h.state, h.context);
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context), null);
+  assert.equal(h.actor.radius, 7);
+  assert.equal(h.actor.collisionHeight, 30);
+  assert.equal(requestDriver(h.state, other.id, h.vehicle.id, h.context).ok, true);
+  roundTrip(h.state, h.context);
+});
+
+test('driver walk, boarding, seated and exiting saves preserve proof and resume without replaying driver acquisition', () => {
+  for (const phase of ['approaching', 'boarding', 'seated', 'exiting']) {
+    const h = driverFixture();
+    requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+    if (phase !== 'approaching')
+      until(
+        h.state,
+        h.context,
+        () => h.actor.companionPhase === (phase === 'exiting' ? 'seated' : phase),
+      );
+    if (phase === 'boarding') tick(h.state, h.context, 0.2);
+    if (phase === 'exiting') {
+      requestExit(h.state, h.actor.id, h.context);
+      tick(h.state, h.context, 0.2);
+    }
+    roundTrip(h.state, h.context);
+    const copy = clone(h.state);
+    copy.companions = restoreCompanions(JSON.stringify(copy.companions), copy, h.context);
+    until(copy, h.context, () =>
+      phase === 'exiting'
+        ? getActor(copy, h.actor.id).vehicleId === null
+        : driverObservation(copy, h.vehicle.id, h.context)?.controllable === true,
+    );
+    assert.equal(copy.companions.events.filter((e) => e.kind === 'driver-requested').length, 1);
+    assert.equal(copy.companions.events.filter((e) => e.kind === 'boarded').length, 1);
+    roundTrip(copy, h.context);
+  }
+});
+
+test('dead named drivers never revive or disappear, and dead occupied seat zero cannot drive or be stolen by another request', () => {
+  const before = driverFixture();
+  requestDriver(before.state, before.actor.id, before.vehicle.id, before.context);
+  damageCompanion(before.state, before.actor.id, 200, 'bullet', before.context);
+  assert.equal(driverObservation(before.state, before.vehicle.id, before.context), null);
+  assert.equal(
+    requestDriver(before.state, before.actor.id, before.vehicle.id, before.context).reason,
+    'dead',
+  );
+  roundTrip(before.state, before.context);
+  const h = driverBoarded();
+  damageCompanion(h.state, h.actor.id, 200, 'bullet', h.context);
+  tick(h.state, h.context);
+  const observation = driverObservation(h.state, h.vehicle.id, h.context);
+  assert.equal(observation.seated, true);
+  assert.equal(observation.alive, false);
+  assert.equal(observation.controllable, false);
+  const other = add(h.state, 'replacement-driver', { x: 90, y: -70 });
+  assert.equal(requestDriver(h.state, other.id, h.vehicle.id, h.context).ok, false);
+  assert.equal(
+    ensureNamedActor(h.state, { id: h.actor.id, x: 0, y: 0, health: 100 }, h.context),
+    h.actor,
+  );
+  assert.equal(h.actor.health, 0);
+  roundTrip(h.state, h.context);
+});
+
+test('parent physical vehicle movement updates the canonical seated driver and real wall collision blocks the car', () => {
+  const h = driverBoarded({ walls: [{ x: 135, y: -100, w: 20, h: 200, height: 50 }] });
+  const before = h.vehicle.x;
+  h.parentMoveVehicle(100, 0);
+  assert(h.vehicle.x > before && h.vehicle.x < 135);
+  assert(
+    driverObservation(h.state, h.vehicle.id, h.context).unmet,
+    'Read observation never snaps a stale body to claim coupled motion.',
+  );
+  tick(h.state, h.context);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, true);
+  close(h.actor.x, driverSeatPose(h.vehicle, h.context).x);
+  assert.equal(h.actor.health, 100);
+  roundTrip(h.state, h.context);
+});
+
+test('destroyed/missing driver vehicles produce real loss or egress instead of a ghost occupied driver', () => {
+  const h = driverBoarded();
+  h.vehicle.health = 0;
+  tick(h.state, h.context);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, false);
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  assert(h.actor.health > 0 && h.actor.health < 100);
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+  roundTrip(h.state, h.context);
+  const missing = driverBoarded();
+  missing.state.vehicles = [];
+  assert.equal(driverObservation(missing.state, missing.vehicle.id, missing.context), null);
+  assert.throws(
+    () => validateCompanions(missing.state, missing.context),
+    /missing occupied vehicle/,
+  );
+});
+
+test('driver save validation rejects passenger relabeling, forged proof and mismatched physical seat/body/ownership', () => {
+  const h = driverBoarded();
+  for (const mutate of [
+    (s) => {
+      delete s.companions.records[0].driver;
+    },
+    (s) => {
+      s.companions.records[0].driver.vehicleId = 'another-car';
+    },
+    (s) => {
+      s.companions.records[0].driver.requestEvent = s.companions.sequence + 1;
+    },
+    (s) => {
+      s.companions.records[0].driver.requestedAt = s.companions.time + 1;
+    },
+    (s) => {
+      s.companions.records[0].order.kind = 'board';
+    },
+    (s) => {
+      s.companions.actors[0].seat = 1;
+    },
+    (s) => {
+      s.companions.actors[0].radius = 7;
+    },
+    (s) => {
+      s.companions.actors[0].x += 10;
+    },
+    (s) => {
+      s.player.vehicleId = s.vehicles[0].id;
+    },
+  ]) {
+    const bad = clone(h.state);
+    mutate(bad);
+    assert.throws(() => restoreCompanions(bad.companions, bad, h.context), /Invalid companion/);
+  }
+});
+
+test('driver event observers see complete valid saved ownership at request, boarding and exit commits', () => {
+  const h = driverFixture();
+  const validated = [];
+  h.context.onEvent = (event) => {
+    validateCompanions(h.state, h.context);
+    validated.push(event.kind);
+  };
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  until(
+    h.state,
+    h.context,
+    () => driverObservation(h.state, h.vehicle.id, h.context)?.seated === true,
+  );
+  requestExit(h.state, h.actor.id, h.context);
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  assert(validated.includes('driver-requested'));
+  assert(validated.includes('boarded'));
+  assert(validated.includes('exited'));
+});
+
+test('driver-side approach walls and both blocked exit doors keep the canonical actor outside or seated', () => {
+  const blocked = driverFixture({ walls: [{ x: 85, y: -32, w: 40, h: 12, height: 50 }] });
+  requestDriver(blocked.state, blocked.actor.id, blocked.vehicle.id, blocked.context);
+  for (let i = 0; i < 40; i++) tick(blocked.state, blocked.context);
+  assert.equal(getSeat(blocked.state, blocked.actor.id), null);
+  assert.equal(driverObservation(blocked.state, blocked.vehicle.id, blocked.context).seated, false);
+  assert(blocked.actor.y <= -39 + 1e-5);
+  roundTrip(blocked.state, blocked.context);
+  const h = driverBoarded(),
+    original = h.context.isBlocked;
+  let doorsBlocked = true;
+  h.context.isBlocked = (x, y, radius, z, sceneId, metadata) =>
+    (doorsBlocked && Math.abs(x - 103.48) < 10 && Math.abs(Math.abs(y) - 16.5) < 8) ||
+    original(x, y, radius, z, sceneId, metadata);
+  requestExit(h.state, h.actor.id, h.context);
+  for (let i = 0; i < 20; i++) tick(h.state, h.context);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, true);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, false);
+  assert.equal(h.actor.companionPhase, 'waiting-exit');
+  roundTrip(h.state, h.context);
+  doorsBlocked = false;
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context), null);
+});
+
+test('a parent vehicle scene jump cannot silently teleport the seated driver or authorize a save', () => {
+  const h = driverBoarded(),
+    before = { x: h.actor.x, y: h.actor.y, z: h.actor.z, sceneId: h.actor.sceneId };
+  Object.assign(h.vehicle, { sceneId: 'dockside-rooms', x: 100, y: 90 });
+  tick(h.state, h.context);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z, sceneId: h.actor.sceneId }, before);
+  assert.equal(
+    driverObservation(h.state, h.vehicle.id, h.context).unmet,
+    'driver-scene-transition-denied',
+  );
+  assert.throws(() => validateCompanions(h.state, h.context), /occupied scene/);
+});
+
+test('an explicitly proved parent vehicle portal carries the real seated driver without granting an arbitrary scene transform', () => {
+  const h = driverBoarded();
+  h.parentMoveVehicle(20, 0);
+  tick(h.state, h.context);
+  close(h.vehicle.x, 120);
+  const portal = {
+    from: { x: h.vehicle.x, y: h.vehicle.y, sceneId: null },
+    to: { x: 100, y: 90, sceneId: 'dockside-rooms' },
+  };
+  h.context.canRideSceneTransition = (actor, vehicle, oldPose) =>
+    actor.vehicleId === vehicle.id &&
+    oldPose.sceneId === portal.from.sceneId &&
+    Math.abs(oldPose.x - portal.from.x) < 1e-5 &&
+    Math.abs(oldPose.y - portal.from.y) < 1e-5 &&
+    vehicle.sceneId === portal.to.sceneId &&
+    vehicle.x === portal.to.x &&
+    vehicle.y === portal.to.y;
+  Object.assign(h.vehicle, { ...portal.to, speed: 0 });
+  tick(h.state, h.context);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, true);
+  assert.equal(h.actor.sceneId, 'dockside-rooms');
+  close(h.actor.x, driverSeatPose(h.vehicle, h.context).x);
+  close(h.actor.y, driverSeatPose(h.vehicle, h.context).y);
+  roundTrip(h.state, h.context);
+});
+
+test('a teleporting parent foot callback cannot manufacture an occupied NPC driver', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const before = { x: h.actor.x, y: h.actor.y, z: h.actor.z };
+  h.context.moveBody = (actor) => {
+    actor.x += 1000;
+  };
+  assert.throws(() => tick(h.state, h.context), /teleported actor/);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z }, before);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, false);
+  roundTrip(h.state, h.context);
+});
+
+test('seat role changes require physical exit and old version1 passenger saves remain valid without driver fields', () => {
+  const passenger = boarded(),
+    old = clone(passenger.state);
+  for (const record of old.companions.records) delete record.driver;
+  assert.equal(validateCompanions(old, passenger.context), true);
+  assert.equal(restoreCompanions(old.companions, old, passenger.context).version, 1);
+  const h = driverBoarded();
+  assert.equal(requestBoard(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+  requestExit(h.state, h.actor.id, h.context);
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  assert.equal(requestBoard(h.state, h.actor.id, h.vehicle.id, h.context).seat, 1);
+  until(h.state, h.context, () => Boolean(getSeat(h.state, h.actor.id)));
+  assert.equal(getSeat(h.state, h.actor.id).seat, 1);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context), null);
+  assert.equal(
+    requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).reason,
+    'already-seated',
+  );
+  roundTrip(h.state, h.context);
+});
+
+test('a moving vehicle during driver boarding freezes actual progress and saves the real unseated body', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  until(h.state, h.context, () => h.actor.companionPhase === 'boarding');
+  tick(h.state, h.context, 0.2);
+  const before = { x: h.actor.x, y: h.actor.y, z: h.actor.z };
+  h.parentMoveVehicle(10, 0, 0.33);
+  tick(h.state, h.context);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z }, before);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).seated, false);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, false);
+  roundTrip(h.state, h.context);
+});
+
+test('player admission may explicitly preempt only a real unseated driver approach without moving or reviving the actor', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  for (let i = 0; i < 5; i++) tick(h.state, h.context);
+  const body = { x: h.actor.x, y: h.actor.y, z: h.actor.z, health: h.actor.health },
+    car = { x: h.vehicle.x, y: h.vehicle.y };
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).canPreempt, true);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, false);
+  const result = preemptDriverReservation(h.state, h.vehicle.id, h.context);
+  assert.equal(result.preempted, true);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z, health: h.actor.health }, body);
+  assert.deepEqual({ x: h.vehicle.x, y: h.vehicle.y }, car);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context), null);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, true);
+  const sequence = h.state.companions.sequence;
+  assert.equal(preemptDriverReservation(h.state, h.vehicle.id, h.context).preempted, false);
+  assert.equal(h.state.companions.sequence, sequence);
+  h.state.player.vehicleId = h.vehicle.id;
+  h.vehicle.occupied = true;
+  for (let i = 0; i < 20; i++) tick(h.state, h.context);
+  assert.equal(h.actor.vehicleId, null);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z, health: h.actor.health }, body);
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, false);
+  roundTrip(h.state, h.context);
+});
+
+test('boarding, occupied and exiting leases block player admission until a real physical exit', () => {
+  for (const phase of ['boarding', 'seated', 'exiting']) {
+    const h = driverFixture();
+    requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+    until(
+      h.state,
+      h.context,
+      () => h.actor.companionPhase === (phase === 'exiting' ? 'seated' : phase),
+    );
+    if (phase === 'exiting') {
+      requestExit(h.state, h.actor.id, h.context);
+      tick(h.state, h.context);
+    }
+    const before = clone(h.state.companions);
+    assert.equal(playerDriverAdmission(h.state, h.vehicle.id).canPreempt, false);
+    assert.equal(playerDriverAdmission(h.state, h.vehicle.id).requiresPhysicalExit, true);
+    assert.equal(preemptDriverReservation(h.state, h.vehicle.id, h.context).ok, false);
+    assert.deepEqual(h.state.companions, before);
+    if (phase !== 'exiting') requestExit(h.state, h.actor.id, h.context);
+    until(h.state, h.context, () => playerDriverAdmission(h.state, h.vehicle.id).allowed);
+    assert.equal(driverObservation(h.state, h.vehicle.id, h.context), null);
+    h.state.player.vehicleId = h.vehicle.id;
+    roundTrip(h.state, h.context);
+  }
+});
+
+test('named-lease admission leaves ordinary anonymous traffic/player policy to root and never frees a dead occupied driver', () => {
+  const normal = driverFixture();
+  normal.vehicle.occupied = true;
+  assert.equal(
+    playerDriverAdmission(normal.state, normal.vehicle.id).allowed,
+    true,
+    'No named lease changes legacy traffic policy.',
+  );
+  const h = driverBoarded();
+  damageCompanion(h.state, h.actor.id, 200, 'bullet', h.context);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, false);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).lease.alive, false);
+  assert.equal(preemptDriverReservation(h.state, h.vehicle.id, h.context).ok, false);
+  assert.equal(h.actor.health, 0);
+  roundTrip(h.state, h.context);
+});
+
+test('driver rejoin preserves actual occupied control and cannot corrupt a physical transition', () => {
+  const h = driverBoarded();
+  h.state.player.x = 40;
+  const body = { x: h.actor.x, y: h.actor.y, z: h.actor.z };
+  assert.equal(rejoinCompanion(h.state, h.actor.id, h.context).ok, true);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, true);
+  assert.deepEqual({ x: h.actor.x, y: h.actor.y, z: h.actor.z }, body);
+  roundTrip(h.state, h.context);
+  requestExit(h.state, h.actor.id, h.context);
+  tick(h.state, h.context);
+  const before = clone(h.state.companions);
+  assert.equal(rejoinCompanion(h.state, h.actor.id, h.context).ok, false);
+  assert.deepEqual(h.state.companions, before);
+  roundTrip(h.state, h.context);
+});
+
+test('a parent echo of the same canonical driver owner is not a second body or an available seat', () => {
+  const h = driverFixture();
+  h.context.externalSeatOwners = () => [{ actorId: h.actor.id, seat: 0 }];
+  assert.equal(requestDriver(h.state, h.actor.id, h.vehicle.id, h.context).ok, true);
+  roundTrip(h.state, h.context);
+  until(
+    h.state,
+    h.context,
+    () => driverObservation(h.state, h.vehicle.id, h.context)?.seated === true,
+  );
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, false);
+  assert.equal(vehicleOccupants(h.state, h.vehicle.id).length, 1);
+  roundTrip(h.state, h.context);
+});
+
+test('a driver reservation cannot become a saved occupied seat by inventing body coordinates without physical boarding proof', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const bad = clone(h.state),
+    actor = bad.companions.actors[0],
+    record = bad.companions.records[0];
+  Object.assign(actor, driverSeatPose(bad.vehicles[0], h.context), {
+    vehicleId: h.vehicle.id,
+    seat: 0,
+    radius: 3,
+    collisionHeight: 8,
+    eyeHeight: 6,
+    inVehicle: true,
+    companionPhase: 'seated',
+  });
+  Object.assign(record, {
+    phase: 'seated',
+    reservedVehicleId: null,
+    reservedSeat: null,
+    lastVehicleHealth: h.vehicle.health,
+    lastVehiclePose: {
+      x: h.vehicle.x,
+      y: h.vehicle.y,
+      z: 0,
+      sceneId: null,
+      angle: h.vehicle.angle,
+    },
+  });
+  bad.vehicles[0].companionSeats = [{ actorId: actor.id, seat: 0, status: 'occupied' }];
+  bad.vehicles[0].companionOccupied = true;
+  assert.equal(driverObservation(bad, h.vehicle.id, h.context).seated, false);
+  assert.throws(
+    () => restoreCompanions(bad.companions, bad, h.context),
+    /unboarded driver occupancy/,
+  );
+});
+
+test('saved driver proof cannot claim Mara or reuse a lease that has already physically exited', () => {
+  const h = driverBoarded(),
+    occupiedActor = clone(h.actor),
+    occupiedRecord = clone(h.state.companions.records[0]);
+  const alias = clone(h.state),
+    id = 'LL-CHAR-001';
+  alias.companions.actors[0].id = id;
+  alias.companions.actors[0].companionId = id;
+  alias.companions.records[0].id = id;
+  for (const event of alias.companions.events) event.actorId = id;
+  alias.vehicles[0].companionSeats[0].actorId = id;
+  assert.throws(
+    () => restoreCompanions(alias.companions, alias, h.context),
+    /player actor in NPC driver ownership/,
+  );
+  requestExit(h.state, h.actor.id, h.context);
+  until(h.state, h.context, () => h.actor.vehicleId === null);
+  const reused = clone(h.state);
+  reused.companions.actors[0] = occupiedActor;
+  reused.companions.records[0] = occupiedRecord;
+  reused.vehicles[0].companionSeats = [{ actorId: occupiedActor.id, seat: 0, status: 'occupied' }];
+  reused.vehicles[0].companionOccupied = true;
+  assert.throws(
+    () => restoreCompanions(reused.companions, reused, h.context),
+    /released driver lease/,
+  );
+});
+
+test('driver proof remains valid after bounded event history rolls past its genuine request and boarding', () => {
+  const h = driverBoarded();
+  const proof = clone(h.state.companions.records[0].driver);
+  for (let i = 0; i < 140; i++)
+    damageCompanion(h.state, h.actor.id, 0, 'capacity-fixture', h.context);
+  assert(h.state.companions.events[0].id > proof.boardEvent);
+  assert.equal(driverObservation(h.state, h.vehicle.id, h.context).controllable, true);
+  assert.equal(h.actor.health, 100);
+  roundTrip(h.state, h.context);
+});
+
+test('driver preemption events expose valid cancelled ownership and preserve real passenger seats', () => {
+  const h = driverFixture(),
+    passenger = add(h.state, 'passenger');
+  requestBoard(h.state, passenger.id, h.vehicle.id, h.context);
+  until(h.state, h.context, () => Boolean(getSeat(h.state, passenger.id)));
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const valid = [];
+  h.context.onEvent = (event) => {
+    if (event.kind === 'driver-preempted') {
+      validateCompanions(h.state, h.context);
+      valid.push(event.id);
+    }
+  };
+  assert.equal(preemptDriverReservation(h.state, h.vehicle.id, h.context).ok, true);
+  assert.equal(valid.length, 1);
+  assert.equal(getSeat(h.state, passenger.id).seat, 1);
+  assert.deepEqual(
+    vehicleOccupants(h.state, h.vehicle.id).map((p) => p.seat),
+    [1],
+  );
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, true);
+  roundTrip(h.state, h.context);
+});
+
+test('a follow order cancels an unseated driver approach and saves without a released driver intent', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const pose = clone(h.actor);
+  assert.equal(followCompanion(h.state, h.actor.id, 'player', h.context).ok, true);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, true);
+  assert.equal(h.state.companions.records.find((r) => r.id === h.actor.id).driver, null);
+  assert.deepEqual(
+    { x: h.actor.x, y: h.actor.y, health: h.actor.health },
+    {
+      x: pose.x,
+      y: pose.y,
+      health: pose.health,
+    },
+  );
+  roundTrip(h.state, h.context);
+});
+
+test('cancelling driver boarding keeps the lease through real egress and publishes a valid final exit', () => {
+  const h = driverFixture();
+  requestDriver(h.state, h.actor.id, h.vehicle.id, h.context);
+  const record = h.state.companions.records.find((r) => r.id === h.actor.id);
+  until(h.state, h.context, () => record.phase === 'boarding' && record.transition.elapsed > 0);
+  assert.equal(requestExit(h.state, h.actor.id, h.context).ok, true);
+  assert.equal(playerDriverAdmission(h.state, h.vehicle.id).allowed, false);
+  roundTrip(h.state, h.context);
+  const events = [];
+  h.context.onEvent = (event) => {
+    if (event.kind === 'exited') {
+      validateCompanions(h.state, h.context);
+      events.push(event);
+    }
+  };
+  until(h.state, h.context, () => playerDriverAdmission(h.state, h.vehicle.id).allowed);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].data.seat, 0);
+  assert.equal(h.actor.vehicleId, null);
+  assert.equal(h.actor.health, 100);
+  assert.equal(h.actor.radius, 7);
+  roundTrip(h.state, h.context);
 });
 
 test('a refused asynchronous damage resolver cannot mutate the actual actor after its rejection', async () => {

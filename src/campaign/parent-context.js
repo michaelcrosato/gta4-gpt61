@@ -27,6 +27,7 @@ import {
 import { initializeSubtitles, startSubtitleSequence, subtitleFinished } from './subtitles.js';
 import { FIRST_ARC_MISSIONS } from './first-arc.js';
 import { NIGHT_CROSSING_DEFAULT_PROPS } from './scenes.js';
+import { isLateMeterClipboard } from './late-meter-parent-context.js';
 import { initializeCampaignRuntime, NIGHT_CROSSING_CINEMATICS } from './runtime.js';
 
 const MISSION = 'LL-ST-001',
@@ -610,7 +611,8 @@ export function validateCampaignParentState(state) {
       throw Error('Invalid saved campaign cinematic reference.');
   const props = state.campaignRuntime?.sceneProps;
   if (!object(props)) throw Error('Invalid saved campaign scene props.');
-  for (const [id, prop] of Object.entries(props))
+  for (const [id, prop] of Object.entries(props)) {
+    if (id === 'reeve-repossession-clipboard' && isLateMeterClipboard(prop)) continue;
     if (
       id !== 'arrival-duffel' ||
       prop.id !== id ||
@@ -623,5 +625,6 @@ export function validateCampaignParentState(state) {
       (prop.delivered && prop.carrierId)
     )
       throw Error('Invalid saved physical duffel state.');
+  }
   return true;
 }

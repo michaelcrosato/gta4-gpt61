@@ -1950,3 +1950,169 @@ body.story-scene #touch-reload {
     order: -1;
   }
 }
+
+.story-world-action {
+  position: absolute;
+  left: 50%;
+  bottom: 106px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #e7c8757a;
+  background: #172b24f5;
+  color: var(--gold);
+  font:
+    10px ui-monospace,
+    monospace;
+  pointer-events: auto;
+}
+.story-phone-panel {
+  position: absolute;
+  right: 28px;
+  top: 195px;
+  width: min(320px, calc(100% - 32px));
+  max-height: calc(100dvh - 255px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e7c8757a;
+  padding: 12px;
+  background: #12221bf5;
+  box-shadow: 0 8px 32px #0008;
+  pointer-events: auto;
+}
+.story-phone-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.story-phone-header h2 {
+  flex: 1;
+  margin: 0;
+  font:
+    11px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+}
+#story-phone-clock {
+  color: var(--gold);
+  font:
+    16px ui-monospace,
+    monospace;
+}
+.story-phone-panel button {
+  min-height: 44px;
+  border: 1px solid #8caa8a88;
+  padding: 8px 12px;
+  background: #284332;
+  color: #f0ebd8;
+}
+#story-phone-hide {
+  min-width: 44px;
+  font-size: 22px;
+}
+#story-phone-status {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.story-phone-contacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.story-phone-contacts button {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+#story-phone-speaker {
+  margin: 10px 0 5px;
+  color: var(--gold);
+  font:
+    10px ui-monospace,
+    monospace;
+}
+#story-phone-text {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+#story-phone-continue {
+  width: 100%;
+  color: var(--gold);
+}
+.story-phone-hint {
+  margin: 10px 0 0;
+  color: #bac9b4;
+  font-size: 10px;
+  line-height: 1.4;
+}
+body.warning-phone-open #story-phone-toggle {
+  display: none;
+}
+@media (max-width: 600px) {
+  .story-world-action {
+    bottom: 156px;
+    font-size: 9px;
+  }
+  .story-phone-panel {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 152px;
+    width: auto;
+    max-height: min(285px, calc(100dvh - 352px));
+    padding: 10px;
+  }
+  #story-phone-text {
+    font-size: 12px;
+  }
+  .story-phone-hint {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .story-world-action {
+    bottom: 112px;
+  }
+  .story-phone-panel {
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 110px;
+    transform: translateX(-50%);
+    width: min(330px, calc(100% - 220px));
+    max-height: calc(100dvh - 184px);
+    padding: 8px 10px;
+  }
+  #story-phone-text {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .story-phone-hint {
+    display: none;
+  }
+  body.warning-phone-open .mission-panel #mission-objective,
+  body.warning-phone-open .mission-panel #mission-distance {
+    display: none;
+  }
+}
+
+#continue-game {
+  min-height: 44px;
+  align-items: center;
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  body:has(#continue-game:not([hidden])) .title-content h1 {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+  body:has(#continue-game:not([hidden])) .title-actions {
+    gap: 6px;
+  }
+}
+@media (max-width: 600px) {
+  body.warning-phone-open #touch-more {
+    display: none;
+  }
+}

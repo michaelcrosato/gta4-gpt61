@@ -30,6 +30,7 @@
  * E acknowledges visible ride subtitles and must not also exit the vehicle.
  */
 import { FIRST_ARC_MISSIONS } from './first-arc.js';
+import { campaignReceiptNamespace } from './director.js';
 import { findRoute, snapToRoad } from '../navigation.js';
 
 const MISSION = 'LL-ST-001';
@@ -985,7 +986,7 @@ function actionScope(state, batch, request) {
     !Number.isSafeInteger(request.attempt) ||
     request.attempt !== (director.attempts[MISSION] || 0) + 1 ||
     request.receipt !==
-      `campaign:${director.contentFingerprint}:${MISSION}:attempt:${request.attempt}:restart` ||
+      `campaign:${campaignReceiptNamespace(director)}:${MISSION}:attempt:${request.attempt}:restart` ||
     state.campaignRuntime.lastRestoreReason !== 'retry:start' ||
     JSON.stringify(action.preserveCompleted) !== JSON.stringify(Object.keys(director.completed)) ||
     JSON.stringify(action.preserveOnboarding) !==

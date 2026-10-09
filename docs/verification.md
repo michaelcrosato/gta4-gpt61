@@ -738,3 +738,133 @@ Report: [/tmp/lowlight-051-browser-startup/report.json](/tmp/lowlight-051-browse
 These bounded headless desktop measurements do not establish cold physical-device
 startup, acceptable sustained/mobile FPS or real Safari behavior. No content,
 save schema, geometry or source-completion claim changes with this patch.
+
+## Late Meter physical integration (0.6 development)
+
+Late Meter now has a composed production controller alongside Night Crossing.
+The other eighteen first-arc missions remain gated. The new annex is a sixth
+explicit room; its service glass/intercom, taxi bay, collector approaches,
+clipboard review and driver approach preserve the pre-existing precinct and
+city geometry. Removing only the declared additions reproduces the exact
+20,918,659-byte prior world hash. Five legacy startup/control sequences retain
+all their original snapshots and RNG traces; a separate reviewed oracle covers
+the new story/phone state and appended world geometry.
+
+The shared companion model now leases driver seat zero to an actual named body.
+Validated commands run through the same physical steering/collision model before
+seat/body synchronization, without copying NPC travel into Mara’s position or
+statistics. Lost control causes real braking. Player entry waits for a living
+named driver’s physical egress; a dead occupied seat remains occupied. Physical
+corpse eviction and friendly hospitalization remain broader release work.
+
+Committed attack and damage observations distinguish a miss from resolved harm,
+retain real owner/armour/scene facts, and support protected-clerk/patrol failures.
+The canonical clipboard has a native held/read pose, finite oriented collision,
+actual damage/destruction/drop behavior and strict whole-save ownership checks.
+Aiming at its thin dropped board exposed and corrected a muzzle-height slope
+error and an earlier-contact-before-ground ordering error.
+
+The phone uses a saved call owner, exact line/dial acknowledgment receipts and
+the real warning clock. Incoming/fallback history cannot substitute for the
+outgoing warning. Wrong contacts retain their retry cue/history without
+rewinding the world or extending the deadline. The nonmodal panel preserves
+world movement and offers keyboard, touch and controller inputs.
+
+Strict content migration registers the exact published 0.5 authoring pack.
+Every previously owned mission definition must remain identical, and every
+stored physical checkpoint must validate. The current content fingerprint may
+change while the immutable original receipt namespace remains intact. This
+neither restores the live world nor invents completion, rewards or unlocks.
+Unknown histories and changed owned mission definitions fail closed. Authentic
+0.5 home and completed-arrival fixtures retain their provenance and compressed
+source bytes under tests/fixtures.
+
+The retained input investigation is at /tmp/lowlight-late-meter-journey. Run1
+selected the home portal instead of the nearby taxi; its controller now walks
+to a real vehicle prompt. Run2 exposed the optional First Shift prompt covering
+the dispatch doorway; contextual office entry now remains reachable, and a
+separate check preserves optional First Shift outside the doorway radius. Run3
+correctly rejected a controller target inside the physical desk. Run4 delivered
+the real warning and boarded Felix, then exposed a chase observation that
+incorrectly expected queued controls to move the car immediately. The chase
+now begins only after observed movement on a subsequent physical step.
+
+Run5 completed all five stages from a declared production-valid completed
+Night Crossing save. It used ordinary movement/driving/boarding, actual native
+renderer clue proof and explicit public caption/phone inputs, with no later
+actor, vehicle, world, director, health, inventory, receipt or clock edits.
+Reeve physically took seat zero and drove; escape recorded 10.0167 unseen
+seconds beyond the actual last-seen radius. Felix reached the dispatch office,
+the original invoices entered inventory and exactly $120 was awarded. Existing
+collision costs remained: taxi health 115.516 and Felix health 97.534. This is
+Node input/presentation orchestration, not a natural complete browser run.
+Final frozen UI/viewport verification and durable journey checks follow below.
+The complete source scope, multiplayer, full audio and final polish remain open.
+
+A subsequent full-height route audit also identified an existing Dispatch access
+limit: its exterior doorway at (458, 700) is beneath a rail bed 18 units above
+ground, while standing canonical companion bodies declare 30 units. Current foot movement tests
+only feet at that point, so those completed routes do not establish correct head
+clearance. The exact obstruction is retained in the next-arc geometry audit at
+/tmp/lowlight-two-seats-scenes/reports/geometry-notes.md. Shared standing/crouched
+clearance and a physically valid access repair are required before full-world
+acceptance; the existing rail foundation must remain operable.
+
+The durable journey regression now starts from the authenticated compressed
+completed 0.5 fixture, executes 10,800 ordinary frames at 1/60 second for the
+approved preparation cadence, then uses the 0.1-second route controller.
+All five stages and all fifteen authored lines are checked, alongside actual
+native clue frames, physical driver movement, escape, delivery, one $120 reward
+and Continue without a repeated reward. Different immediate/preparation-cadence
+controller attempts hit real traffic and remain retained; this one reproducible
+scenario does not establish every route or a natural browser playthrough.
+
+An additional actual-input combat probe exposed a second extraction lock when
+Reeve died on foot after the warning, while the surviving watcher could not
+drive. The vehicle threat now resolves from the designated driver’s actual
+incapacity. The watcher still controls sight, and the same radius, ten-second
+unseen period, surviving taxi/passenger and normal return requirements remain.
+The fixed production-input regression preserves Reeve’s corpse through Continue;
+it grants no completion or money before the actual return. The investigation at
+/tmp/lowlight-reeve-foot-death retains interrupted/collateral attempts and the
+clean sustained lock before the fix.
+
+That probe also exposed an oversized projectile hitbox for seated companions.
+The real seat body has radius 3, but bullets used the standing radius 9, allowing
+an outward drive-by muzzle to hit Felix inside the taxi. The hit margin now
+follows the actual body radius plus 2: standing bodies retain 9 and seated bodies
+use 5. Actual boarding/fire regressions prove the outward shot reaches its
+external target; an outside shooter can still hurt the seated friendly. No
+friendly immunity was introduced.
+
+Final local verification passes **856 JavaScript tests**, **16 publication
+tests**, syntax, formatting, scope integrity and the static build. The complete
+classic journey is included in that final suite at
+/tmp/lowlight-06-final2-tests.tap. Public simulation probes also confirm a timed
+failure, Return to the City, real serialized Continue, and both explicit retry
+modes: the retained checkpoint restores lookout and full restart restores the
+actual dispatch acceptance, with the original receipt namespace preserved.
+
+Frozen candidate2 warning UI passes fifteen unique cases across Chromium
+ultrawide, Firefox desktop, WebKit small-phone portrait/landscape and tablet.
+The transparent combined report at
+/tmp/lowlight-06-candidate2-warning-final/report.json comprises ten original
+contact/timeout-retry passes and five save/Continue passes after correcting the
+harness. A legitimate navigation autosave can produce later bytes than the
+manual save; the corrected check verifies call/dial/index/acknowledgment,
+recognition and nonrewound clock identity. Landscape SAVE is reached through
+real Tab scrolling in the actual scrollable pause dialog. Original false harness
+failures and both harness hashes remain retained; all app hashes match and both
+runs report no source changes. All fifteen cases have no page/console/engine
+errors or horizontal overflow, and representative PNGs were inspected.
+
+The viewport matrix adds **24 clean captures** over fourteen phone, foldable,
+tablet and desktop sizes, including WebKit and all three desktop engines, at
+/tmp/lowlight-06-candidate2-viewports. Small-phone, landscape, tablet and ultrawide
+PNGs were inspected. A virtual gamepad warning flow passes on Chromium; hardware
+controllers and real iOS Safari were not tested. Subsequent changes from that
+frozen app are limited to the completed-journal text, dead-driver extraction
+outcome and seated projectile radius. The journal correction has separate normal
+Continue/pause/journal passes in Chromium, Firefox and WebKit; the two combat
+changes have actual-input regressions and the final full test suite. The final
+source snapshot retains those exact differences in its manifest.
