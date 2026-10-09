@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Native city raster/layer checks with declared geography fixtures.
 
-Scene captures relocate the player and starter taxi to isolate rendering. They
+An explicit legacy-mode save baseline and scene captures relocate the player and starter taxi to isolate rendering. They
 are not natural travel, campaign acceptance, or physical device benchmarks.
 """
 import argparse
@@ -27,7 +27,9 @@ async def check(playwright, engine, url, output):
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
         await page.goto(debug_url(url))
-        await page.wait_for_function("window.lowlight && lowlight.state.time > .1")
+        await page.wait_for_function("window.lowlight")
+        await page.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
+        await page.wait_for_function("lowlight.state.time > .1")
         comparisons = await page.evaluate("""async () => {
           const {WORLD}=await import('/src/world.js');
           const {createCityGroundRenderer}=await import('/src/city-ground.js');

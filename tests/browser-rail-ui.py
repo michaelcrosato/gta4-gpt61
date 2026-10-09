@@ -208,9 +208,10 @@ async def check(playwright, profile, args, output):
     }
     try:
         await page.goto(play_url(args.url))
-        await page.wait_for_function(
-            "window.lowlight && lowlight.state.transit.time > 1"
-        )
+        await page.wait_for_function("window.lowlight")
+        # Declared legacy-mode baseline precedes the physical platform fixture.
+        await page.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
+        await page.wait_for_function("lowlight.state.transit.time > 1")
         report["fixture"] = await page.evaluate("""async () => {
               const {WORLD,MISSIONS}=await import('/src/simulation.js');
               const s=lowlight.state;s.mission=null;s.dialogue=null;
@@ -221,7 +222,7 @@ async def check(playwright, profile, args, output):
               const platform=WORLD.transit.stations.flatMap(s=>s.platforms).find(p=>p.id===call.platformId);
               Object.assign(s.player,platform.boardingPoint,{groundZ:platform.z,vehicleId:null,sceneId:null,health:100,money:1000});
               lowlight.game.cam.snap=true;lowlight.refresh();
-              return {type:'Only scene mutation: completed-onboarding/physical-platform/health/budget setup',
+              return {type:'Legacy-mode baseline, then completed-onboarding/physical-platform/health/budget setup',
                 completedOpening:s.progress.completed.slice(),budget:1000,health:100,
                 trainId:train.id,call,position:platform.boardingPoint,serviceId:service.id,
                 servedStops:service.calls.length,lastServedStop:service.calls.at(-1),

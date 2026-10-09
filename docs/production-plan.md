@@ -56,13 +56,14 @@ The four currently authored opening jobs are additional original onboarding
 content. They do not collapse the 90 source-mapped campaign requirements into
 four missions. None of those 90 records is claimed complete by this build.
 
-The first 20 source-mapped original missions are now individually authored in
+The first 20 source-mapped original missions are individually authored in
 [first-arc.js](../src/campaign/first-arc.js), with dialogue, routes, encounters,
 branches, checkpoints, failure/retry rules and explicit missing-capability notes.
 The [director](../src/campaign/director.js) handles deterministic progression,
 observed conditions, choices, interruption/resumption and complete parent-world
-save/checkpoint transactions. These definitions and contracts are
-`authored-unintegrated`, with no source completion credit. Missing physical
+save/checkpoint transactions. Night Crossing now has production physical
+adapters and an input-driven completion regression; the other nineteen remain
+`authored-unintegrated`. None has source completion credit. Missing physical
 handlers remain unmet gates. Public Terminal (`LL-ST-022`) remains an explicit
 out-of-pack prerequisite for Pressure Vessel; neither that mission nor other
 missing mechanics is silently folded into a menu or discarded.
@@ -97,6 +98,37 @@ These stages organize production. They do not narrow the final goal or provide
 permission to stop after a slice.
 
 ## Current implementation and evidence
+
+The 0.5 campaign integration makes Night Crossing the canonical New Game.
+Its ferry/gangway and Dockside Rooms are original physical scenes added without
+removing protected city geometry. Felix and Nadia are persistent named actors;
+companions have actual foot paths, reserved passenger seats, vehicle injury,
+portal transitions, death and abandonment. The ordered taxi route requires
+living occupants and the real fairground stop. Cinematics move bodies through
+collision, and skipping accelerates their movement rather than teleporting.
+Dialogue needs actual presentation, and the shelter response is mandatory.
+
+Home services use finite food, owned/equipped clothing and item ledgers.
+The save tutorial requires a real candidate write, readback and commit; ordinary
+autosave does not satisfy it. Interrupted meals/rest cannot grant completion.
+Rest adds six calendar hours after its physical action completes without
+advancing fleet physics by six hours. Checkpoints restore the parent world and
+reset camera/input epochs. Save validation includes companion scene bounds.
+Returning to free roam retains the interrupted run and its checkpoints through
+saves. Phone/journal retry and full restart explicitly restore the chosen world;
+opening a panel or continuing a save preserves the current free-roam state.
+Metro topology signatures now tolerate only insignificant cross-engine numeric
+rounding in metadata; physical geometry and changed-topology rejection remain
+strict. Recognized older same-engine signatures migrate without discarding
+reservations. Legacy saves retain the additional onboarding path.
+
+A full Night Crossing production-input regression reaches all five stages and
+services using normal simulation input plus explicit caption/choice orchestration
+and a filesystem storage adapter. Browser checks separately cover genuine
+arrival/boarding, choices, services, quota rejection, Continue and failure/retry.
+Late-stage browser checks declare valid journey-save fixtures. These boundaries
+do not establish a complete natural browser campaign playthrough, first-mission
+release quality, all four additional jobs or any source-wide completion.
 
 Implemented foundation: a continuous coastal exterior world across five
 districts and 65 neighborhoods, with graded bridges and road bores, surface

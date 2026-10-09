@@ -43,6 +43,7 @@ const world = {
     { id: 'saira-shop', x: 780, y: 718 },
     { id: 'lantern-darts', x: 723, y: 918 },
     { id: 'blue-hour-lanes', x: 411, y: 654 },
+    { id: 'dockside-rooms', x: 129, y: 308 },
   ],
 };
 function state() {
@@ -82,16 +83,17 @@ function at(s, x, y) {
   s.player.y = y;
 }
 
-test('four authored original layouts have distinct dimensions, floor zones, physical walls/props, doors and hooks', () => {
+test('authored original layouts have distinct dimensions, floor zones, physical walls/props, doors and hooks', () => {
   assert.deepEqual(Object.keys(INTERIOR_LAYOUTS).sort(), [
     'blue-hour-lanes',
+    'dockside-rooms',
     'lantern-bar',
     'saira-garage',
     'voss-dispatch',
   ]);
   assert.equal(
     new Set(Object.values(INTERIOR_LAYOUTS).map((room) => `${room.width}x${room.height}`)).size,
-    4,
+    5,
   );
   for (const room of Object.values(INTERIOR_LAYOUTS)) {
     assert.ok(room.walls.length >= 5);
@@ -160,7 +162,7 @@ test('every demo service and actor has a traversable local approach through actu
   }
 });
 
-test('all four authored portals enter and return at the established collision-clear live city addresses', () => {
+test('all authored portals enter and return at the established collision-clear live city addresses', () => {
   for (const portal of PORTAL_DEFINITIONS) {
     const s = state(),
       anchor = CITY.locations.find((location) => location.id === portal.locationId);
@@ -177,7 +179,7 @@ test('unsupported city addresses do not become generic rooms and authored demos 
   assert.equal(interiorAvailability('LL-CITY-LOC001').status, 'unimplemented');
   assert.equal(interiorAvailability('LL-CITY-LOC161').status, 'unimplemented');
   assert.equal(interiorAvailability('felix-office').roomId, 'voss-dispatch');
-  assert.equal(PORTAL_DEFINITIONS.length, 4);
+  assert.equal(PORTAL_DEFINITIONS.length, 5);
   const s = state();
   assert.equal(enterInterior(s, 'LL-CITY-LOC001', { world }).ok, false);
   assert.equal(s.scene.kind, 'exterior');
@@ -571,8 +573,10 @@ test('garage world adapters retain real vehicle repairs but never leave the car 
   ];
   enterInterior(s, 'saira-garage-entry', { world });
   const car = s.vehicles[0];
+  car.speed = 12;
   withExteriorContext(s, (current) => {
     assert.equal(current.vehicles[0].x, 780);
+    assert.equal(current.vehicles[0].speed, 0);
     current.player.money -= 120;
     current.vehicles[0].health = 120;
   });
@@ -580,6 +584,11 @@ test('garage world adapters retain real vehicle repairs but never leave the car 
   assert.equal(car.y, 232);
   assert.equal(car.health, 120);
   assert.equal(s.player.money, 120);
+  assert.equal(
+    car.speed,
+    12,
+    'exterior callbacks must restore indoor speed while retaining real repair costs',
+  );
   s.player.vehicleId = null;
   car.occupied = false;
   withExteriorContext(

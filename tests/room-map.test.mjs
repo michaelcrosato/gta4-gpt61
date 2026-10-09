@@ -24,6 +24,7 @@ const world = {
     { id: 'saira-shop', x: 780, y: 718 },
     { id: 'lantern-darts', x: 723, y: 918 },
     { id: 'blue-hour-lanes', x: 411, y: 654 },
+    { id: 'dockside-rooms', x: 129, y: 308 },
   ],
 };
 function exterior() {
@@ -120,7 +121,7 @@ test('each room has a differentiated map with actual floor zones, walls, live pr
     map.draw(cv.g, state(roomId));
     fingerprints.push(imageFingerprint(cv));
   }
-  assert.equal(new Set(fingerprints).size, 4);
+  assert.equal(new Set(fingerprints).size, Object.keys(INTERIOR_LAYOUTS).length);
   assert.equal(map.stats().cachedRooms, 2);
   map.dispose();
 });

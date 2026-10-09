@@ -20,8 +20,65 @@ import {
   chooseRailStop,
   recoverRail,
   validateRailRuntime,
+  resetRailRuntime,
+  migrateRailSignals,
 } from './rail-runtime.js';
 import { railGateBlocked, updateRailImpacts } from './rail-collision.js';
+import { initializeWardrobe, validateWardrobe, equipOutfit } from './wardrobe.js';
+import { initializeCalendar, clockHour, validateCalendar } from './calendar.js';
+import * as Companions from './companions.js';
+import { createCampaignPhysicalContext } from './campaign/physical-context.js';
+import { findLocalFootPath } from './local-navigation.js';
+import {
+  initializeCinematics,
+  validateCinematics,
+  tickCinematics,
+  cinematicView,
+  skipCinematic,
+} from './campaign/cinematics.js';
+import {
+  initializeSubtitles,
+  validateSubtitles,
+  subtitleLine,
+  presentSubtitle,
+  tickSubtitles,
+  advanceSubtitle,
+} from './campaign/subtitles.js';
+import {
+  createCampaignParentContext,
+  initializeCampaignParentState,
+  validateCampaignParentState,
+} from './campaign/parent-context.js';
+import {
+  createCampaignDirector,
+  startCampaignMission,
+  updateCampaignDirector,
+  currentCampaignDialogue,
+  advanceCampaignDialogue,
+  chooseCampaignOption,
+  retryCampaignMission,
+  abandonCampaignMission,
+  validateCampaignDirector,
+} from './campaign/director.js';
+import {
+  initializeCampaignRuntime,
+  createCampaignAdapters,
+  tickCampaignRuntime,
+  campaignRuntimeView,
+  performCampaignService,
+  prepareCampaignSave,
+  commitCampaignSave,
+  rollbackCampaignSave,
+  validateCampaignRuntime,
+} from './campaign/runtime.js';
+import {
+  initializeShelterServices,
+  tickShelterServices,
+  shelterActionView,
+  validateShelterServices,
+  shelterHook,
+  useShelterService,
+} from './campaign/shelter-services.js';
 import {
   PORTAL_DEFINITIONS,
   INTERIOR_LAYOUTS,
@@ -74,6 +131,270 @@ export const TERRAIN = createTerrain(WORLD);
 const ELEVATION = worldElevation(WORLD);
 const surfaceMovement = createSurfaceMovement(TERRAIN);
 const SCENES = createSceneContext(WORLD, TERRAIN);
+const campaignParents = new WeakMap(),
+  physicalContexts = new WeakMap(),
+  storyDialogueCache = new WeakMap();
+let campaignStorageVerifier = null;
+export function setCampaignStorageVerifier(verifier) {
+  campaignStorageVerifier = verifier;
+}
+function campaignContext(state) {
+  let parent = campaignParents.get(state);
+  if (parent) return parent;
+  parent = createCampaignParentContext(state, {
+    ready: { passengers: true, interior: true, shelter: true, cinematic: true },
+    world: WORLD,
+    bindings: WORLD.campaignSceneBindings,
+    terrain: TERRAIN,
+    specs: VEHICLE_SPECS,
+    companionContext: companionContext(state),
+    actor: (id) => Companions.getActor(state, id),
+    moveActor: (id, dx, dy, radius) => {
+      const actor =
+        id === 'player' || id === 'LL-CHAR-001' ? state.player : Companions.getActor(state, id);
+      return actor
+        ? companionContext(state).moveBody(actor, dx, dy, radius, { phase: 'cinematic' })
+        : false;
+    },
+    canRest: (s) =>
+      s.player.health > 0 &&
+      !s.wanted.level &&
+      !s.mission &&
+      (!s.campaign?.active || s.campaign.active.stageId === 'rest') &&
+      !scenePeople(s).some((actor) => actor.kind === 'hostile' && actor.health > 0),
+    notify: (text) => notify(state, text),
+    confirmStorage: (s, candidate, receipt, proof) => {
+      if (
+        typeof proof?.bytes !== 'string' ||
+        typeof campaignStorageVerifier !== 'function' ||
+        campaignStorageVerifier(proof.bytes) !== true
+      )
+        return false;
+      try {
+        const stored = JSON.parse(proof.bytes);
+        return (
+          stored.format === 'lowlight-save' &&
+          JSON.stringify(stored.state.shelterServices?.receipts?.[receipt.id]) ===
+            JSON.stringify(candidate.shelterServices.receipts[receipt.id]) &&
+          JSON.stringify(stored.state.campaignRuntime?.night?.services?.save) ===
+            JSON.stringify(candidate.campaignRuntime.night.services.save)
+        );
+      } catch {
+        return false;
+      }
+    },
+    snapshots: {
+      capture: (s) =>
+        clone(Object.fromEntries(Object.entries(s).filter(([key]) => key !== 'campaign'))),
+      validate: (snapshot) => {
+        try {
+          restoreGame(
+            { format: 'lowlight-save', version: SAVE_VERSION, state: snapshot },
+            { physicalOnly: true },
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      restore: (s, snapshot) => {
+        const director = s.campaign,
+          restored = restoreGame(
+            { format: 'lowlight-save', version: SAVE_VERSION, state: snapshot },
+            { physicalOnly: true },
+          );
+        for (const key of Object.keys(s)) delete s[key];
+        Object.assign(s, restored);
+        s.campaign = director;
+        resetRailRuntime(s);
+        physicalContexts.delete(s);
+        campaignParents.delete(s);
+        return true;
+      },
+    },
+  });
+  campaignParents.set(state, parent);
+  return parent;
+}
+function campaignAdapters(state) {
+  return createCampaignAdapters(state, campaignContext(state));
+}
+function startStory(state) {
+  initializeCampaignParentState(state);
+  state.campaign = createCampaignDirector({ seed: state.initialSeed });
+  state.campaignMode = 'story';
+  state.campaignPresentation = {
+    version: 1,
+    lineKey: null,
+    elapsed: 0,
+    presented: false,
+    visible: false,
+  };
+  const result = startCampaignMission(state.campaign, 'LL-ST-001', campaignAdapters(state));
+  if (!result.ok) throw Error(`The campaign arrival is unavailable: ${result.unmet.join(', ')}`);
+}
+function interruptedStory(state) {
+  if (state.campaign?.active) return null;
+  return (
+    state.campaign?.suspended.find(
+      (run) => run.missionId === 'LL-ST-001' && run.resumeInfo?.reason === 'return-to-free-roam',
+    ) ?? null
+  );
+}
+export function storyView(state) {
+  if (!state.campaign) return null;
+  const context = campaignContext(state),
+    view = campaignRuntimeView(state, context);
+  const key = `${state.campaign.sequence}:${Math.floor(state.time * 10)}:${state.campaignRuntime.restoreEpoch}`;
+  let cached = storyDialogueCache.get(state);
+  if (!cached || cached.director !== state.campaign || cached.key !== key) {
+    cached = {
+      director: state.campaign,
+      key,
+      dialogue: currentCampaignDialogue(state.campaign, campaignAdapters(state)),
+    };
+    storyDialogueCache.set(state, cached);
+  }
+  const dialogue = cached.dialogue,
+    interrupted = interruptedStory(state);
+  return {
+    ...view,
+    title: state.campaign.active || interrupted ? 'Night Crossing' : null,
+    interrupted: interrupted
+      ? {
+          missionId: interrupted.missionId,
+          stageId: interrupted.stageId,
+          attempt: interrupted.attempt,
+        }
+      : null,
+    failed: state.campaign.active?.phase === 'failed',
+    failure: state.campaign.active?.failure,
+    dialogue:
+      view.dialogueReady || state.campaign.active?.phase === 'failed' ? dialogue.line : null,
+    dialogueIndex: state.campaign.active?.dialogue.index ?? 0,
+    attempt: state.campaign.active?.attempt ?? 0,
+    ambient: state.campaign.active?.phase === 'running' ? subtitleLine(state) : null,
+    cinematic: cinematicView(state, context.cinematicContext),
+    shelterAction: shelterActionView(state),
+  };
+}
+function tickStory(state, dt) {
+  if (!state.campaign) return;
+  const context = campaignContext(state);
+  tickCinematics(state, dt, context.cinematicContext);
+  tickShelterServices(state, dt, {
+    canRest: (s) =>
+      s.player.health > 0 &&
+      !s.wanted.level &&
+      !s.mission &&
+      (!s.campaign?.active || s.campaign.active.stageId === 'rest') &&
+      !scenePeople(s).some((actor) => actor.kind === 'hostile' && actor.health > 0),
+  });
+  context.syncSceneProps();
+  tickCampaignRuntime(state, dt, context);
+  const view = storyView(state),
+    presentation = state.campaignPresentation;
+  tickSubtitles(state, dt, {
+    visible: Boolean(
+      state.campaign.active?.phase === 'running' && presentation?.visible && !view.dialogue,
+    ),
+  });
+  if (view.autoDialogue && view.dialogue && presentation?.visible && presentation.presented) {
+    const key = `${view.missionId}:${view.stageId}:${view.attempt}:${view.dialogueIndex}`;
+    if (presentation.lineKey === key) {
+      presentation.elapsed += dt;
+      if (presentation.elapsed >= Math.max(2, Math.min(7, 1 + view.dialogue.text.length / 16)))
+        acknowledgeStory(state);
+    } else presentation.presented = false;
+  }
+  if (state.time >= (state.nextCampaignUpdate ?? 0)) {
+    updateCampaignDirector(state.campaign, campaignAdapters(state));
+    state.nextCampaignUpdate = state.time + 0.1;
+  }
+}
+export function presentStoryDialogue(state) {
+  const view = storyView(state);
+  if (!view) return;
+  state.campaignPresentation.visible = true;
+  if (view.dialogue) {
+    const key = `${view.missionId}:${view.stageId}:${view.attempt}:${view.dialogueIndex}`;
+    if (state.campaignPresentation.lineKey !== key)
+      Object.assign(state.campaignPresentation, { lineKey: key, elapsed: 0, presented: true });
+    else state.campaignPresentation.presented = true;
+  } else if (view.ambient) presentSubtitle(state, view.ambient.receipt, view.ambient.index);
+}
+export function setStoryPresentationVisibility(state, visible) {
+  if (!state.campaignPresentation) return;
+  state.campaignPresentation.visible = Boolean(visible);
+  if (!visible) {
+    state.campaignPresentation.presented = false;
+    if (state.subtitles?.active) state.subtitles.active.presented = false;
+  }
+}
+export function chooseWardrobeOutfit(state, id) {
+  return shelterHook(state, 'wardrobe')
+    ? equipOutfit(state, id)
+    : { ok: false, reason: 'wardrobe-out-of-reach' };
+}
+export function acknowledgeStory(state) {
+  const view = storyView(state);
+  if (view?.dialogue) {
+    const key = `${view.missionId}:${view.stageId}:${view.attempt}:${view.dialogueIndex}`;
+    if (!state.campaignPresentation?.presented || state.campaignPresentation.lineKey !== key)
+      return { ok: false, reason: 'line-not-presented' };
+    const result = advanceCampaignDialogue(state.campaign, campaignAdapters(state));
+    if (result.ok) {
+      state.campaignPresentation.presented = false;
+      updateCampaignDirector(state.campaign, campaignAdapters(state));
+    }
+    return result;
+  }
+  if (view?.ambient) return { ok: advanceSubtitle(state, { acknowledged: true }) };
+  return { ok: false };
+}
+export function selectStoryChoice(state, id, option) {
+  return chooseCampaignOption(state.campaign, id, option, campaignAdapters(state));
+}
+export function retryStory(state, mode = 'retry-last-checkpoint') {
+  const missionId = state.campaign?.active?.missionId ?? interruptedStory(state)?.missionId;
+  return retryCampaignMission(state.campaign, campaignAdapters(state), { mode, missionId });
+}
+export function leaveStory(state) {
+  return abandonCampaignMission(state.campaign, campaignAdapters(state), { preserveRetry: true });
+}
+export function skipStoryCinematic(state) {
+  return skipCinematic(state);
+}
+export function prepareStorySave(state) {
+  return prepareCampaignSave(state, campaignContext(state));
+}
+export function commitStorySave(state, prepared, proof) {
+  return commitCampaignSave(state, prepared, proof, campaignContext(state));
+}
+export function rollbackStorySave(state, prepared) {
+  return rollbackCampaignSave(state, prepared);
+}
+function companionContext(state) {
+  let context = physicalContexts.get(state);
+  if (!context) {
+    context = createCampaignPhysicalContext(state, {
+      world: WORLD,
+      terrain: TERRAIN,
+      specs: VEHICLE_SPECS,
+      scenes: SCENES,
+      localPath: findLocalFootPath,
+      scriptControlled: (actor) => {
+        const active = state.cinematics?.active,
+          definition = active && campaignParents.get(state)?.cinematicContext.sequence(active.id);
+        return Boolean(
+          definition?.phases[active.phase]?.tracks.some((track) => track.actorId === actor.id),
+        );
+      },
+    });
+    physicalContexts.set(state, context);
+  }
+  return context;
+}
 const geometryFor = (state) => SCENES.queries(state);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -492,8 +813,17 @@ function createVehicle(state, definition) {
 }
 
 export function createSimulation(seed = 61) {
+  const requestedStory = typeof seed === 'object' && seed.campaign === true;
   const numericSeed = typeof seed === 'object' ? (seed.seed ?? 61) : seed;
   const state = {
+    campaignMode: requestedStory ? 'story' : 'legacy',
+    campaignPresentation: {
+      version: 1,
+      lineKey: null,
+      elapsed: 0,
+      presented: false,
+      visible: false,
+    },
     version: SAVE_VERSION,
     rng: (Number(numericSeed) || 61) >>> 0,
     initialSeed: (Number(numericSeed) || 61) >>> 0,
@@ -644,13 +974,35 @@ export function createSimulation(seed = 61) {
     });
   }
   initializeInteriors(state);
+  initializeWardrobe(state);
+  initializeCalendar(state);
+  Companions.initializeCompanions(state);
+  initializeCinematics(state);
+  initializeSubtitles(state);
+  initializeShelterServices(state);
   initializeRail(state, WORLD);
   updateRail(state, WORLD, 0, railOptions(state));
   initializeCombat(state, WORLD.pickups || []);
+  if (requestedStory) {
+    const spawn = WORLD.campaignSceneBindings['pier-berth'].playerSpawn;
+    Object.assign(state.player, spawn, {
+      sceneId: null,
+      vehicleId: null,
+      weapon: 'unarmed',
+      weapons: ['unarmed'],
+      ownedWeapons: ['unarmed'],
+    });
+    for (const ammo of Object.values(state.player.ammo)) {
+      ammo.clip = 0;
+      ammo.reserve = 0;
+    }
+    state.checkpoint = { x: spawn.x, y: spawn.y };
+  }
   initializePolicing(state);
-  startMission(state, 'first-shift');
+  if (!requestedStory) startMission(state, 'first-shift');
   initializeAmbient(state, WORLD);
   updateAmbient(state, WORLD, 0, ambientContext(state));
+  if (requestedStory) startStory(state);
   return state;
 }
 
@@ -693,12 +1045,19 @@ function damagePlayer(state, damage) {
 }
 function damageVehicle(state, vehicle, damage) {
   if (vehicle.health <= 0) return;
+  const previousHealth = vehicle.health;
   if (vehicle.armour > 0) {
     const absorbed = Math.min(vehicle.armour, damage * 0.55);
     vehicle.armour -= absorbed;
     damage -= absorbed;
   }
   vehicle.health = Math.max(0, vehicle.health - damage);
+  Companions.applyVehicleImpact(
+    state,
+    vehicle.id,
+    previousHealth - vehicle.health,
+    companionContext(state),
+  );
   if (vehicle.health === 0) {
     vehicle.speed = 0;
     if (state.player.vehicleId === vehicle.id) {
@@ -907,7 +1266,8 @@ function combatContext(state, sceneId = currentSceneId(state)) {
   };
 }
 export function fireWeapon(state, input = {}) {
-  if (railPassenger(state)) return false;
+  if (state.cinematics?.active || state.shelterServices?.active || railPassenger(state))
+    return false;
   return fireCombatWeapon(state, combatContext(state), input);
 }
 export function throwTrajectory(state) {
@@ -1068,7 +1428,7 @@ function updateBullets(state, dt) {
           (bullet.z === undefined ||
             (segmentHeight(person, previous, bullet) >= (person.z || 0) &&
               segmentHeight(person, previous, bullet) <=
-                (person.z || 0) + (actorSceneId(person) ? 30 : 18))),
+                (person.z || 0) + (person.collisionHeight ?? (actorSceneId(person) ? 30 : 18)))),
       );
       targets.sort((a, b) => distance(a, previous) - distance(b, previous));
       const victim = targets[0];
@@ -1172,6 +1532,8 @@ function drive(state, vehicle, dt, input) {
   for (const person of scenePeople(state)) {
     if (
       person.health <= 0 ||
+      person.inVehicle ||
+      person.vehicleId === vehicle.id ||
       Math.abs((person.z || 0) - (vehicle.z || 0)) > 12 ||
       distance(vehicle, person) > spec.width * 0.65 + 6 ||
       Math.abs(vehicle.speed) < 18
@@ -1193,7 +1555,8 @@ function drive(state, vehicle, dt, input) {
   state.player.speed = vehicle.speed;
 }
 export function toggleCover(state) {
-  if (railPassenger(state)) return false;
+  if (state.cinematics?.active || state.shelterServices?.active || railPassenger(state))
+    return false;
   if (currentSceneId(state)) return toggleInteriorCover(state);
   const p = state.player;
   if (
@@ -1295,7 +1658,8 @@ function movePlayer(state, dx, dy) {
   }
 }
 export function jumpOrVault(state, { vaultOnly = false } = {}) {
-  if (railPassenger(state)) return false;
+  if (state.cinematics?.active || state.shelterServices?.active || railPassenger(state))
+    return false;
   const p = state.player;
   if (
     p.vehicleId ||
@@ -1310,12 +1674,15 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
   for (const item of currentSceneId(state)
     ? interiorCollisionVolumes(state)
     : WORLD.obstacles || []) {
+    if (item.traversable === false || (item.z ?? 0) > (p.groundZ ?? 0) + 6) continue;
+    const relativeHeight = (item.z ?? 0) + item.height - (p.groundZ ?? 0);
     const nearest = {
       x: clamp(p.x, item.x, item.x + item.w),
       y: clamp(p.y, item.y, item.y + item.h),
     };
     if (
-      item.height <= 36 &&
+      relativeHeight > 0 &&
+      relativeHeight <= 36 &&
       distance(p, nearest) < 24 &&
       Math.abs(normalizeAngle(angleTo(p, nearest) - p.angle)) < 1
     ) {
@@ -1331,9 +1698,9 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
       )
         obstacle = {
           sourceVolumeId: item.id,
-          kind: item.height > 20 ? 'climb' : 'vault',
+          kind: relativeHeight > 20 ? 'climb' : 'vault',
           end,
-          height: item.height + 12,
+          height: relativeHeight + 12,
         };
     }
   }
@@ -1652,6 +2019,13 @@ function advanceMission(state) {
   enterStage(state);
 }
 export function startMission(state, id) {
+  if (
+    state.campaignMode === 'story' &&
+    (state.campaign?.active || !state.campaign?.completed?.['LL-ST-001'])
+  ) {
+    notify(state, 'Finish the arrival before taking another assignment.');
+    return false;
+  }
   const definition = MISSIONS.find((mission) => mission.id === id);
   if (
     !definition ||
@@ -1774,7 +2148,13 @@ function interactionCandidates(state) {
       radius: stage.target.radius + 8,
     });
   }
-  if (!state.mission) {
+  if (
+    !state.mission &&
+    !(
+      state.campaignMode === 'story' &&
+      (state.campaign?.active || !state.campaign?.completed?.['LL-ST-001'])
+    )
+  ) {
     for (const mission of MISSIONS) {
       if (
         state.progress.completed.includes(mission.id) ||
@@ -1863,6 +2243,32 @@ function interactionCandidates(state) {
 }
 export function nearestInteractable(state) {
   if (state.player.health <= 0) return null;
+  const story = storyView(state);
+  if (story?.dialogue || story?.ambient)
+    return {
+      id: 'story-dialogue',
+      type: 'story-dialogue',
+      available: true,
+      distance: 0,
+      prompt: story.autoDialogue ? 'Conversation · E to continue' : 'Continue conversation',
+    };
+  if (story?.cinematic)
+    return {
+      id: 'story-scene',
+      type: 'story-scene',
+      available: true,
+      distance: 0,
+      prompt: 'Skip scene staging',
+    };
+  if (story?.shelterAction)
+    return {
+      id: 'story-action',
+      type: 'story-action',
+      available: false,
+      distance: 0,
+      prompt:
+        story.shelterAction.kind === 'rest' ? 'Resting for six hours…' : 'Having a warm meal…',
+    };
   if (railPassenger(state)) return railInteraction(state, WORLD);
   if (state.dialogue)
     return {
@@ -2135,6 +2541,11 @@ function updateTaxiJob(state, dt) {
 export function interact(state) {
   const candidate = nearestInteractable(state);
   if (!candidate) return null;
+  if (candidate.type === 'story-dialogue')
+    return { type: 'story-dialogue', ...acknowledgeStory(state) };
+  if (candidate.type === 'story-scene')
+    return { type: 'story-scene', ok: skipStoryCinematic(state) };
+  if (candidate.type === 'story-action') return null;
   if (candidate.type === 'dialogue') {
     state.dialogue.index += 1;
     const line = state.dialogue.lines[state.dialogue.index];
@@ -2154,6 +2565,25 @@ export function interact(state) {
   if (['rail-board', 'rail-alight'].includes(candidate.type))
     return interactRail(state, WORLD, candidate, railOptions(state));
   if (candidate.type === 'interior-portal') {
+    if (
+      candidate.id === 'dockside-rooms-entry' &&
+      !state.storyInventory?.keys.includes('dockside-tenancy') &&
+      state.campaign?.active?.missionId !== 'LL-ST-001'
+    ) {
+      notify(state, 'Nadia has not offered you this room yet.');
+      return null;
+    }
+    const car = currentVehicle(state);
+    if (
+      car &&
+      (car.companionSeats?.some((seat) => seat.status === 'reserved') ||
+        state.companions?.actors.some(
+          (actor) => actor.vehicleId === car.id && actor.companionPhase === 'exiting',
+        ))
+    ) {
+      notify(state, 'Wait for passengers to finish entering or leaving.');
+      return null;
+    }
     const result = enterInterior(state, candidate.id, interiorContext(state));
     if (!result.ok) notify(state, result.reason);
     return result;
@@ -2200,7 +2630,12 @@ export function interact(state) {
       reportCrime(state, { type: 'vehicle-theft', severity: 2 });
     }
     vehicle.occupied = true;
-    const isOwned = vehicle.id === 'starter-taxi' || vehicle.id === 'medicine-van';
+    const isOwned =
+      vehicle.id === 'starter-taxi' ||
+      vehicle.id === 'medicine-van' ||
+      vehicle.owned === true ||
+      vehicle.playerOwned === true ||
+      (Array.isArray(vehicle.authorizedDrivers) && vehicle.authorizedDrivers.includes('mara-voss'));
     if (!isOwned && !vehicle.stolen) {
       vehicle.stolen = true;
       reportCrime(state, { type: 'vehicle-theft', severity: vehicle.spec === 'police' ? 2 : 1 });
@@ -2313,6 +2748,49 @@ function interiorContext(state) {
       state.lastInput = {};
     },
     onHook: (action) => {
+      if (action.roomId === 'dockside-rooms') {
+        if (!state.campaign && !state.storyInventory?.keys.includes('dockside-tenancy'))
+          return { ok: false, reason: 'Nadia has not offered you this room yet.' };
+        if (action.service === 'shelter-key') {
+          if (!state.storyInventory?.keys.includes('dockside-tenancy')) {
+            notify(state, 'Nadia has not handed you the spare key yet.');
+            return { ok: true, type: 'inspection' };
+          }
+          notify(state, 'Your spare key opens Dockside Rooms.');
+          return { ok: true, type: 'journal' };
+        }
+        if (action.service === 'shelter-save')
+          return {
+            ok: true,
+            type:
+              state.campaignRuntime?.active?.phase === 'running' &&
+              state.campaignRuntime.active.stageId === 'rest'
+                ? 'story-save'
+                : 'save',
+          };
+        const kind = {
+          'shelter-food': 'food',
+          'shelter-rest': 'rest',
+          wardrobe: 'wardrobe',
+          evidence: 'evidence',
+        }[action.service];
+        if (!kind) return { ok: false, reason: 'There is nothing to use here.' };
+        const result =
+          state.campaignRuntime?.active?.phase === 'running'
+            ? performCampaignService(state, kind, campaignContext(state))
+            : useShelterService(
+                state,
+                kind,
+                { id: nextId(state, `shelter-${kind}`) },
+                { canRest: (s) => !s.wanted.level && !s.mission && !s.campaign?.active },
+              );
+        if (result.ok && kind === 'wardrobe') return { ...result, type: 'wardrobe' };
+        if (result.ok && kind === 'evidence') {
+          notify(state, 'The unpaid-contract ledger is recorded in your journal.');
+          return { ...result, type: 'journal' };
+        }
+        return result;
+      }
       if (action.type === 'activity') {
         if (state.mission || state.taxiJob || state.wanted.level) {
           notify(state, 'Finish the assignment and lose police attention before taking a break.');
@@ -2410,6 +2888,7 @@ export function updateSimulation(state, dt, input = {}) {
   const steps = Math.max(1, Math.ceil(elapsed / (1 / 60)));
   const step = elapsed / steps;
   if (input.confirm && !state.lastInput.confirm) interact(state);
+  if (state.cinematics?.active || state.shelterServices?.active) input = {};
   if (currentSceneId(state) !== frameScene) input = {};
   if (input.reload && !state.lastInput.reload) reloadWeapon(state);
   if (input.weapon && input.weapon !== state.player.weapon) selectWeapon(state, input.weapon);
@@ -2422,9 +2901,10 @@ export function updateSimulation(state, dt, input = {}) {
     // A portal may change scenes inside a multi-step frame. Discard the old
     // scene's held commands immediately, before another step can move/fire.
     if (currentSceneId(state) !== frameScene) input = {};
+    if (state.cinematics?.active || state.shelterServices?.active) input = {};
     state.time += step;
     updateRail(state, WORLD, step, railOptions(state));
-    state.clock = (20.25 + state.time / 90) % 24;
+    state.clock = clockHour(state);
     const context = combatContext(state);
     state.player.intoxication = Math.max(0, (state.player.intoxication || 0) - step * 0.0007);
     state.player.fireCooldown = Math.max(0, state.player.fireCooldown - step);
@@ -2437,6 +2917,7 @@ export function updateSimulation(state, dt, input = {}) {
       state.respawnTimer -= step;
       updateAllOrdnance(state, step);
       if (state.respawnTimer <= 0) respawn(state);
+      tickStory(state, step);
       continue;
     }
     const vehicle = currentVehicle(state);
@@ -2475,10 +2956,12 @@ export function updateSimulation(state, dt, input = {}) {
       updatePolice(state, step, input);
     }
     updateRailImpacts(state, step, railOptions(state));
+    Companions.updateCompanions(state, step, companionContext(state));
     updateBullets(state, step);
     for (const sceneId of new Set([null, ...Object.keys(state.interior?.rooms || {})]))
       updateMelee(state, step, combatContext(state, sceneId));
     updateAllOrdnance(state, step);
+    tickStory(state, step);
     if (state.player.health > 0 && !currentSceneId(state)) {
       updateMission(state, step);
       updateTaxiJob(state, step);
@@ -2558,6 +3041,7 @@ function validateSceneLedger(state) {
     ...state.fires,
     ...state.pickups,
     ...state.combatEffects,
+    ...state.companions.actors,
   ];
   for (const item of entities) {
     const id = actorSceneId(item);
@@ -2583,7 +3067,7 @@ function validateSceneLedger(state) {
       throw new Error('The saved witness scene is invalid.');
 }
 
-export function restoreGame(serialized) {
+export function restoreGame(serialized, options = {}) {
   let saved;
   try {
     saved = typeof serialized === 'string' ? JSON.parse(serialized) : clone(serialized);
@@ -2628,10 +3112,49 @@ export function restoreGame(serialized) {
   state.scene ??= { kind: 'exterior', id: 'harbor-city' };
   state.player.sceneId ??= currentSceneId(state);
   validateInteriorState(state, { world: WORLD });
+  initializeWardrobe(state);
+  validateWardrobe(state);
+  initializeCalendar(state);
+  validateCalendar(state);
+  state.clock = clockHour(state);
+  state.campaignMode ??= state.campaign ? 'story' : 'legacy';
+  if (!['legacy', 'story'].includes(state.campaignMode))
+    throw Error('The saved story mode is invalid.');
+  state.campaignPresentation ??= {
+    version: 1,
+    lineKey: null,
+    elapsed: 0,
+    presented: false,
+    visible: false,
+  };
+  state.campaignPresentation.visible ??= false;
+  const presentation = state.campaignPresentation;
+  if (
+    presentation.version !== 1 ||
+    !(presentation.lineKey === null || typeof presentation.lineKey === 'string') ||
+    !finiteNumber(presentation.elapsed, 0, 10) ||
+    typeof presentation.presented !== 'boolean' ||
+    typeof presentation.visible !== 'boolean'
+  )
+    throw Error('The saved conversation presentation is invalid.');
+  Companions.initializeCompanions(state);
+  Companions.validateCompanions(state, companionContext(state));
+  initializeSubtitles(state);
+  validateSubtitles(state);
+  initializeShelterServices(state);
+  validateShelterServices(state);
+  initializeCinematics(state);
+  if (state.campaign || state.campaignMode === 'story') {
+    initializeCampaignParentState(state);
+    validateCampaignParentState(state);
+    validateCampaignRuntime(state);
+    validateCinematics(state, campaignContext(state).cinematicContext);
+  } else validateCinematics(state, {});
   const hadSavedTransit = state.transit !== undefined;
   initializeRail(state, WORLD);
   if (!hadSavedTransit) updateRail(state, WORLD, 0, railOptions(state));
   validateRailRuntime(state, WORLD);
+  migrateRailSignals(state, WORLD);
   if (!state.railSignals) throw new Error('The saved Metro signal reservations are missing.');
   if (state.combatVersion === undefined) initializeCombat(state, WORLD.pickups || []);
   validateCombatSave(state, SCENES.validationWorld(state));
@@ -2659,6 +3182,10 @@ export function restoreGame(serialized) {
         !finiteNumber(vehicle.health, 0, 1000) ||
         !finiteNumber(vehicle.angle, -TAU, TAU) ||
         !finiteNumber(vehicle.speed, -300, 300) ||
+        (vehicle.authorizedDrivers !== undefined &&
+          (!Array.isArray(vehicle.authorizedDrivers) ||
+            vehicle.authorizedDrivers.length > 16 ||
+            vehicle.authorizedDrivers.some((id) => typeof id !== 'string' || id.length > 160))) ||
         (vehicle.z !== undefined && !finiteNumber(vehicle.z, ELEVATION.min, ELEVATION.max)) ||
         (vehicle.groundZ !== undefined &&
           !finiteNumber(vehicle.groundZ, ELEVATION.min, ELEVATION.max)),
@@ -2681,7 +3208,7 @@ export function restoreGame(serialized) {
   )
     throw new Error('The saved traffic routes are invalid.');
   if (
-    [...state.pedestrians, ...state.hostiles, ...state.police].some(
+    [...state.pedestrians, ...state.hostiles, ...state.police, ...state.companions.actors].some(
       (person) =>
         !validPoint(person) ||
         !finiteNumber(person.health, 0, 1000) ||
@@ -2800,16 +3327,44 @@ export function restoreGame(serialized) {
       !finiteNumber(state.taxiJob.timeLimit, 0, 10000))
   )
     throw new Error('The saved taxi fare is invalid.');
-  const baseline = createSimulation();
-  for (const key of [
+  const optionalKeys = [
     'notifications',
     'dialogueHistory',
     'weather',
     'radio',
     'checkpoint',
     'particles',
-  ])
-    if (state[key] === undefined) state[key] = baseline[key];
+  ];
+  if (optionalKeys.some((key) => state[key] === undefined)) {
+    const baseline = createSimulation();
+    for (const key of optionalKeys) if (state[key] === undefined) state[key] = baseline[key];
+  }
+  if (state.campaign && !options.physicalOnly) {
+    validateCampaignDirector(state.campaign, campaignAdapters(state));
+    const active = state.campaign.active,
+      physical = state.campaignRuntime.active;
+    if (
+      active &&
+      (!physical ||
+        active.missionId !== physical.missionId ||
+        active.stageId !== physical.stageId ||
+        active.attempt !== physical.attempt ||
+        active.phase !== physical.phase)
+    )
+      throw Error('The saved physical assignment and story director disagree.');
+    const interrupted = interruptedStory(state);
+    if (
+      interrupted &&
+      (!physical ||
+        physical.missionId !== interrupted.missionId ||
+        physical.stageId !== interrupted.stageId ||
+        physical.attempt !== interrupted.attempt ||
+        physical.phase !== 'finished')
+    )
+      throw Error('The saved interrupted assignment and physical world disagree.');
+  }
+  if (state.campaignMode === 'story' && !state.campaign && !options.physicalOnly)
+    throw Error('The saved story director is missing.');
   state.lastInput = {};
   state.saveRequested = false;
   return state;

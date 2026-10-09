@@ -1,6 +1,7 @@
 /** A bounded local plan of the actual room, separate from Harbor City's coordinate system. */
 import { interiorScene, interiorActors } from './interiors.js';
 import { inScene } from './scene-context.js';
+import { nightCrossingProps } from './campaign/scenes.js';
 
 export function exteriorMapPosition(state) {
   return state.interior?.active?.exterior ?? state.player;
@@ -178,7 +179,16 @@ export function createRoomMap({ maxRooms = 2, maxPixels = 240000, createCanvas }
         canvas = layer(room, scene.state, width, height, projection);
       if (canvas) g.drawImage(canvas, 0, 0, width, height, 0, 0, width, height);
       else background(g, room, scene.state, projection, width, height);
-      for (const actor of interiorActors(state)) {
+      const seen = new Set();
+      const canonicalIds = new Set((state.companions?.actors || []).map((actor) => actor.id));
+      const actors = [
+        ...interiorActors(state).filter((actor) => !canonicalIds.has(actor.companionId)),
+        ...(state.pedestrians || []),
+        ...(state.police || []),
+        ...(state.hostiles || []),
+        ...(state.companions?.actors || []),
+      ].filter((actor) => inScene(actor, room.id) && !seen.has(actor.id) && seen.add(actor.id));
+      for (const actor of actors) {
         const p = projection.project(actor.x, actor.y);
         dot(
           g,
@@ -194,6 +204,18 @@ export function createRoomMap({ maxRooms = 2, maxPixels = 240000, createCanvas }
           actor.health <= 0 ? 2 : 3,
         );
       }
+      for (const item of nightCrossingProps(state, room.id))
+        rectangle(
+          g,
+          projection,
+          {
+            x: item.x - (item.w ?? 10) / 2,
+            y: item.y - (item.h ?? 8) / 2,
+            w: item.w ?? 10,
+            h: item.h ?? 8,
+          },
+          '#b5a476',
+        );
       for (const car of state.vehicles || [])
         if (inScene(car, room.id))
           arrow(

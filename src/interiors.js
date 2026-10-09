@@ -1,6 +1,7 @@
 /** Original local interior spaces and deterministic portal transitions. No simulation dependency. */
 import { createTerrain } from './terrain.js';
 import { WEAPONS } from './combat.js';
+import { DOCKSIDE_ROOM_LAYOUT, DOCKSIDE_PORTAL } from './campaign/scenes.js';
 
 const VERSION = 1;
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -47,6 +48,7 @@ function frontDoor(x, y, w, h, { vehicle = false } = {}) {
 }
 
 export const INTERIOR_LAYOUTS = freeze({
+  'dockside-rooms': DOCKSIDE_ROOM_LAYOUT,
   'voss-dispatch': {
     id: 'voss-dispatch',
     name: 'Voss Dispatch',
@@ -314,6 +316,7 @@ export const INTERIOR_LAYOUTS = freeze({
 
 /** Only these explicitly authored demonstration portals exist. Research addresses are never auto-filled with generic rooms. */
 export const PORTAL_DEFINITIONS = freeze([
+  DOCKSIDE_PORTAL,
   {
     id: 'voss-dispatch-entry',
     roomId: 'voss-dispatch',
@@ -424,7 +427,9 @@ function resolvedPortal(world, id) {
   };
 }
 export function interiorAvailability(addressId) {
-  const portal = PORTAL_DEFINITIONS.find((portal) => portal.locationId === addressId);
+  const portal = PORTAL_DEFINITIONS.find(
+    (portal) => portal.locationId === addressId || portal.siteId === addressId,
+  );
   return portal
     ? { status: 'authored-demo-unintegrated', portalId: portal.id, roomId: portal.roomId }
     : { status: 'unimplemented', portalId: null, roomId: null };
@@ -803,6 +808,14 @@ export function interactInterior(state, callbacks = {}) {
   const result = callback(action, state);
   if (result && typeof result.then === 'function')
     return blocked('Interior hook dispatch must be synchronous.');
+  if (item.requiresExplicitResult && result !== true && result?.ok !== true)
+    return {
+      ok: false,
+      type: 'hook',
+      action,
+      result: result ?? null,
+      reason: 'This service has not returned a successful transaction.',
+    };
   if (result === false || result?.ok === false)
     return { ok: false, type: 'hook', action, result: result ?? null };
   const saved = roomState(state, active.roomId);

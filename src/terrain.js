@@ -134,14 +134,19 @@ function diskEdgeInterval(x, y, radius, a, b) {
   const end = Math.min(1, (-linear + root) / (2 * quadratic));
   return start < end ? [start, end] : null;
 }
-function segmentHitsVolume(a, b, box, height) {
-  if (height <= 0 || (a.z >= height && b.z >= height) || (a.z < 0 && b.z < 0)) return false;
+function segmentHitsVolume(a, b, box, height, floor = 0) {
+  if (
+    height <= 0 ||
+    (a.z >= floor + height && b.z >= floor + height) ||
+    (a.z < floor && b.z < floor)
+  )
+    return false;
   let enter = 0,
     leave = 1;
   for (const [axis, low, high] of [
     ['x', box.x, box.x + box.w],
     ['y', box.y, box.y + box.h],
-    ['z', 0, height],
+    ['z', floor, floor + height],
   ]) {
     const delta = b[axis] - a[axis];
     if (!delta) {
@@ -156,7 +161,7 @@ function segmentHitsVolume(a, b, box, height) {
     if (enter > leave) return false;
   }
   const z = a.z + ((b.z - a.z) * (enter + leave)) / 2;
-  return z >= 0 && z < height;
+  return z >= floor && z < floor + height;
 }
 function list(world, key) {
   const items = world[key] ?? [];
@@ -188,11 +193,13 @@ export function createTerrain(world) {
     item,
     bounds: rect(item),
     height: finite(item.height || 40, 'building height'),
+    z: finite(item.z ?? 0, 'building floor'),
   }));
   const obstacles = list(world, 'obstacles').map((item) => ({
     item,
     bounds: rect(item),
     height: finite(item.height, 'obstacle height'),
+    z: finite(item.z ?? 0, 'obstacle floor'),
   }));
   if ([...buildings, ...obstacles].some((item) => item.height < 0))
     throw new RangeError('Invalid terrain obstacle height.');
@@ -508,7 +515,12 @@ export function createTerrain(world) {
       if (
         blockerIndex
           .queryRadius(x, y, radius)
-          .some((record) => z >= 0 && z < record.height && circleRect(x, y, radius, record.bounds))
+          .some(
+            (record) =>
+              z >= record.z &&
+              z < record.z + record.height &&
+              circleRect(x, y, radius, record.bounds),
+          )
       )
         return true;
       if (
@@ -534,7 +546,9 @@ export function createTerrain(world) {
         return {
           x: body.x,
           y: body.y,
-          z: finite(body.z ?? 0, 'sight z') + (body.health !== undefined ? 14 : 0),
+          z:
+            finite(body.z ?? 0, 'sight z') +
+            (body.health !== undefined ? finite(body.eyeHeight ?? 14, 'eye height') : 0),
         };
       };
       const start = eye(a),
@@ -580,7 +594,7 @@ export function createTerrain(world) {
       };
       return !blockerIndex
         .queryRect(query)
-        .some((record) => segmentHitsVolume(start, end, record.bounds, record.height));
+        .some((record) => segmentHitsVolume(start, end, record.bounds, record.height, record.z));
     },
     isWater(x, y, { ignoreDeck = false } = {}) {
       point(x, y);

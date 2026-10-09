@@ -21,14 +21,15 @@ async def check(playwright, engine, args, output):
     page.on("pageerror", lambda error: errors.append(str(error)))
     report = {
         "engine": engine,
-        "fixture": "Completed-onboarding physical-platform relocation",
+        "fixture": "Legacy-mode completed-onboarding physical-platform relocation",
         "checks": [],
     }
     try:
         await page.goto(args.url + "?debug=1&play=1")
-        await page.wait_for_function(
-            "window.lowlight && lowlight.state.transit.time > 1"
-        )
+        await page.wait_for_function("window.lowlight")
+        # Declared legacy-mode baseline precedes the physical platform fixture.
+        await page.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
+        await page.wait_for_function("lowlight.state.transit.time > 1")
         report["platform"] = await page.evaluate("""async () => {
           const {WORLD,MISSIONS}=await import('/src/simulation.js');
           const s=lowlight.state;s.mission=null;s.dialogue=null;s.progress.completed=MISSIONS.map(m=>m.id);

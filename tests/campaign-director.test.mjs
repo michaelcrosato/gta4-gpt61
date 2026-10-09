@@ -614,6 +614,212 @@ test('abandon keeps ordinary world costs and never issues a win reward', () => {
   assert(h.state.history.some((entry) => entry.event === 'mission-abandoned'));
 });
 
+test('preserved failed abandonment survives Continue without healing or reversing ordinary costs until explicit retry', () => {
+  const h = harness();
+  startCampaignMission(h.state, 'LL-ST-001', h.adapters);
+  const checkpoints = copy(h.state.active.checkpoints);
+  h.world.cash = 60;
+  h.world.health = 0;
+  h.world.ammo = 2;
+  h.world.actors[0].x = 81;
+  h.world.physics.velocity = 17.25;
+  h.observe('danger');
+  assert.equal(updateCampaignDirector(h.state, h.adapters).failed, true);
+  const left = abandonCampaignMission(h.state, h.adapters, { preserveRetry: true });
+  assert.equal(left.reward, false);
+  assert.equal(left.retryPreserved, true);
+  assert.equal(h.state.active, null);
+  assert.equal(h.state.suspended.length, 1);
+  assert.equal(h.state.suspended[0].phase, 'failed');
+  assert.equal(h.state.suspended[0].resumeInfo.reason, 'return-to-free-roam');
+  assert.deepEqual(h.state.suspended[0].checkpoints, checkpoints);
+  assert.equal(h.world.cash, 60);
+  assert.equal(h.world.health, 0);
+  assert.equal(h.world.ammo, 2);
+  assert.equal(h.world.actors[0].x, 81);
+  assert.equal(h.world.physics.velocity, 17.25);
+  assert.deepEqual(Object.keys(h.state.completed), []);
+  const unchanged = copy(h.state),
+    liveWorld = copy(h.world);
+  assert.equal(abandonCampaignMission(h.state, h.adapters, { preserveRetry: true }).ok, false);
+  assert.equal(startCampaignMission(h.state, 'LL-ST-001', h.adapters).ok, false);
+  assert.equal(resumeCampaignMission(h.state, 'LL-ST-001', h.adapters).ok, false);
+  assert.deepEqual(h.state, unchanged);
+  assert.deepEqual(h.world, liveWorld);
+  const saved = saveCampaignDirector(h.state, h.adapters),
+    restored = restoreCampaignDirector(saved.json, h.adapters);
+  assert.equal(restored.ok, true);
+  assert.equal(h.world.cash, 60);
+  assert.equal(h.world.health, 0);
+  h.state = restored.state;
+  assert.equal(
+    retryCampaignMission(h.state, h.adapters).ok,
+    false,
+    'A retained retry needs an explicit mission owner.',
+  );
+  assert.equal(
+    retryCampaignMission(h.state, h.adapters, { missionId: 'LL-ST-001' }).stageId,
+    'one',
+  );
+  assert.equal(h.state.suspended.length, 0);
+  assert.equal(h.state.active.attempt, 2);
+  assert.equal(h.state.active.resumeInfo, null);
+  assert.equal(h.world.cash, 100);
+  assert.equal(h.world.health, 100);
+  assert.equal(h.world.ammo, 9);
+  assert.equal(h.world.actors[0].x, 12);
+  assert.equal(h.world.physics.velocity, 3.5);
+  assert(
+    h.state.history.some((entry) => entry.event === 'mission-abandoned' && entry.retryPreserved),
+  );
+  assert(h.state.history.some((entry) => entry.event === 'mission-retried' && entry.fromSuspended));
+  assert.deepEqual(Object.keys(h.state.completed), []);
+});
+
+for (const mode of ['retry-last-checkpoint', 'restart-mission'])
+  test(`retained ${mode} restores its real named checkpoint or original start, including physical grants`, () => {
+    const pack = content([
+        mission(
+          'LL-ST-001',
+          [stage('one', { onComplete: [{ type: 'grant-item', id: 'manifest' }] }), stage('two')],
+          {
+            checkpoints: [
+              { id: 'ready', afterStage: 'one', resumeStage: 'two', snapshot: ['world'] },
+            ],
+            failures: [
+              {
+                id: 'danger',
+                condition: { type: 'danger' },
+                resumeCheckpoint: 'ready',
+                dialogue: [line('Danger')],
+              },
+            ],
+          },
+        ),
+      ]),
+      h = harness(pack);
+    startCampaignMission(h.state, 'LL-ST-001', h.adapters);
+    assert.equal(progress(h).stageId, 'two');
+    h.world.cash -= 30;
+    h.observe('danger');
+    assert.equal(updateCampaignDirector(h.state, h.adapters).failed, true);
+    abandonCampaignMission(h.state, h.adapters, { preserveRetry: true });
+    assert.equal(h.world.cash, 70);
+    const result = retryCampaignMission(h.state, h.adapters, { missionId: 'LL-ST-001', mode });
+    assert.equal(result.stageId, mode === 'restart-mission' ? 'one' : 'two');
+    assert.equal(h.world.cash, 100);
+    assert.deepEqual(h.world.inventory, mode === 'restart-mission' ? [] : ['manifest']);
+    assert.deepEqual(h.state.active.completedStages, mode === 'restart-mission' ? [] : ['one']);
+    assert.equal(h.state.suspended.length, 0);
+    assert.equal(h.state.active.attempt, 2);
+    assert.equal(
+      h.world.receipts.some((token) => token.endsWith(':restart')),
+      mode === 'restart-mission',
+    );
+  });
+
+test('failed retained retry rolls back restored physics and keeps the retained run and ordinary costs', () => {
+  const h = harness();
+  startCampaignMission(h.state, 'LL-ST-001', h.adapters);
+  h.world.cash = 47;
+  h.world.health = 0;
+  h.observe('danger');
+  updateCampaignDirector(h.state, h.adapters);
+  abandonCampaignMission(h.state, h.adapters, { preserveRetry: true });
+  const director = copy(h.state),
+    world = copy(h.world);
+  h.adapters.activateStage = () => {
+    h.world.cash = 1;
+    h.world.actors[0].x = -90;
+    return { ok: false };
+  };
+  assert.equal(
+    retryCampaignMission(h.state, h.adapters, { missionId: 'LL-ST-001', mode: 'restart-mission' })
+      .ok,
+    false,
+  );
+  assert.deepEqual(h.state, director);
+  assert.deepEqual(h.world, world);
+});
+
+test('retained retries cannot claim another active mission, bypass ordinary suspension, or undo completed external work', () => {
+  const h = harness(
+    content([mission('LL-ST-001', [stage('one')]), mission('LL-ST-002', [stage('two')])]),
+  );
+  startCampaignMission(h.state, 'LL-ST-001', h.adapters);
+  abandonCampaignMission(h.state, h.adapters, { preserveRetry: true });
+  startCampaignMission(h.state, 'LL-ST-002', h.adapters);
+  const owned = copy(h.state),
+    world = copy(h.world);
+  assert.equal(retryCampaignMission(h.state, h.adapters, { missionId: 'LL-ST-001' }).ok, false);
+  assert.deepEqual(h.state, owned);
+  assert.deepEqual(h.world, world);
+  abandonCampaignMission(h.state, h.adapters);
+  h.observe('onboarding-job-completed');
+  recordExternalCampaignCompletion(h.state, 'first-shift', 'observed-work', h.adapters);
+  h.world.cash = 72;
+  const conflict = copy(h.state);
+  assert.equal(retryCampaignMission(h.state, h.adapters, { missionId: 'LL-ST-001' }).ok, false);
+  assert.deepEqual(h.state, conflict);
+  assert.equal(h.world.cash, 72);
+
+  const normal = harness();
+  startCampaignMission(normal.state, 'LL-ST-001', normal.adapters);
+  assert.equal(
+    suspendCampaignMission(normal.state, normal.adapters, 'return-to-free-roam').ok,
+    false,
+  );
+  suspendCampaignMission(normal.state, normal.adapters);
+  assert.equal(
+    retryCampaignMission(normal.state, normal.adapters, { missionId: 'LL-ST-001' }).ok,
+    false,
+  );
+  normal.observe('mission-resume-permitted');
+  assert.equal(resumeCampaignMission(normal.state, 'LL-ST-001', normal.adapters).ok, true);
+});
+
+test('serialized retained ownership requires its exact leave receipt, history, metadata and original checkpoint', () => {
+  const h = harness();
+  startCampaignMission(h.state, 'LL-ST-001', h.adapters);
+  abandonCampaignMission(h.state, h.adapters, { preserveRetry: true });
+  for (const corrupt of [
+    (s) => {
+      s.suspended[0].resumeInfo.afterMission = 'LL-ST-001';
+    },
+    (s) => {
+      s.suspended[0].resumeInfo.unowned = true;
+    },
+    (s) => {
+      s.suspended[0].checkpoints = [];
+    },
+    (s) => {
+      s.history.find((entry) => entry.event === 'mission-abandoned').retryPreserved = false;
+    },
+    (s) => {
+      delete s.receipts[Object.keys(s.receipts).find((token) => token.endsWith(':abandon'))];
+    },
+    (s) => {
+      s.active = s.suspended.pop();
+    },
+  ]) {
+    const forged = copy(h.state);
+    corrupt(forged);
+    assert.throws(
+      () => validateCampaignDirector(forged, h.adapters),
+      /retained retry ownership|resumption metadata/,
+    );
+  }
+  const envelope = JSON.parse(saveCampaignDirector(h.state, h.adapters).json),
+    world = copy(h.world);
+  envelope.director.suspended[0].checkpoints[0].world.cash = 'not-physical-cash';
+  assert.equal(restoreCampaignDirector(JSON.stringify(envelope), h.adapters).ok, false);
+  assert.deepEqual(
+    h.world,
+    world,
+    'Invalid retained physical snapshots are rejected before touching the live world.',
+  );
+});
+
 test('whole-state Continue preserves midphysics world and current dialogue without reactivation', () => {
   const h = harness();
   startCampaignMission(h.state, 'LL-ST-001', h.adapters);

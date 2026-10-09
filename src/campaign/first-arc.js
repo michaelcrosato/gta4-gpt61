@@ -1,6 +1,8 @@
 /**
- * LOWLIGHT campaign authoring pack, not a running mission director.
- * Every record is AUTHORED / UNINTEGRATED. Existing four prologue jobs are
+ * LOWLIGHT campaign authoring pack. Night Crossing now has a partial physical
+ * director/runtime integration; full release validation remains outstanding.
+ * Every record retains AUTHORED / UNINTEGRATED and runtimeValidated:false;
+ * the other nineteen missions have no registered physical handlers. Four prologue jobs are
  * additional onboarding and are deliberately absent from this source count.
  * Source facts are short indexed-page paraphrases; all dialogue, motivations,
  * route staging and outcomes below are original. No source dialogue or assets.
@@ -202,7 +204,8 @@ export const FIRST_ARC_SCENES = freeze({
   'pier-berth': {
     anchor: { kind: 'site', id: 'LL-CITY-LOC137' },
     title: 'Pier Eight temporary passenger berth',
-    status: 'exterior-anchor-exists; passenger berth dressing and safe ramp missing',
+    status:
+      'constructed-core; passenger ferry, checked gangway/apron, duffel and taxi curb implemented in campaign/scenes.js',
     proposal:
       'A lit 90-by-130 pedestrian apron, mooring rail and accessible gangway; taxi curb separated from working cargo.',
   },
@@ -210,11 +213,13 @@ export const FIRST_ARC_SCENES = freeze({
     anchor: { kind: 'service', id: 'felix-office' },
     existingRoom: 'voss-dispatch',
     catalogueCounterpart: 'LL-CITY-LOC161',
-    status: 'room implemented; campaign actors/hooks and catalogue relocation unresolved',
+    status:
+      'room, canonical companion proxy and Night Crossing route stop implemented; later dispatch handlers/catalogue address review pending',
   },
   'dockside-rooms': {
     anchor: { kind: 'site', id: 'LL-CITY-LOC054' },
-    status: 'exterior anchor exists; interior missing',
+    status:
+      'constructed-core; fifth real room, key/evidence, food, wardrobe, confirmed save and six-hour rest implemented',
     proposal:
       '240-by-220 walk-up with two beds, kettle, wardrobe, shelter ledger and a sheltered two-car curb; no luxury facade reveal copied from the source.',
   },
@@ -232,11 +237,13 @@ export const FIRST_ARC_SCENES = freeze({
   },
   'boardwalk-station': {
     anchor: { kind: 'station', id: 'LL-CITY-ST01' },
-    status: 'station catalogue exists; access and passenger runtime unintegrated',
+    status:
+      'physical station access, rendered trains, boarding/fare/signal/save runtime implemented; campaign-specific pickup/date binding missing',
   },
   'brigid-station': {
     anchor: { kind: 'station', id: 'LL-CITY-ST04' },
-    status: 'station catalogue exists; upper/lower platform access and combat traversal missing',
+    status:
+      'physical upper/lower platform access and passenger runtime implemented; courier battle/escape choreography missing',
     proposal:
       'Street stair, elevator and track crossing safety interlocks; distinct platform approach, service footbridge and courier street exit.',
   },
@@ -260,7 +267,8 @@ export const FIRST_ARC_SCENES = freeze({
   },
   fairground: {
     anchor: { kind: 'site', id: 'LL-CITY-LOC131' },
-    status: 'exterior anchor exists; cancelled screening props and event hook missing',
+    status:
+      'Night Crossing muster sign/physical stopped-route observation implemented; cancelled screening/date event still missing',
   },
   lanes: {
     anchor: { kind: 'service', id: 'blue-hour-lanes' },
@@ -367,19 +375,21 @@ export const FIRST_ARC_SCENES = freeze({
 
 export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
   director: {
-    status: 'missing',
-    evidence: 'simulation.js exports four linear prologue jobs',
-    work: 'Graph predicates/actions, concurrent call branches, authored cast, checkpoints and idempotent consequences.',
+    status: 'foundation-implemented',
+    evidence:
+      'campaign/director.js implements graph/dialogue/choice/checkpoint transactions; runtime.js and parent-context.js bind actual Night Crossing observations/actions',
+    work: 'The other nineteen authored missions need individual physical handlers, encounters and validation; unknown gates remain explicit. No source completion credit.',
   },
   driving: {
     status: 'foundation-implemented',
     evidence: 'simulation.js physical vehicles; terrain/navigation.js legal roads',
-    work: 'Mission-specific routes, pursuit drivers, seats, interception and replacements need authoring and real-input validation.',
+    work: 'Night Crossing has an ordered physical route and stop dwell. Later mission routes, adaptive pursuit/interception/replacement drivers and complete natural-input validation remain due.',
   },
   passengers: {
-    status: 'partial',
-    evidence: 'Taxi jobs advance markers; no general multi-passenger actor contract',
-    work: 'Visible boarding/seats, escort pathing, abandonment, damage and scene transitions.',
+    status: 'foundation-implemented',
+    evidence:
+      'companions.js and campaign/physical-context.js provide persistent living/dead actors, real reserved/occupied seats, boarding/exit, follow/escort, failure grace and portal traversal',
+    work: 'Bind each later pickup/outgoing group, companion combat behavior, dates and mission-specific separation/recovery outcomes.',
   },
   phone: {
     status: 'partial',
@@ -388,18 +398,21 @@ export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
   },
   interior: {
     status: 'partial',
-    evidence: 'Four layouts in interiors.js',
+    evidence:
+      'Five real rooms share doors/combat/props/NPC persistence; campaign/scenes.js adds Dockside Rooms and its physical entrance',
     work: 'Build all explicit missing scenes/portals; multi-level collision, actors, cover and camera must use actual volumes.',
   },
   shelter: {
-    status: 'partial',
-    evidence: 'Dispatch rest/save hook exists',
-    work: 'Dockside tenancy, wardrobe, shelter parking retention and six-hour rest/campaign clock.',
+    status: 'foundation-implemented',
+    evidence:
+      'Dockside tenancy/key, physical parking, finite food/eating, candidate-write-confirmed save, pending bed action/calendar6h, wardrobe and evidence use actual saved ledgers',
+    work: 'Additional residences, ownership/storage policies, later shelter consequences and complete natural-play validation remain due.',
   },
   clothing: {
-    status: 'missing',
-    evidence: 'Apparel catalogue sites have no outfit service',
-    work: 'Outfit inventory, changing-room selection, voucher, renderer appearance and persistence.',
+    status: 'foundation-implemented',
+    evidence:
+      'wardrobe.js owns three original outfits/transactions; reachable shelter UI equips actual owned clothes, renderer appearance and Continue persist them',
+    work: 'Retail clothing interiors, broader clothing inventory, changing rooms and the later mission voucher/buying objective remain missing.',
   },
   activities: {
     status: 'foundation-implemented',
@@ -407,9 +420,9 @@ export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
     work: 'Companion bowling, date continuity, completion/quit dialogue and no win-only gate.',
   },
   friendship: {
-    status: 'missing',
-    evidence: 'No full relationship/invitation scheduler',
-    work: 'Saved trust, boundaries, outings, benefits and delayed callbacks.',
+    status: 'partial',
+    evidence: 'Director choice/trust records persist; no full relationship/invitation scheduler',
+    work: 'Boundaries, invitations, outings, benefits, relationship schedules and delayed callbacks remain missing.',
   },
   melee: {
     status: 'foundation-implemented',
@@ -428,7 +441,8 @@ export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
   },
   props: {
     status: 'partial',
-    evidence: 'combat.js throwable objects and destructible objects',
+    evidence:
+      'combat.js throwable/destructible objects; Night Crossing has one authoritative physically carried/delivered duffel plus key/evidence receipts',
     work: 'Safe glass shards/storefront trigger, nonweapon pickups, door lock hit volume and inventory evidence.',
   },
   chase: {
@@ -442,9 +456,10 @@ export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
     work: 'Bounded compliant rams, fear, verified aim, localized injury and civilian survival conditions.',
   },
   rail: {
-    status: 'controller-only',
-    evidence: 'transit.js pure service; WORLD station runtimeStatus unintegrated',
-    work: 'Street/platform access, train actors/rendering, boarding/fare adapters, track collision and rider persistence.',
+    status: 'foundation-implemented',
+    evidence:
+      'Four physical Metro services/26 station complexes/56 directional calls have access, native train rendering, boarding/alighting, fares, signals/clearance and saved journeys',
+    work: 'Mission-specific courier/target AI, platform combat/escape choreography and remaining reference-wide transport validation are not implemented by the passenger foundation.',
   },
   wash: {
     status: 'missing',
@@ -482,9 +497,10 @@ export const FIRST_ARC_CAPABILITY_AUDIT = freeze({
     work: 'Suspicion/occlusion, distance grace, phone distraction, spotted alternate route and supplier discovery.',
   },
   cinematic: {
-    status: 'missing',
-    evidence: 'Dialogue overlays implemented; authored scene/camera sequencing absent',
-    work: 'In-engine staging, skip-to-consistent-world result, animated outcome and subtitles.',
+    status: 'foundation-implemented',
+    evidence:
+      'campaign/cinematics.js stages real collision-checked actor routes/cameras and accelerated consistent skips; subtitles.js saves actual presentation/duration/acknowledgment',
+    work: 'Night Crossing ferry/home staging is integrated. The other nineteen missions need distinct scenes/outcomes, animation/audio production and natural-input validation.',
   },
 });
 
@@ -666,6 +682,9 @@ export const FIRST_ARC_MISSIONS = freeze([
       ),
     ],
     failures: [
+      failure('lost-nadia', rule('actor-dead', { actor: 'LL-CHAR-008' }), 'arrival', [
+        line('Mara', 'Nadia was giving us a place to begin. We cannot leave her like this.'),
+      ]),
       failure(
         'lost-felix',
         rule('passenger-dead-or-abandoned', { actor: 'LL-CHAR-002', grace: 25 }),
@@ -5735,7 +5754,8 @@ export const FIRST_ARC_MANIFEST = freeze({
   status: 'authored-unintegrated',
   sourceMissionRange: ['LL-ST-001', 'LL-ST-020'],
   expectedSourceMissionCount: 20,
-  implementationClaim: 'None; data, proposed geometry and requirements only.',
+  implementationClaim:
+    'Partial Night Crossing integration through the real director/physical adapters, companions, ferry/home scenes, shelter ledgers and frontend. The other nineteen missions remain unintegrated; all records retain runtimeValidated:false and earn no source completion credit.',
   additionalOnboardingIds: ['first-shift', 'collection-day', 'cold-freight', 'glass-house'],
   additionalOnboardingSourceCredit: 0,
   dependencyPolicy:

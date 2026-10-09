@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Interior browser controls with declared room, budget and service approach fixtures.
 
-Venue relocation, cleared onboarding, local counter/door placement and garage
+Legacy-mode save initialization, venue relocation, cleared onboarding, local counter/door placement and garage
 ownership fixtures precede real keyboard, pointer, touch and button actions.
 This verifies shared scene controls, costs and saves; it is not a natural
 campaign playthrough or a physical gamepad/iOS Safari result.
@@ -52,7 +52,7 @@ async def close(page, phone):
 async def fixture(page, location, budget=1000, driving=False):
     data = await page.evaluate(
         """async ({location,budget,driving})=>{
-  const {WORLD}=await import('/src/world.js');const {MISSIONS}=await import('/src/simulation.js');lowlight.start(false);const s=lowlight.state,anchor=WORLD.locations.find(item=>item.id===location);
+  const {WORLD}=await import('/src/world.js');const {MISSIONS,createSimulation,saveGame}=await import('/src/simulation.js');lowlight.restore(saveGame(createSimulation(61)));const s=lowlight.state,anchor=WORLD.locations.find(item=>item.id===location);
   s.mission=null;s.dialogue=null;s.taxiJob=null;s.hostiles=[];s.police=[];s.policeAircraft=[];s.progress.completed=MISSIONS.map(m=>m.id);
   s.wanted.level=0;s.wanted.heat=0;s.wanted.status='clear';s.policeDispatch.reports=[];
   for(const car of s.vehicles)car.occupied=false;

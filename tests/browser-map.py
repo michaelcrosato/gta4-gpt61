@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused native-canvas and map-control checks; camera elevations use declared fixtures."""
+"""Focused native-canvas and map-control checks; camera elevations and legacy-mode saves use declared fixtures."""
 import argparse
 import asyncio
 from datetime import datetime, timezone
@@ -72,6 +72,8 @@ async def run_engine(playwright, name, url, output):
         report['checks'].append('native pixels: exact coast/lake, clipped water crossing, raised bridge, reversed road, full/tile equivalence and warmed cache')
 
         await page.click('#new-game')
+        # Explicit legacy fixture for the existing opening/map regression.
+        await page.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
         await page.wait_for_timeout(700)
         await page.keyboard.press('m')
         await page.locator('#map-dialog').wait_for(state='visible')
@@ -160,6 +162,7 @@ async def run_engine(playwright, name, url, output):
                 await conversation.goto(debug_url(url))
                 await conversation.wait_for_function('window.lowlight')
                 await conversation.click('#new-game')
+                await conversation.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
                 await conversation.wait_for_function('lowlight.state.dialogue && document.body.classList.contains("in-conversation")')
                 require(not await conversation.locator('#context-prompt').is_visible(), 'Landscape context prompt overlaps conversation')
                 require(not await conversation.locator('#minimap').is_visible(), 'Landscape minimap overlaps conversation')

@@ -529,6 +529,9 @@ async def run_engine(p, name, args, output):
         await page.goto(app_url(args.url))
         await page.wait_for_function("window.lowlight")
         await click(page, "#new-game", phone)
+        # Declared legacy-mode baseline isolates activity contracts from the new campaign.
+        await page.evaluate("""async () => { const {createSimulation,saveGame}=await import('/src/simulation.js'); lowlight.restore(saveGame(createSimulation(61))); }""")
+        report["fixtures"].append({"type":"Legacy-mode save baseline; campaign progression is not exercised"})
         cases = [("bowling", bowling_case), ("saved-bowling", saved_bowling_case), ("darts", darts_case),
                  ("pool", pool_case), ("arcade", arcade_case), ("shop-and-traversal", shop_and_traversal_case)]
         if args.cases:

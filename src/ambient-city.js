@@ -398,6 +398,8 @@ function protectedActor(actor, ids) {
     ids.has(actor.id) ||
     actor.health <= 0 ||
     actor.occupied ||
+    actor.companionOccupied ||
+    actor.companionSeats?.length > 0 ||
     actor.stolen ||
     actor.owned ||
     actor.playerOwned ||

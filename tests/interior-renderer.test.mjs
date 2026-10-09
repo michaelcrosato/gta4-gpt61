@@ -26,6 +26,7 @@ const world = {
     { id: 'saira-shop', x: 780, y: 718 },
     { id: 'lantern-darts', x: 723, y: 918 },
     { id: 'blue-hour-lanes', x: 411, y: 654 },
+    { id: 'dockside-rooms', x: 129, y: 308 },
   ],
 };
 function exterior() {
@@ -280,7 +281,7 @@ test('all authored rooms produce distinct native floor and furniture pixels with
       assert.ok(r.glows.length > 0);
       draw.dispose();
     }
-    assert.equal(new Set(signatures).size, 4);
+    assert.equal(new Set(signatures).size, Object.keys(INTERIOR_LAYOUTS).length);
   }));
 
 test('room floor atlases exactly match live pixels across both projections and camera crops', () =>

@@ -2,7 +2,13 @@
 import { CITY_BLUEPRINT } from './city-blueprint.js';
 import { createRailWorld } from './rail-geometry.js';
 import { createRailClearanceWorld } from './rail-clearance.js';
-const railCity = createRailWorld(CITY_BLUEPRINT);
+import { createNightCrossingWorld } from './campaign/scenes.js';
+const arrivalCity = createNightCrossingWorld(CITY_BLUEPRINT);
+export const NIGHT_CROSSING_BINDINGS = arrivalCity.bindings;
+export const NIGHT_CROSSING_SCENE_REPORT = arrivalCity.report;
+if (!arrivalCity.report.ready)
+  throw new Error('The campaign arrival has unresolved physical scene geometry.');
+const railCity = createRailWorld(arrivalCity.world);
 const physicalRail = createRailClearanceWorld(railCity.world);
 if (physicalRail.report.unresolved.length)
   throw new Error('Harbor Metro has unresolved physical construction conflicts.');

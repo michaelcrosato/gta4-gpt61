@@ -24,14 +24,18 @@ function roomContext(state, id) {
 }
 
 export function scenePeople(state, id = currentSceneId(state)) {
+  const companions = state.companions?.actors || [],
+    canonicalIds = new Set(companions.map((actor) => actor.id));
   if (id)
     return [
-      ...interiorActors(roomContext(state, id)),
-      ...[...state.hostiles, ...state.police, ...state.pedestrians].filter((actor) =>
+      ...interiorActors(roomContext(state, id)).filter(
+        (actor) => !canonicalIds.has(actor.companionId),
+      ),
+      ...[...state.hostiles, ...state.police, ...state.pedestrians, ...companions].filter((actor) =>
         inScene(actor, id),
       ),
     ];
-  return [...state.hostiles, ...state.police, ...state.pedestrians].filter((actor) =>
+  return [...state.hostiles, ...state.police, ...state.pedestrians, ...companions].filter((actor) =>
     inScene(actor, null),
   );
 }
@@ -39,11 +43,17 @@ export function sceneVehicles(state, id = currentSceneId(state)) {
   return state.vehicles.filter((actor) => inScene(actor, id));
 }
 export function findScenePerson(state, id) {
-  for (const actor of [...state.hostiles, ...state.police, ...state.pedestrians])
+  for (const actor of [
+    ...(state.companions?.actors || []),
+    ...state.hostiles,
+    ...state.police,
+    ...state.pedestrians,
+  ])
     if (actor.id === id) return actor;
   for (const roomId of Object.keys(state.interior?.rooms || {})) {
     const actor = interiorActors(roomContext(state, roomId)).find((actor) => actor.id === id);
-    if (actor) return actor;
+    if (actor)
+      return state.companions?.actors.find((body) => body.id === actor.companionId) || actor;
   }
   return null;
 }
@@ -62,7 +72,8 @@ export function createSceneContext(world, terrain = createTerrain(world)) {
         return isInteriorBlocked(local, x, y, radius, z);
       },
       hasLineOfSight(a, b) {
-        const eye = (point) => (point.z || 0) + (point.health !== undefined ? 14 : 0);
+        const eye = (point) =>
+          (point.z || 0) + (point.health !== undefined ? (point.eyeHeight ?? 14) : 0);
         if (eye(a) < room.floorZ || eye(b) < room.floorZ || eye(a) >= ceiling || eye(b) >= ceiling)
           return false;
         return hasInteriorLineOfSight(

@@ -1,5 +1,6 @@
 /** Original cutaway rooms rendered with the same rigs and combat art as Harbor City. */
 import { createWorldRenderer } from './renderer.js';
+import { drawNightCrossingProps } from './campaign/scenes.js';
 import {
   INTERIOR_LAYOUTS,
   interiorScene,
@@ -20,12 +21,14 @@ export function sceneRenderState(state) {
   const scene = interiorScene(state);
   if (!scene) return null;
   const roomId = scene.room.id;
+  const canonicalIds = new Set((state.companions?.actors || []).map((actor) => actor.id));
   const matching = (items) => (items || []).filter((item) => sceneMatches(item, roomId));
   const people = unique([
-    ...interiorActors(state),
+    ...interiorActors(state).filter((actor) => !canonicalIds.has(actor.companionId)),
     ...matching(state.pedestrians),
     ...matching(state.police),
     ...matching(state.hostiles),
+    ...matching(state.companions?.actors),
   ]);
   const mission = sceneMatches(state.mission?.target, roomId)
     ? {
@@ -228,7 +231,87 @@ function propDetails(r, g, room, item, health) {
   const z = room.floorZ + item.height;
   const side = item.y + item.h;
   const pale = E.shade(item.color, 0.2);
-  if (['desk', 'workbench', 'table', 'counter', 'bar-counter'].includes(item.type)) {
+  if (item.type === 'bed') {
+    rect(r, g, item.x + 3, item.y + 3, item.w - 6, item.h - 6, '#c0bca0', z + 0.1);
+    rect(r, g, item.x + 6, item.y + 5, item.w - 12, 17, '#d4d1b3', z + 0.2);
+    rect(
+      r,
+      g,
+      item.x + 3,
+      item.y + 27,
+      item.w - 6,
+      item.h - 30,
+      item.id.startsWith('spare') ? '#7d9279' : '#8b9a7b',
+      z + 0.2,
+    );
+    for (let y = item.y + 34; y < side - 5; y += 11)
+      line(r, g, [item.x + 4, y, z + 0.3], [item.x + item.w - 4, y, z + 0.3], '#b0b78d');
+    line(
+      r,
+      g,
+      [item.x, item.y, room.floorZ + 16],
+      [item.x + item.w, item.y, room.floorZ + 16],
+      '#5a6954',
+      3,
+    );
+  } else if (item.type === 'kettle-table') {
+    rect(r, g, item.x + 5, item.y + 4, 21, 15, '#d7cca1', z + 0.1);
+    r.box(g, item.x + 33, item.y + 5, z, item.x + 43, item.y + 15, z + 7, '#b5bfa3', '#677f72');
+    line(r, g, [item.x + 43, item.y + 8, z + 3], [item.x + 48, item.y + 6, z + 3], '#afbea2', 2);
+    line(r, g, [item.x + 33, item.y + 8, z + 4], [item.x + 29, item.y + 9, z + 4], '#4b6150', 2);
+    for (const x of [item.x + 10, item.x + 20]) {
+      const p = r.w(x, item.y + 12, z + 1);
+      E.px.disc(g, p[0], p[1], 3, '#b5a269');
+      E.px.disc(g, p[0], p[1], 1, '#69673f');
+    }
+  } else if (item.type === 'wardrobe') {
+    line(
+      r,
+      g,
+      [item.x + item.w / 2, side, z - 2],
+      [item.x + item.w / 2, side, room.floorZ + 3],
+      '#4d604b',
+    );
+    for (const x of [item.x + item.w / 2 - 3, item.x + item.w / 2 + 3])
+      line(r, g, [x, side, room.floorZ + 22], [x, side, room.floorZ + 27], '#c6bb87', 2);
+    rect(r, g, item.x + 3, item.y + 3, item.w - 6, item.h - 6, '#949b7c', z + 0.1);
+  } else if (item.type === 'ledger-desk') {
+    rect(r, g, item.x + 6, item.y + 4, 27, 16, '#486653', z + 0.1);
+    rect(r, g, item.x + 8, item.y + 5, 23, 13, '#d6c69b', z + 0.2);
+    line(r, g, [item.x + 19, item.y + 5, z + 0.3], [item.x + 19, item.y + 18, z + 0.3], '#9c8c63');
+    for (let y = item.y + 8; y < item.y + 17; y += 3)
+      line(r, g, [item.x + 10, y, z + 0.3], [item.x + 16, y, z + 0.3], '#777a56');
+    line(
+      r,
+      g,
+      [item.x + 35, item.y + 5, z + 0.3],
+      [item.x + 30, item.y + 18, z + 0.3],
+      '#324b3d',
+      2,
+    );
+  } else if (item.type === 'shelter-desk') {
+    rect(r, g, item.x + 4, item.y + 3, 22, 12, '#b8c5a5', z + 0.1);
+    for (let y = item.y + 6; y < item.y + 14; y += 3)
+      line(r, g, [item.x + 7, y, z + 0.2], [item.x + 21, y, z + 0.2], '#607860');
+    rect(r, g, item.x + 19, item.y + 2, 5, 5, '#bdab76', z + 0.3);
+  } else if (item.type === 'key-rack') {
+    for (const x of [item.x + 4, item.x + 12]) {
+      const p = r.w(x, side, z - 12);
+      E.px.disc(g, p[0], p[1], 2, '#d8c184');
+      line(r, g, [x, side, z - 12], [x, side, z - 18], '#d8c184', 2);
+    }
+  } else if (item.type === 'wash-basin') {
+    rect(r, g, item.x + 4, item.y + 2, item.w - 8, item.h - 4, '#cad1b4', z + 0.1);
+    rect(r, g, item.x + 8, item.y + 3, item.w - 16, item.h - 6, '#6d8d81', z + 0.2);
+    line(
+      r,
+      g,
+      [item.x + item.w / 2, item.y, z],
+      [item.x + item.w / 2, item.y + 4, z + 5],
+      '#bdc8aa',
+      2,
+    );
+  } else if (['desk', 'workbench', 'table', 'counter', 'bar-counter'].includes(item.type)) {
     line(r, g, [item.x + 2, side, z - 4], [item.x + item.w - 2, side, z - 4], '#495747');
     if (room.id === 'voss-dispatch' && item.type === 'desk') {
       rect(r, g, item.x + 8, item.y + 5, 19, 12, '#d1caa1', z + 0.1);
@@ -377,6 +460,7 @@ function drawScenery(r, state, room, game, stats) {
     'saira-garage': 'SAIRA SERVICE',
     'lantern-bar': 'THE LANTERN',
     'blue-hour-lanes': 'BLUE HOUR LANES',
+    'dockside-rooms': 'DOCKSIDE ROOMS',
   }[room.id];
   const signX = room.width / 2,
     signY = 11,
@@ -533,7 +617,13 @@ function drawScenery(r, state, room, game, stats) {
       (g) => {
         const point = r.w(hook.x, hook.y, room.floorZ + 20);
         const symbol =
-          hook.type === 'activity'
+          ({
+            'shelter-food': 'F',
+            'shelter-save': 'S',
+            'shelter-rest': 'R',
+            wardrobe: 'W',
+            evidence: 'E',
+          }[hook.type] ?? hook.type === 'activity')
             ? hook.activity === 'bowling'
               ? 'B'
               : 'D'
@@ -579,6 +669,7 @@ function drawScenery(r, state, room, game, stats) {
     });
     stats.markers++;
   }
+  drawNightCrossingProps(r, state, room.id);
 }
 
 export function createInteriorRenderer(game, specs, options = {}) {

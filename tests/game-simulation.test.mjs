@@ -58,7 +58,7 @@ test('city connects five districts with traversable roads and collision geometry
   assert.equal(WORLD.neighbourhoods.length, 65);
   assert.equal(WORLD.sites.length, 194);
   const roads = WORLD.roads.filter((road) => road.access?.includes('car'));
-  assert.ok(roads.every((road) => road.width >= 28));
+  assert.ok(roads.every((road) => road.width >= (road.kind === 'campaign-parking' ? 24 : 28)));
   for (const road of roads) {
     const samples = 20;
     for (let i = 0; i <= samples; i += 1) {
