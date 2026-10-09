@@ -47,6 +47,12 @@ destinations, boarding/alighting, fares, signals and saved journeys. Physical
 clearance, native rendering and frozen-snapshot browser checks pass; the broader
 city and transport inventory remain in development.
 
+The 0.6.1 Metro repair filters reservation claims against the full swept train
+body and compares waiting priority among complete bundles that can be granted.
+It resumes the known 0.6 all-held fleet without resetting trains or releasing
+occupied resources. Sustained controller checks cover at least five circuits
+per service and saved continuation; full-world acceptance remains open.
+
 The combat and activity foundation includes 17 weapon roles, physical explosives/fire, melee
 guard/counters/disarms, crouch/cover and vault/climb controls. Police escalate
 through six levels with actual pursuits, roadblocks, arrest and airborne search.

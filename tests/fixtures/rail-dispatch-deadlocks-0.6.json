@@ -1,0 +1,998 @@
+{
+  "version": 1,
+  "topology": "5f85a86e",
+  "cases": [
+    {
+      "label": "published2478",
+      "time": 2478,
+      "fleet": [
+        {
+          "id": "rail-LL-CITY-SERVICE-01-0",
+          "serviceId": "LL-CITY-SERVICE-01",
+          "ordinal": 0,
+          "callIndex": 10,
+          "segmentId": "LL-CITY-ROUTE-8",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 8340,
+          "y": 6339,
+          "z": -18,
+          "heading": 0,
+          "visits": 27,
+          "circuits": 1,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-02-0",
+          "serviceId": "LL-CITY-SERVICE-02",
+          "ordinal": 0,
+          "callIndex": 3,
+          "segmentId": "LL-CITY-ROUTE-3",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 8680,
+          "y": 541,
+          "z": 22,
+          "heading": 3.141592653589793,
+          "visits": 20,
+          "circuits": 1,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-03-0",
+          "serviceId": "LL-CITY-SERVICE-03",
+          "ordinal": 0,
+          "callIndex": 8,
+          "segmentId": "LL-CITY-ROUTE-E",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 5344,
+          "y": 5485,
+          "z": -18,
+          "heading": -1.5707963267948966,
+          "visits": 19,
+          "circuits": 1,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-04-0",
+          "serviceId": "LL-CITY-SERVICE-04",
+          "ordinal": 0,
+          "callIndex": 10,
+          "segmentId": "LL-CITY-ROUTE-B",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 4455,
+          "y": 1711,
+          "z": 18,
+          "heading": 3.141592653589793,
+          "visits": 21,
+          "circuits": 1,
+          "passengerIds": [],
+          "blockedReason": null
+        }
+      ],
+      "signals": {
+        "version": 1,
+        "topology": "5f85a86e",
+        "topologyEncoding": 2,
+        "dimensions": {
+          "length": 68,
+          "width": 20,
+          "height": 16
+        },
+        "revision": 9999,
+        "time": 2478,
+        "reservations": [
+          {
+            "resourceId": "platform:LL-CITY-ST04:upper@LL-CITY-SERVICE-02",
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-15@LL-CITY-SERVICE-02",
+            "visits": 19,
+            "callIndex": 2,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST04:upper@LL-CITY-SERVICE-02",
+            "acquiredAt": 2218.5,
+            "releaseDistance": 10838.026941685572
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04",
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-27@LL-CITY-SERVICE-04",
+            "visits": 20,
+            "callIndex": 9,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04",
+            "acquiredAt": 2287,
+            "releaseDistance": 4357.114512501907
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST16:inner_line_platform@LL-CITY-SERVICE-03",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-25@LL-CITY-SERVICE-03",
+            "visits": 18,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST16:inner_line_platform@LL-CITY-SERVICE-03",
+            "acquiredAt": 2226.5,
+            "releaseDistance": 1040
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-01",
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-10@LL-CITY-SERVICE-01",
+            "visits": 26,
+            "callIndex": 9,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-01",
+            "acquiredAt": 2277.5,
+            "releaseDistance": 3408
+          },
+          {
+            "resourceId": "rail-resource:179",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-25@LL-CITY-SERVICE-03",
+            "visits": 18,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 2226.5,
+            "releaseDistance": 1074
+          },
+          {
+            "resourceId": "rail-resource:3",
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-10@LL-CITY-SERVICE-01",
+            "visits": 26,
+            "callIndex": 9,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 2277.5,
+            "releaseDistance": 3442
+          },
+          {
+            "resourceId": "rail-resource:52",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-25@LL-CITY-SERVICE-03",
+            "visits": 18,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 2226.5,
+            "releaseDistance": 1074
+          },
+          {
+            "resourceId": "rail-resource:53",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-25@LL-CITY-SERVICE-03",
+            "visits": 18,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 2226.5,
+            "releaseDistance": 1074
+          },
+          {
+            "resourceId": "rail-resource:54",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-25@LL-CITY-SERVICE-03",
+            "visits": 18,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 2226.5,
+            "releaseDistance": 1074
+          }
+        ],
+        "waiting": [
+          {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-26@LL-CITY-SERVICE-03",
+            "visits": 19,
+            "since": 2257.25,
+            "sequence": 87
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-11@LL-CITY-SERVICE-01",
+            "visits": 27,
+            "since": 2334.5,
+            "sequence": 89
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-26@LL-CITY-SERVICE-04",
+            "visits": 21,
+            "since": 2354.5,
+            "sequence": 90
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-14@LL-CITY-SERVICE-02",
+            "visits": 20,
+            "since": 2358,
+            "sequence": 91
+          }
+        ],
+        "nextWaitSequence": 91,
+        "closedGates": [],
+        "stats": {
+          "grants": 87,
+          "denials": 39619,
+          "maxWait": 286.5
+        }
+      },
+      "recentEvents": [
+        {
+          "id": 325,
+          "time": 2205.8725928058507,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST06",
+            "platformId": "LL-CITY-ST06:inner_line_platform@LL-CITY-SERVICE-04",
+            "visits": 20
+          }
+        },
+        {
+          "id": 326,
+          "time": 2206.5326802415657,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "stationId": "LL-CITY-ST02",
+            "platformId": "LL-CITY-ST02:outer_line_platform@LL-CITY-SERVICE-02"
+          }
+        },
+        {
+          "id": 327,
+          "time": 2206.8725928058507,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST06",
+            "platformId": "LL-CITY-ST06:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 328,
+          "time": 2213.651388888889,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST17",
+            "platformId": "LL-CITY-ST17:inner_line_platform@LL-CITY-SERVICE-03",
+            "visits": 18
+          }
+        },
+        {
+          "id": 329,
+          "time": 2214.651388888889,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST17",
+            "platformId": "LL-CITY-ST17:inner_line_platform@LL-CITY-SERVICE-03"
+          }
+        },
+        {
+          "id": 330,
+          "time": 2218.8725928058507,
+          "kind": "held",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST06",
+            "platformId": "LL-CITY-ST06:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 331,
+          "time": 2219.5326802415652,
+          "kind": "departure",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "stationId": "LL-CITY-ST02",
+            "platformId": "LL-CITY-ST02:outer_line_platform@LL-CITY-SERVICE-02"
+          }
+        },
+        {
+          "id": 332,
+          "time": 2219.7430555555266,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST26",
+            "platformId": "LL-CITY-ST26:outer_line_platform@LL-CITY-SERVICE-01",
+            "visits": 25
+          }
+        },
+        {
+          "id": 333,
+          "time": 2220.7430555555256,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST26",
+            "platformId": "LL-CITY-ST26:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 334,
+          "time": 2227.6513888888826,
+          "kind": "departure",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST17",
+            "platformId": "LL-CITY-ST17:inner_line_platform@LL-CITY-SERVICE-03"
+          }
+        },
+        {
+          "id": 335,
+          "time": 2233.743055555516,
+          "kind": "departure",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST26",
+            "platformId": "LL-CITY-ST26:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 336,
+          "time": 2244.269444444426,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST16",
+            "platformId": "LL-CITY-ST16:inner_line_platform@LL-CITY-SERVICE-03",
+            "visits": 19
+          }
+        },
+        {
+          "id": 337,
+          "time": 2244.269444444426,
+          "kind": "handoff",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "from": "LL-CITY-ROUTE-K",
+            "to": "LL-CITY-ROUTE-E"
+          }
+        },
+        {
+          "id": 338,
+          "time": 2245.269444444425,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST16",
+            "platformId": "LL-CITY-ST16:inner_line_platform@LL-CITY-SERVICE-03"
+          }
+        },
+        {
+          "id": 339,
+          "time": 2257.2694444444164,
+          "kind": "held",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "stationId": "LL-CITY-ST16",
+            "platformId": "LL-CITY-ST16:inner_line_platform@LL-CITY-SERVICE-03"
+          }
+        },
+        {
+          "id": 340,
+          "time": 2264.649999999938,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST22",
+            "platformId": "LL-CITY-ST22:outer_line_platform@LL-CITY-SERVICE-01",
+            "visits": 26
+          }
+        },
+        {
+          "id": 341,
+          "time": 2265.649999999937,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST22",
+            "platformId": "LL-CITY-ST22:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 342,
+          "time": 2278.6499999999273,
+          "kind": "departure",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST22",
+            "platformId": "LL-CITY-ST22:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 343,
+          "time": 2287.1,
+          "kind": "released",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST06",
+            "platformId": "LL-CITY-ST06:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 344,
+          "time": 2288.0999999999995,
+          "kind": "departure",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST06",
+            "platformId": "LL-CITY-ST06:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 345,
+          "time": 2321.5791666665627,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST19",
+            "platformId": "LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-01",
+            "visits": 27
+          }
+        },
+        {
+          "id": 346,
+          "time": 2321.5791666665627,
+          "kind": "handoff",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "from": "LL-CITY-ROUTE-A",
+            "to": "LL-CITY-ROUTE-8"
+          }
+        },
+        {
+          "id": 347,
+          "time": 2322.5791666665623,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST19",
+            "platformId": "LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 348,
+          "time": 2334.5791666665536,
+          "kind": "held",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "stationId": "LL-CITY-ST19",
+            "platformId": "LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-01"
+          }
+        },
+        {
+          "id": 349,
+          "time": 2341.574883472204,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST07",
+            "platformId": "LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04",
+            "visits": 21
+          }
+        },
+        {
+          "id": 350,
+          "time": 2342.5748834722035,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST07",
+            "platformId": "LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 351,
+          "time": 2345.0177018157606,
+          "kind": "arrival",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "stationId": "LL-CITY-ST04",
+            "platformId": "LL-CITY-ST04:upper@LL-CITY-SERVICE-02",
+            "visits": 20
+          }
+        },
+        {
+          "id": 352,
+          "time": 2346.0177018157597,
+          "kind": "doors-open",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "stationId": "LL-CITY-ST04",
+            "platformId": "LL-CITY-ST04:upper@LL-CITY-SERVICE-02"
+          }
+        },
+        {
+          "id": 353,
+          "time": 2354.574883472195,
+          "kind": "held",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "stationId": "LL-CITY-ST07",
+            "platformId": "LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04"
+          }
+        },
+        {
+          "id": 354,
+          "time": 2358.017701815751,
+          "kind": "held",
+          "data": {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "stationId": "LL-CITY-ST04",
+            "platformId": "LL-CITY-ST04:upper@LL-CITY-SERVICE-02"
+          }
+        }
+      ],
+      "provenance": {
+        "sourceFile": "reference/baseline-circuits-v2.json",
+        "sourceSha256": "35c326a6651f956dafeef060ce2ef6bc10cf2309f3dca0590d47a30249dfc0bd",
+        "boundary": "Actual pure four-service controller snapshot; published0.6baseline or retained intermediate policy failure, no gameplay/source completion claim."
+      }
+    },
+    {
+      "label": "falseResource6488",
+      "time": 6488,
+      "fleet": [
+        {
+          "id": "rail-LL-CITY-SERVICE-01-0",
+          "serviceId": "LL-CITY-SERVICE-01",
+          "ordinal": 0,
+          "callIndex": 16,
+          "segmentId": "LL-CITY-ROUTE-8",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 456,
+          "y": 273,
+          "z": 18,
+          "heading": 1.5707963267948966,
+          "visits": 67,
+          "circuits": 3,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-02-0",
+          "serviceId": "LL-CITY-SERVICE-02",
+          "ordinal": 0,
+          "callIndex": 6,
+          "segmentId": "LL-CITY-ROUTE-3",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 8360,
+          "y": 529,
+          "z": 12,
+          "heading": 3.141592653589793,
+          "visits": 57,
+          "circuits": 3,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-03-0",
+          "serviceId": "LL-CITY-SERVICE-03",
+          "ordinal": 0,
+          "callIndex": 0,
+          "segmentId": "LL-CITY-ROUTE-K",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 5344,
+          "y": 4960,
+          "z": 18,
+          "heading": -1.5707963267948966,
+          "visits": 55,
+          "circuits": 5,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-04-0",
+          "serviceId": "LL-CITY-SERVICE-04",
+          "ordinal": 0,
+          "callIndex": 8,
+          "segmentId": "LL-CITY-ROUTE-B",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 5296,
+          "y": 4960,
+          "z": 18,
+          "heading": 1.5707963267948966,
+          "visits": 52,
+          "circuits": 4,
+          "passengerIds": [],
+          "blockedReason": null
+        }
+      ],
+      "signals": {
+        "version": 1,
+        "topology": "5f85a86e",
+        "topologyEncoding": 2,
+        "dimensions": {
+          "length": 68,
+          "width": 20,
+          "height": 16
+        },
+        "revision": 26183,
+        "time": 6488,
+        "reservations": [
+          {
+            "resourceId": "platform:LL-CITY-ST01:outer_line_platform@LL-CITY-SERVICE-01",
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-16@LL-CITY-SERVICE-01",
+            "visits": 66,
+            "callIndex": 15,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST01:outer_line_platform@LL-CITY-SERVICE-01",
+            "acquiredAt": 6277,
+            "releaseDistance": 7590
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST04:lower@LL-CITY-SERVICE-02",
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-12@LL-CITY-SERVICE-02",
+            "visits": 56,
+            "callIndex": 5,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST04:lower@LL-CITY-SERVICE-02",
+            "acquiredAt": 6105,
+            "releaseDistance": 2938.3528792246416
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST15:inner_line_platform@LL-CITY-SERVICE-03",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-28@LL-CITY-SERVICE-03",
+            "visits": 54,
+            "callIndex": 10,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST15:inner_line_platform@LL-CITY-SERVICE-03",
+            "acquiredAt": 6011.75,
+            "releaseDistance": 5068.501074327781
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST15:inner_line_platform@LL-CITY-SERVICE-04",
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-18@LL-CITY-SERVICE-04",
+            "visits": 51,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST15:inner_line_platform@LL-CITY-SERVICE-04",
+            "acquiredAt": 5979.75,
+            "releaseDistance": 2328.9777676677786
+          },
+          {
+            "resourceId": "rail-resource:171",
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-12@LL-CITY-SERVICE-02",
+            "visits": 56,
+            "callIndex": 5,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 6105,
+            "releaseDistance": 2972.3528792246416
+          },
+          {
+            "resourceId": "rail-resource:189",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-28@LL-CITY-SERVICE-03",
+            "visits": 54,
+            "callIndex": 10,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 6011.75,
+            "releaseDistance": 5102.501074327781
+          },
+          {
+            "resourceId": "rail-resource:190",
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-18@LL-CITY-SERVICE-04",
+            "visits": 51,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 5979.75,
+            "releaseDistance": 2362.9777676677786
+          },
+          {
+            "resourceId": "rail-resource:191",
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-18@LL-CITY-SERVICE-04",
+            "visits": 51,
+            "callIndex": 7,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 5979.75,
+            "releaseDistance": 2362.9777676677786
+          }
+        ],
+        "waiting": [
+          {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-28@LL-CITY-SERVICE-04",
+            "visits": 52,
+            "since": 6024.75,
+            "sequence": 229
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-18@LL-CITY-SERVICE-03",
+            "visits": 55,
+            "since": 6087.25,
+            "sequence": 231
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-11@LL-CITY-SERVICE-02",
+            "visits": 57,
+            "since": 6156.75,
+            "sequence": 233
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-17@LL-CITY-SERVICE-01",
+            "visits": 67,
+            "since": 6380.5,
+            "sequence": 235
+          }
+        ],
+        "nextWaitSequence": 235,
+        "closedGates": [],
+        "stats": {
+          "grants": 231,
+          "denials": 96803,
+          "maxWait": 286.5
+        }
+      },
+      "recentEvents": [],
+      "provenance": {
+        "sourceFile": "reports/fresh-platform-only.json",
+        "sourceSha256": "f4a8b587faaba595a24d1868f6e132a5546ed689cdc3d7949167471c4f330b23",
+        "boundary": "Actual pure four-service controller snapshot; published0.6baseline or retained intermediate policy failure, no gameplay/source completion claim."
+      }
+    },
+    {
+      "label": "transitiveFifo6478",
+      "time": 6478.5,
+      "fleet": [
+        {
+          "id": "rail-LL-CITY-SERVICE-01-0",
+          "serviceId": "LL-CITY-SERVICE-01",
+          "ordinal": 0,
+          "callIndex": 16,
+          "segmentId": "LL-CITY-ROUTE-8",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 456,
+          "y": 273,
+          "z": 18,
+          "heading": 1.5707963267948966,
+          "visits": 67,
+          "circuits": 3,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-02-0",
+          "serviceId": "LL-CITY-SERVICE-02",
+          "ordinal": 0,
+          "callIndex": 7,
+          "segmentId": "LL-CITY-ROUTE-J",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 8340,
+          "y": 6291,
+          "z": -18,
+          "heading": 3.141592653589793,
+          "visits": 58,
+          "circuits": 3,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-03-0",
+          "serviceId": "LL-CITY-SERVICE-03",
+          "ordinal": 0,
+          "callIndex": 2,
+          "segmentId": "LL-CITY-ROUTE-K",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 7685,
+          "y": 5489,
+          "z": -18,
+          "heading": 0,
+          "visits": 57,
+          "circuits": 5,
+          "passengerIds": [],
+          "blockedReason": null
+        },
+        {
+          "id": "rail-LL-CITY-SERVICE-04-0",
+          "serviceId": "LL-CITY-SERVICE-04",
+          "ordinal": 0,
+          "callIndex": 10,
+          "segmentId": "LL-CITY-ROUTE-B",
+          "phase": "held",
+          "phaseRemaining": 0,
+          "doorProgress": 1,
+          "legElapsed": 0,
+          "distance": 0,
+          "speed": 0,
+          "x": 4455,
+          "y": 1711,
+          "z": 18,
+          "heading": 3.141592653589793,
+          "visits": 54,
+          "circuits": 4,
+          "passengerIds": [],
+          "blockedReason": null
+        }
+      ],
+      "signals": {
+        "version": 1,
+        "topology": "5f85a86e",
+        "topologyEncoding": 2,
+        "dimensions": {
+          "length": 68,
+          "width": 20,
+          "height": 16
+        },
+        "revision": 26150,
+        "time": 6478.5,
+        "reservations": [
+          {
+            "resourceId": "platform:LL-CITY-ST01:outer_line_platform@LL-CITY-SERVICE-01",
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-16@LL-CITY-SERVICE-01",
+            "visits": 66,
+            "callIndex": 15,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST01:outer_line_platform@LL-CITY-SERVICE-01",
+            "acquiredAt": 6267.5,
+            "releaseDistance": 7590
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04",
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-27@LL-CITY-SERVICE-04",
+            "visits": 53,
+            "callIndex": 9,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST07:inner_line_platform@LL-CITY-SERVICE-04",
+            "acquiredAt": 6202,
+            "releaseDistance": 4357.114512501907
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST10:inner_line_platform@LL-CITY-SERVICE-03",
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-19@LL-CITY-SERVICE-03",
+            "visits": 56,
+            "callIndex": 1,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST10:inner_line_platform@LL-CITY-SERVICE-03",
+            "acquiredAt": 6138.5,
+            "releaseDistance": 8003
+          },
+          {
+            "resourceId": "platform:LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-02",
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-11@LL-CITY-SERVICE-02",
+            "visits": 57,
+            "callIndex": 6,
+            "kind": "leg",
+            "platformId": "LL-CITY-ST19:outer_line_platform@LL-CITY-SERVICE-02",
+            "acquiredAt": 6220.25,
+            "releaseDistance": 10977.569965351702
+          },
+          {
+            "resourceId": "rail-resource:66",
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-11@LL-CITY-SERVICE-02",
+            "visits": 57,
+            "callIndex": 6,
+            "kind": "leg",
+            "platformId": null,
+            "acquiredAt": 6220.25,
+            "releaseDistance": 11011.569965351702
+          }
+        ],
+        "waiting": [
+          {
+            "trainId": "rail-LL-CITY-SERVICE-03-0",
+            "trackId": "HC-TRACK-20@LL-CITY-SERVICE-03",
+            "visits": 57,
+            "since": 6246.5,
+            "sequence": 236
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-04-0",
+            "trackId": "HC-TRACK-26@LL-CITY-SERVICE-04",
+            "visits": 54,
+            "since": 6269.5,
+            "sequence": 238
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-02-0",
+            "trackId": "HC-TRACK-10@LL-CITY-SERVICE-02",
+            "visits": 58,
+            "since": 6361.25,
+            "sequence": 239
+          },
+          {
+            "trainId": "rail-LL-CITY-SERVICE-01-0",
+            "trackId": "HC-TRACK-17@LL-CITY-SERVICE-01",
+            "visits": 67,
+            "since": 6371,
+            "sequence": 240
+          }
+        ],
+        "nextWaitSequence": 240,
+        "closedGates": [],
+        "stats": {
+          "grants": 236,
+          "denials": 91037,
+          "maxWait": 316.25
+        }
+      },
+      "recentEvents": [],
+      "provenance": {
+        "sourceFile": "reports/fresh-all-claims-only.json",
+        "sourceSha256": "c9387476153605d9b0f93ef9233823da8f3da9ce8e465ae162f07ad5eea64893",
+        "boundary": "Actual pure four-service controller snapshot; published0.6baseline or retained intermediate policy failure, no gameplay/source completion claim."
+      }
+    }
+  ]
+}

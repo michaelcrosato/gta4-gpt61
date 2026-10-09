@@ -350,7 +350,7 @@ function compile(world) {
   // A leg may loop back beside its departure stop or pass another platform.
   // Reserve every swept platform ahead of time, including the last such visit.
   const radius = Math.hypot(dimensions.length, dimensions.width) / 2;
-  for (const track of tracks.values())
+  for (const track of tracks.values()) {
     track.platformEntries = [...platforms.values()].flatMap((platform) => {
       const shape = resources.get(`platform:${platform.id}`).shape,
         xs = shape.points.map((p) => p.x),
@@ -366,6 +366,29 @@ function compile(world) {
       const at = boundsInterval(track, bounds);
       return at ? [{ resourceId: `platform:${platform.id}`, ...at }] : [];
     });
+    // The circumscribed bounds above retain the serialized geometry contract.
+    // Only a swept full body can require an occupied platform; a nearby parallel
+    // route must not create a reservation cycle through the empty box corners.
+    let physicalClaims;
+    Object.defineProperty(track, 'physicalClaims', {
+      value: () => {
+        if (!physicalClaims) {
+          const zones = sweep(track, 0, track.length, dimensions);
+          physicalClaims = new Set(
+            [...track.entries, ...track.platformEntries]
+              .filter((item) => {
+                const resource = resources.get(item.resourceId),
+                  shape =
+                    resource.type === 'platform' ? resource.shape : box(resource.physicalBounds);
+                return zones.some((zone) => overlaps(zone, shape));
+              })
+              .map((item) => item.resourceId),
+          );
+        }
+        return physicalClaims;
+      },
+    });
+  }
   for (const resource of resources.values())
     if (resource.type !== 'platform' && resource.trackIds.some((id) => !tracks.has(id)))
       bad('unknown resource track');
@@ -390,6 +413,7 @@ function compile(world) {
       if (!track || typeof l.reverse !== 'boolean') bad('service track');
       if (l.reverse && track.entries.length) bad('directional resource distances required');
       const leg = l.reverse ? { ...track, ...pathData([...track.points].reverse()) } : track;
+      if (l.reverse) Object.defineProperty(leg, 'physicalClaims', { value: track.physicalClaims });
       if (
         distance(leg.points[0], platforms.get(calls[i]).pose) > EPS ||
         distance(leg.points.at(-1), platforms.get(calls[(i + 1) % calls.length]).pose) > EPS
@@ -531,9 +555,11 @@ function grantRecord(resourceId, entry, time, kind = 'leg') {
   };
 }
 function needed(entry) {
+  const physicalClaims = entry.leg.physicalClaims();
   return [
     ...new Set(
       [...entry.leg.entries, ...entry.leg.platformEntries]
+        .filter((item) => physicalClaims.has(item.resourceId))
         .filter((e) => e.releaseDistance >= entry.train.distance - EPS)
         .map((e) => e.resourceId),
     ),
@@ -853,7 +879,10 @@ export function createRailDispatcher(world, trains = [], savedState = null) {
             const wanted = needed(other);
             return (
               wanted.some((id) => ids.includes(id)) &&
-              !wanted.some((id) => owners.get(id) === entry.train.id)
+              // Priority only compares complete bundles that can be granted
+              // now. An older request blocked by a third train must not stop
+              // that train's dependency chain from clearing real occupancy.
+              wanted.every((id) => !owners.has(id) || owners.get(id) === other.train.id)
             );
           })(),
       );
