@@ -898,3 +898,76 @@ The final built artifact at /tmp/lowlight-vercel-final-ve4mogt1/dist passes
 phone, landscape, tablet and desktop PNGs were inspected. Real iOS Safari and
 physical gamepads are not available here. Vercel's actual automatic import and
 production URL remain external to these local artifact checks.
+
+## Metro reservation liveness repair (0.6.1)
+
+A sustained controller audit found that the published 0.6 fleet could leave all
+four trains held at simulation time 2478. Services had 27/20/19/21 visits and one
+circuit each. This changes the boundary of earlier bounded operating evidence:
+a first circuit did not prove sustained service.
+
+The wait graph exposed inflated bounds claiming a nearby platform and a rail
+resource that the full train never sweeps. It also exposed a transitive FIFO
+cycle where a physically blocked older request prevented a feasible dependency
+from clearing. Actual claims now use the existing conservative full-body swept
+zones against the real stationary-platform or resource envelope. The derived
+claim masks are private, lazy and cached per track; conservative serialized
+intervals and geometry/topology signatures stay unchanged. Waiting priority
+compares complete currently grantable bundles. Atomic acquisition, true physical
+ownership, rear release and crossing gates remain enforced. No actor/fleet reset,
+reservation stealing, partial bundle grant or timeout release is used.
+
+Three exact retained controller states cover the original platform cycle, a
+later false resource claim and the transitive priority cycle. Fresh actual-world
+services complete 5/5/7/7 circuits by 8545 seconds; the exact published all-held
+fleet resumes for 6/6/8/8 total circuits by 10671.75, at least five additional
+circuits each. Both runs cross two strict save/restore points. Independent
+oriented-body intersection checks run at every native inner movement and frame
+end; callbackErrors must also remain empty so swallowed assertions cannot count
+as passing. Static train-clearance callbacks report no denials. The tests are
+in tests/rail-dispatch-liveness.test.mjs and use the recorded 0.6 fixture; these
+are bounded sustained controller/safety checks for the four real directional
+services at a 0.25-second parent timestep, not infinite/all-configuration or
+source-completion proof. Longest observed granted wait was 480 seconds; headway
+quality remains separate operating work.
+
+An audit also reproduced a pre-existing generic reverse-leg limitation in both
+baseline and candidate: platform release distances are not reversed with a
+single track's return leg. The four shipped services use separate directional
+legs with reverse:false, so this repair does not certify that generic lifecycle.
+World standing/head clearance and geometry/save migration remain open and are
+being developed separately; the signal repair changes no geometry.
+
+The coupled old-game investigation also reproduced the failure from genuine
+canonical New Game: 4,956 ordinary updateSimulation(0.5,{}) frames, no narrative
+acknowledgment or actor/fleet/clock edits, reach time 2478 with all four trains
+unchanged and held for 120 seconds. The immutable 0.6 reader accepts the resulting
+whole save with exact fleet and signal equality. Its compressed bytes/provenance
+are retained as tests/fixtures/metro-0.6-held-whole-save.*. A production-simulation
+regression continues that save for thirty seconds, verifies real movement, the
+expected advancing clock, preserved IDs/nondecreasing counters and unchanged
+wallet/health/director, then serializes and continues again. It earns no narrative
+progress.
+
+Frozen candidate /tmp/lowlight-061-candidate-y3myt8kq passes whole-save recovery in
+Chromium, WebKit and Firefox at /tmp/lowlight-061-browser-recovery/report.json.
+A read-only Continue-button listener runs after the real production handler in
+the same click task, before the first simulation tick, to compare the actual
+restored clock, full fleet, passengers, costs, progression and reservations.
+It does not replace scheduling or mutate game state. Normal browser time then
+moves the fleet; actual pause-menu storage, reload, Continue and further movement
+pass pure rail validation. Six PNGs were reviewed. The executed harness and its
+final exception/format-only cleanup hashes are retained separately.
+
+The separate existing browser-rail.py ride/fare flow also passes all three
+engines on that same frozen app: actual E boarding, phone destination, normal
+ride, UI Save/Continue, later-stop alighting and one $2 fare. Its declared initial
+legacy/platform/health/budget fixture is unchanged and remains explicit; it is
+not a clean-save city journey. Reports are at /tmp/lowlight-061-browser-rail;
+representative PNGs were inspected. Browser checks prove bounded recovery and
+ride behavior, not five circuits in a real browser or real iOS Safari.
+
+The final repository suite passes 865 JavaScript tests and 16 publication tests.
+Syntax, formatting, scope-integrity and static-build checks pass. The retained
+final suite output is /tmp/lowlight-061-final-tests.tap; browser reports and
+screenshots are outside the repository.
