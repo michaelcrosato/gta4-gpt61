@@ -524,3 +524,20 @@ return assertion now compares the actual saved exterior entry pose instead of
 a venue marker that can differ after genuine movement before entering. Browser harnesses now observe actual displacement,
 door exit or braking thresholds instead of assuming fixed wall-time delays
 always advance the same amount of simulation under concurrent QA load.
+
+## Garage momentum correction (0.4.1)
+
+Natural-control opening runs found that exterior background updates restored
+an indoor car's pose but omitted its speed. The stored exterior speed was zero,
+so every fixed step reset garage acceleration. The patch preserves the actual
+local speed through that temporary context while retaining real wallet/health
+changes. A multi-step regression now verifies sustained acceleration and travel.
+
+The isolated patch passes 488 JavaScript tests, 16 publication tests, syntax,
+formatting, whitespace and build checks. Chromium and WebKit checks used an
+explicit damaged-owned-taxi fixture outside Saira's Garage, then genuine entry,
+throttle to the bay, a $120 repair and physical door/reverse exit. No positions
+or health were changed after room entry. The paid-repair and exterior-return
+PNGs were reviewed. Reports: `/tmp/lowlight-garage-hotfix-qa/chromium` and
+`/tmp/lowlight-garage-hotfix-qa/webkit`. These focused checks do not prove a
+natural four-job or full-campaign playthrough; those remain separate work.
