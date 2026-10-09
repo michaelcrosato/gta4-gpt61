@@ -84,15 +84,22 @@ permission to stop after a slice.
 
 Implemented foundation: continuous five-district road grid; procedural buildings,
 cars, and articulated character rendering; keyboard/gamepad/touch movement;
-on-foot and vehicle collisions; three firearms, finite ammunition and reloading;
-traffic/pedestrians; police pursuit, sight loss, search radius, and escape;
+on-foot and vehicle collisions; 17 weapon roles with original equipment art,
+finite supply/reloads, timed melee defense/counters/disarms, scoped vertical
+gunfire, rockets, grenades, fire, and reusable/fragile street objects;
+crouch, wall cover, jumping, vehicle/barrier vaults and ledge climbing;
+traffic/pedestrians; six levels of witness-based police response with actual
+road pursuits/interception, arrest/confiscation, tactical units, roof/air search,
+roadblocks, last-known-location tracking and escape;
 damage/armour/death/clinic recovery; food, weapons, armour, repair, and taxi
 services; four authored opening assignments with 25 objectives; structured
-in-progress saves; title, pause, map/waypoint, journal, settings, and basic phone.
+in-progress saves; full bowling, 301 darts, eight-ball and STACKLIGHT rule/physics
+matches with opponents and scene controls; title, pause, map/waypoint, journal,
+settings, gear purchasing, and basic phone.
 
 The phone currently shows mission/contact information. It does not implement the
 complete call, relationship, date, email, web, and multiplayer entry systems.
-Likewise, five vehicle specifications, three guns, four assignments, a road grid,
+Likewise, five vehicle specifications, four assignments, a road grid,
 and synthesized background music are foundation evidence, not reference-wide
 parity.
 

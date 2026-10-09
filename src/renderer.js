@@ -1,4 +1,6 @@
 /* Original Harbor City architecture, vehicles and atmosphere, drawn by my-3d2dge. */
+import { drawActorEquipment, drawStreetEquipment, meleeAnimation } from './weapon-art.js';
+import { WEAPONS } from './combat.js';
 const E = globalThis.My3D2dge;
 const hash = (value) => {
   let h = 2166136261;
@@ -13,7 +15,7 @@ export function createWorldRenderer(game, world, specs) {
   const hero = new E.Humanoid({
     build: 'heroic',
     size: 0.86,
-    weapon: 'gun',
+    weapon: null,
     outfit: 'coat',
     sleeves: 'long',
     colors: {
@@ -40,7 +42,7 @@ export function createWorldRenderer(game, world, specs) {
     if (buildings.has(key)) return buildings.get(key);
     const w = building.w,
       d = building.h,
-      height = (building.height || 40) * 1.8 + 28;
+      height = building.height || 70;
     const points = [
       [0, 0, 0],
       [w, 0, 0],
@@ -267,7 +269,7 @@ export function createWorldRenderer(game, world, specs) {
     const rig = new E.Humanoid({
       build: 'heroic',
       size: 0.78,
-      weapon: type === 'pedestrian' ? null : 'gun',
+      weapon: null,
       outfit: type === 'pedestrian' ? 'coat' : 'shirt',
       sleeves: 'long',
       hat: type === 'police' ? 'cap' : null,
@@ -286,21 +288,86 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   function drawPerson(r, person, type, dt) {
+    if (person.inVehicle) return;
     if (!r.visible(person.x, person.y, 0, 35, 50, 50)) return;
     const rig = rigFor(person, type);
     rig.update(dt, {
       x: person.x,
       y: person.y,
+      z: person.z || 0,
       facing: person.angle || 0,
-      vx: person.vx || Math.cos(person.angle || 0) * (person.speed || 0),
-      vy: person.vy || Math.sin(person.angle || 0) * (person.speed || 0),
-      pose: person.health <= 0 ? 'down' : undefined,
-      point: type !== 'pedestrian' && person.health > 0,
+      vx: person.health > 0 ? person.vx || Math.cos(person.angle || 0) * (person.speed || 0) : 0,
+      vy: person.health > 0 ? person.vy || Math.sin(person.angle || 0) * (person.speed || 0) : 0,
+      pose: person.health <= 0 ? 'down' : person.crouching ? 'crouch' : undefined,
+      point:
+        type !== 'pedestrian' &&
+        person.health > 0 &&
+        WEAPONS[person.weapon]?.mode !== 'melee' &&
+        !person.meleeAction,
+      attack: meleeAnimation(person.meleeAction),
+      stance: person.weapon === 'unarmed' ? 'guard' : undefined,
     });
-    r.shadow(person.x, person.y, 7, 0.3, '#14231e');
-    r.actor(person.x, person.y, 0, (g, ox, oy) => rig.draw(g, ox, oy, r.view), {
-      outline: false,
-      rim: false,
+    if (!person.z) r.shadow(person.x, person.y, 7, 0.3, '#14231e');
+    r.actor(
+      person.x,
+      person.y,
+      person.z || 0,
+      (g, ox, oy) => {
+        rig.draw(g, ox, oy, r.view);
+        if (person.health > 0 && type !== 'pedestrian')
+          drawActorEquipment(g, ox, oy, rig, r.view, person.weapon || 'pistol');
+      },
+      {
+        outline: false,
+        rim: false,
+      },
+    );
+  }
+
+  function drawPoliceAircraft(r, craft) {
+    if (!r.visible(craft.x, craft.y, craft.z, 95, 100, 100)) return;
+    const c = Math.cos(craft.angle),
+      s = Math.sin(craft.angle),
+      p = (x, y, z = 0) => r.w(craft.x + x * c - y * s, craft.y + x * s + y * c, craft.z + z);
+    r.shadow(craft.x, craft.y, 30, 0.15, '#152f26');
+    if (craft.searchlight && craft.health > 0) {
+      r.groundDisc(
+        craft.searchlight.x,
+        craft.searchlight.y,
+        craft.searchlight.radius,
+        '#d2cba0',
+        0.15,
+      );
+      r.groundRing(
+        craft.searchlight.x,
+        craft.searchlight.y,
+        craft.searchlight.radius,
+        '#ddce9e',
+        0.15,
+      );
+    }
+    r.queue(craft.x, craft.y, craft.z, (g) => {
+      E.px.poly(g, [p(-16, -8), p(15, -8), p(22, 0), p(14, 8), p(-16, 8)], '#556967');
+      E.px.poly(
+        g,
+        [p(-16, -8, 1), p(11, -8, 6), p(18, 0, 7), p(10, 8, 6), p(-16, 8, 1)],
+        '#7c9087',
+      );
+      E.px.poly(g, [p(10, -6, 7), p(20, 0, 7), p(10, 6, 7), p(3, 6, 9), p(3, -6, 9)], '#a1b8ad');
+      E.px.line(g, ...p(-16, 0, 3), ...p(-49, 0, 9), '#637b70', 4);
+      E.px.line(g, ...p(-49, -8, 9), ...p(-49, 8, 9), '#a3ad92', 2);
+      E.px.line(g, ...p(-12, -11, -6), ...p(17, -11, -6), '#303f38', 2);
+      E.px.line(g, ...p(-12, 11, -6), ...p(17, 11, -6), '#303f38', 2);
+      const a = game.real * 32;
+      const rotor = (offset) => {
+        const dx = Math.cos(a + offset) * 39,
+          dy = Math.sin(a + offset) * 39;
+        E.px.line(g, ...p(-dx, -dy, 13), ...p(dx, dy, 13), '#c5c9aa', 2);
+      };
+      rotor(0);
+      rotor(Math.PI / 2);
+      const light = p(18, 0, -2);
+      E.px.rect(g, light[0] - 2, light[1] - 1, 4, 2, '#e0d391');
     });
   }
 
@@ -333,13 +400,19 @@ export function createWorldRenderer(game, world, specs) {
         E.px.rect(g, p[0] - 5, p[1] - 5, 11, 11, location.color || '#5d766a');
         E.font.text(
           g,
-          location.type === 'shop'
-            ? '$'
-            : location.type === 'garage'
-              ? 'G'
-              : location.type === 'safehouse'
-                ? 'H'
-                : '•',
+          {
+            home: 'H',
+            garage: 'G',
+            clinic: '+',
+            weapons: 'W',
+            armour: 'A',
+            food: 'F',
+            taxi: 'T',
+            radio: 'R',
+            depot: 'D',
+            activity:
+              { bowling: 'B', darts: 'D', pool: 'P', arcade: 'S' }[location.activity] || 'S',
+          }[location.type] || '$',
           p[0],
           p[1] - 3,
           '#f1e7bb',
@@ -569,6 +642,7 @@ export function createWorldRenderer(game, world, specs) {
       for (const person of state.pedestrians) drawPerson(r, person, 'pedestrian', 1 / 60);
       for (const person of state.police) drawPerson(r, person, 'police', 1 / 60);
       for (const person of state.hostiles) drawPerson(r, person, 'hostile', 1 / 60);
+      for (const craft of state.policeAircraft || []) drawPoliceAircraft(r, craft);
       if (state.mission?.stageType === 'interact' && state.mission.target) {
         const t = state.mission.target;
         drawPerson(
@@ -589,27 +663,138 @@ export function createWorldRenderer(game, world, specs) {
         hero.update(1 / 60, {
           x: p.x,
           y: p.y,
+          z: p.z || 0,
+          vz: p.vz || 0,
           facing: p.angle,
           vx: p.vx || Math.cos(p.angle) * (p.speed || 0),
           vy: p.vy || Math.sin(p.angle) * (p.speed || 0),
-          point: !!p.firing,
-          pose: p.health <= 0 ? 'down' : p.crouching ? 'crouch' : undefined,
+          point: p.weapon !== 'unarmed' && !p.meleeAction && (!!p.firing || !!p.aiming),
+          aim: p.aimTarget
+            ? Math.atan2(
+                p.aimTarget.z - ((p.z || 0) + 13),
+                Math.max(1, Math.hypot(p.aimTarget.x - p.x, p.aimTarget.y - p.y)),
+              )
+            : 0,
+          attack: meleeAnimation(p.meleeAction),
+          air: (p.z || 0) > 3 && !p.traversal,
+          climb: p.traversal?.kind === 'climb',
+          stance: p.weapon === 'unarmed' ? 'guard' : undefined,
+          pose:
+            p.health <= 0
+              ? 'down'
+              : p.surrendering
+                ? 'cheer'
+                : p.defending
+                  ? 'block'
+                  : p.crouching
+                    ? 'crouch'
+                    : undefined,
         });
         r.shadow(p.x, p.y, 8, 0.35, '#142820');
-        r.actor(p.x, p.y, 0, (g, ox, oy) => hero.draw(g, ox, oy, r.view), {
-          outlineColor: '#15291f',
-        });
+        r.actor(
+          p.x,
+          p.y,
+          p.z || 0,
+          (g, ox, oy) => {
+            hero.draw(g, ox, oy, r.view);
+            if (!p.surrendering && p.health > 0)
+              drawActorEquipment(
+                g,
+                ox,
+                oy,
+                hero,
+                r.view,
+                p.weapon,
+                p.heldObject?.material || 'metal',
+              );
+          },
+          {
+            outlineColor: '#15291f',
+          },
+        );
       }
       for (const bullet of state.bullets)
-        r.queue(bullet.x, bullet.y, 12, (g) => {
+        r.queue(bullet.x, bullet.y, bullet.z || 12, (g) => {
           E.px.line(
             g,
-            ...r.w(bullet.x, bullet.y, 12),
-            ...r.w(bullet.x - bullet.vx * 0.015, bullet.y - bullet.vy * 0.015, 12),
+            ...r.w(bullet.x, bullet.y, bullet.z || 12),
+            ...r.w(bullet.x - bullet.vx * 0.015, bullet.y - bullet.vy * 0.015, bullet.z || 12),
             '#e8d398',
             2,
           );
         });
+      for (const obstacle of world.obstacles || []) {
+        if (!r.visible(obstacle.x, obstacle.y, 0, 60, 90, 90)) continue;
+        r.queue(obstacle.x + obstacle.w / 2, obstacle.y + obstacle.h / 2, 0, (g) => {
+          r.box(
+            g,
+            obstacle.x,
+            obstacle.y,
+            0,
+            obstacle.x + obstacle.w,
+            obstacle.y + obstacle.h,
+            obstacle.height,
+            obstacle.color || '#7e8b75',
+            '#596b5d',
+          );
+          E.px.line(
+            g,
+            ...r.w(obstacle.x, obstacle.y, obstacle.height + 1),
+            ...r.w(obstacle.x + obstacle.w, obstacle.y, obstacle.height + 1),
+            '#c4c7a2',
+          );
+        });
+      }
+      for (const pickup of state.pickups || []) {
+        if (!pickup.available || !r.visible(pickup.x, pickup.y, 0, 35, 55, 55)) continue;
+        r.groundRing(pickup.x, pickup.y, 9, '#b5c59b', 0.45);
+        r.queue(pickup.x, pickup.y, 3, (g) => drawStreetEquipment(g, r, pickup));
+      }
+      for (const item of state.ordnance || []) {
+        if (!r.visible(item.x, item.y, item.z || 0, 35, 55, 55)) continue;
+        r.shadow(item.x, item.y, item.kind === 'rocket' ? 5 : 3, 0.22, '#18251a');
+        r.queue(item.x, item.y, item.z || 0, (g) => {
+          const q = r.w(item.x, item.y, item.z || 0);
+          if (item.kind === 'rocket') {
+            const back = r.w(item.x - item.vx * 0.023, item.y - item.vy * 0.023, item.z || 0);
+            E.px.line(g, ...q, ...back, '#e8c68e', 3);
+            r.glowDisc(g, back[0], back[1], 5, '#da8158', 0.25);
+          } else {
+            E.px.ell(
+              g,
+              q[0],
+              q[1],
+              3,
+              item.kind === 'molotov' ? 5 : 3,
+              item.kind === 'molotov' ? '#7b9a68' : '#a0ad7d',
+            );
+            if (item.fuse !== null) E.px.dot(g, q[0] + 2, q[1] - 3, '#e3c36d');
+          }
+        });
+      }
+      for (const fire of state.fires || []) {
+        if (!r.visible(fire.x, fire.y, 0, 80, 100, 100)) continue;
+        r.groundDisc(fire.x, fire.y, fire.radius, '#a67435', 0.3);
+        r.queue(fire.x, fire.y, 0, (g) => {
+          for (let i = 0; i < 18; i++) {
+            const angle = i * 2.4,
+              radius = fire.radius * hash(`${fire.id}:${i}`),
+              x = fire.x + Math.cos(angle) * radius,
+              y = fire.y + Math.sin(angle) * radius;
+            const q = r.w(x, y, 1),
+              height = 7 + Math.sin(game.real * 8 + i) * 4;
+            E.px.poly(
+              g,
+              [
+                [q[0] - 3, q[1]],
+                [q[0], q[1] - height],
+                [q[0] + 3, q[1]],
+              ],
+              i % 3 ? '#c99042' : '#e3c279',
+            );
+          }
+        });
+      }
       const target = state.waypoint || state.mission?.target;
       if (target && !title) {
         r.groundRing(target.x, target.y, target.radius || 22, '#e7c875', 0.7);

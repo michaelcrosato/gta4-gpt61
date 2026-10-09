@@ -7,6 +7,10 @@ import {
   nearestInteractable,
   currentVehicle,
   selectWeapon,
+  buyWeapon,
+  buyAmmo,
+  jumpOrVault,
+  toggleCover,
   WORLD,
   MISSIONS,
   WEAPONS,
@@ -14,6 +18,9 @@ import {
 } from './simulation.js';
 import { createWorldRenderer } from './renderer.js';
 import { findRoute, snapToRoad } from './navigation.js';
+import { weaponSound } from './weapon-art.js';
+import { createMinigameView } from './minigame-view.js';
+import { restoreActivity } from './activity-save.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -57,9 +64,18 @@ const game = new E.Game({
     reload: ['KeyR', 'Pad2', 'Act:reload'],
     pause: ['Escape', 'KeyP', 'Pad9'],
     map: ['KeyM', 'Pad8'],
-    phone: ['KeyT', 'Pad3'],
+    phone: ['KeyT'],
     camera: ['KeyV'],
     weapon: ['KeyQ', 'Pad5'],
+    aim: ['Mouse2', 'Pad4', 'Act:aim'],
+    crouch: ['ControlLeft', 'ControlRight', 'Pad10', 'Act:crouch'],
+    cover: ['KeyC', 'Pad1', 'Act:cover'],
+    jump: ['KeyJ', 'Pad3', 'Act:jump'],
+    dodge: ['KeyX', 'Act:dodge'],
+    counter: ['KeyF', 'Act:counter'],
+    disarm: ['KeyZ', 'Act:disarm'],
+    heavy: ['AltLeft', 'Act:heavy'],
+    surrender: ['KeyG', 'Act:surrender'],
     start: ['Enter'],
     confirm: ['Enter', 'Pad0'],
     cancel: ['Escape', 'Pad1'],
@@ -75,6 +91,98 @@ const dialogs = [$('pause-dialog'), $('info-dialog'), $('map-dialog')];
 const touch = { x: 0, y: 0, id: null };
 const noticeHistory = new Set();
 let mapCursor = null;
+let lastAttackSerial = 0;
+const combatEffectsSeen = new Set();
+const touchCombat = { crouch: false, aim: false, block: false };
+const activityUI = createMinigameView({
+  audio: game.audio,
+  onSnapshot(session) {
+    if (state.activitySession?.session === session) storeProgress();
+  },
+  onResult(result, session) {
+    recordActivity(result, session);
+  },
+  onClose(session) {
+    if (state.activitySession?.session === session) {
+      recordActivity(session.result, session);
+      state.activitySession = null;
+      storeProgress();
+    }
+    refreshPaused();
+  },
+});
+dialogs.push(activityUI.dialog);
+
+function recordActivity(result, session) {
+  const active = state.activitySession;
+  if (!result || !active || active.session !== session || active.recorded) return;
+  active.recorded = true;
+  state.progress.activityResults ||= [];
+  const score =
+    session.kind === 'arcade'
+      ? session.score
+      : session.kind === 'bowling'
+        ? session.players[0].score
+        : session.kind === 'darts'
+          ? session.startingScore - session.players[0].remaining
+          : session.players[0].shots;
+  state.progress.activityResults.push({
+    id: active.id,
+    kind: session.kind,
+    outcome: result.outcome,
+    score,
+    winner: result.winner,
+    time: state.time,
+  });
+  state.progress.activityResults = state.progress.activityResults.slice(-150);
+  if (session.kind === 'arcade')
+    state.progress.arcadeBest = Math.max(state.progress.arcadeBest || 0, score);
+  if (session.kind === 'pool' && result.outcome === 'win' && result.winner === 0) {
+    state.player.money += 40;
+    state.progress.cashEarned += 40;
+    announce('You took the table. Pool winnings: $40.');
+  }
+  updateHud();
+  storeProgress();
+}
+function openActivity(kind, restored = null) {
+  if (
+    !restored &&
+    (state.mission || state.taxiJob || state.wanted.level || state.player.vehicleId)
+  ) {
+    announce('Finish your job, lose police attention, and come inside on foot first.');
+    return;
+  }
+  const fee = kind === 'pool' ? 20 : kind === 'bowling' ? 10 : kind === 'arcade' ? 2 : 0;
+  if (!restored && state.player.money < fee) {
+    announce(`You need $${fee} for this activity.`, true);
+    return;
+  }
+  closeAllDialogs();
+  if (!restored) state.player.money -= fee;
+  updateHud();
+  state.progress.activitySerial = (state.progress.activitySerial || 0) + (restored ? 0 : 1);
+  const savedSession = restored ? restoreActivity(restored.session) : null;
+  if (savedSession && savedSession.kind !== kind)
+    throw new Error('The saved activity does not match its venue.');
+  activityUI.open(kind, {
+    restored: savedSession,
+    seed: 61 + state.progress.activitySerial,
+    entryFee: fee,
+  });
+  state.activitySession = restored
+    ? { ...restored, session: activityUI.state }
+    : {
+        id: `activity-${state.progress.activitySerial}`,
+        kind,
+        session: activityUI.state,
+        fee,
+        recorded: false,
+      };
+  activityUI.resume();
+  openDialog(activityUI.dialog);
+  storeProgress();
+}
 
 function escapeHTML(text) {
   return String(text).replace(
@@ -140,6 +248,14 @@ function openDialog(dialog) {
   closeAllDialogs();
   dialog.showModal();
   refreshPaused();
+  try {
+    padPrevious = (
+      Array.from(navigator.getGamepads?.() || []).find((p) => p && p.connected !== false)
+        ?.buttons || []
+    ).map((button) => button.pressed);
+  } catch {
+    /* optional controllers */
+  }
 }
 document.addEventListener('keydown', (event) => {
   const open = dialogs.find((dialog) => dialog.open);
@@ -187,6 +303,9 @@ function start(continuing = false) {
   lastHud = state.time - 1;
   lastSave = state.time;
   lastHealth = state.player.health;
+  lastAttackSerial = state.player.attackSerial || 0;
+  combatEffectsSeen.clear();
+  touchCombat.crouch = touchCombat.aim = touchCombat.block = false;
   noticeHistory.clear();
   if (continuing) for (const notice of state.notifications) noticeHistory.add(notice.id);
   $('notifications').replaceChildren();
@@ -198,6 +317,15 @@ function start(continuing = false) {
     ],
   });
   updateHud();
+  if (continuing && state.activitySession?.session) {
+    const pending = state.activitySession;
+    try {
+      openActivity(pending.kind, pending);
+    } catch {
+      state.activitySession = null;
+      announce('Your saved activity could not be restored. City progress is intact.', true);
+    }
+  }
 }
 function title() {
   if (mode === 'play') storeProgress();
@@ -256,6 +384,15 @@ function showControls() {
     ['Aim', 'MOUSE'],
     ['Fire', 'CLICK / SPACE'],
     ['Reload', 'R'],
+    ['Aim / guard', 'RIGHT MOUSE / LB'],
+    ['Jump / vault / climb', 'J / Y'],
+    ['Crouch', 'CTRL / L3'],
+    ['Cover', 'C / B'],
+    ['Dodge', 'X'],
+    ['Counter', 'F / GUARD + RT'],
+    ['Disarm', 'Z / GUARD + RB'],
+    ['Heavy strike', 'ALT + FIRE'],
+    ['Surrender', 'HOLD G'],
     ['Switch weapon', 'Q'],
     ['City map / waypoint', 'M'],
     ['Phone / contacts', 'T'],
@@ -264,7 +401,7 @@ function showControls() {
   ];
   info(
     'Own the streets.',
-    `<div class="controls-grid">${controls.map(([name, key]) => `<div class="control-row"><span>${name}</span><kbd>${key}</kbd></div>`).join('')}</div><p>On foot, movement follows the screen. In a vehicle, forward accelerates, backward reverses, and left/right steer. Hold sprint to run on foot or brake in a vehicle.</p><p>On touch screens, use the left stick and the USE, FIRE, RUN, and LOAD buttons. The pause menu also opens the phone and changes weapons. Gamepads use the left stick, A to interact, RT to fire, and LT to sprint or brake.</p><p>Break police line of sight and leave the search circle to lose heat. Save at Voss Dispatch or from the pause menu. Progress also saves automatically.</p>`,
+    `<div class="controls-grid">${controls.map(([name, key]) => `<div class="control-row"><span>${name}</span><kbd>${key}</kbd></div>`).join('')}</div><p>On foot, movement follows the screen. In a vehicle, forward accelerates, backward reverses, and left/right steer. Hold sprint to run on foot or brake in a vehicle.</p><p>On touch screens, use the stick, USE, FIRE, RUN, and LOAD. MORE ACTIONS adds aiming, guard, crouch, cover, jumping, and surrender. The pause menu opens your phone and changes weapons.</p><p>Use cover near walls. Guard before a melee hit, then counter while your opponent is exposed. Jump toward low barriers or parked cars to vault, and toward a low ledge to climb.</p><p>Police react to witnesses and their last sighting. Break line of sight and leave the search circle to lose heat. At one star, hold G to surrender; resisting raises the response. Save at Voss Dispatch or from the pause menu.</p>`,
   );
 }
 function showSettings() {
@@ -331,6 +468,84 @@ function showPhone() {
   );
   $('phone-journal').addEventListener('click', showJournal);
 }
+function showWeaponShop(message = '') {
+  const available = Object.entries(WEAPONS).filter(
+    ([id]) => !['unarmed', 'street-object'].includes(id),
+  );
+  info(
+    'Tools of the trade.',
+    `${message ? `<p role="status" class="shop-message">${escapeHTML(message)}</p>` : ''}<p>Available cash: $${state.player.money.toLocaleString()}. One weapon per class can be carried; owned equipment can be re-equipped here.</p><div class="weapon-catalogue">${available.map(([id, w]) => `<article class="weapon-card"><div><h3>${escapeHTML(w.name)}</h3><p>${escapeHTML(w.class.toUpperCase())} · ${w.mode === 'melee' ? (w.windup > 0.2 ? 'HEAVY SWING' : 'QUICK STRIKE') : `CAPACITY ${w.clipSize}`} · ${state.player.ownedWeapons.includes(id) ? 'OWNED' : `$${w.cost}`}</p></div><button data-buy-weapon="${id}">${state.player.ownedWeapons.includes(id) ? 'EQUIP' : 'BUY'}</button>${w.mode !== 'melee' && state.player.ownedWeapons.includes(id) ? `<button class="ammo-purchase" data-buy-ammo="${id}">AMMUNITION / $${w.ammoCost}</button>` : ''}</article>`).join('')}</div>`,
+    'ROOK’S SPORTING GOODS',
+  );
+  for (const button of $('info-content').querySelectorAll('[data-buy-weapon]'))
+    button.addEventListener('click', () => {
+      const purchased = buyWeapon(state, button.dataset.buyWeapon);
+      showWeaponShop(
+        purchased
+          ? `${WEAPONS[button.dataset.buyWeapon].name} equipped.`
+          : state.notifications.at(-1)?.text || 'The purchase could not be completed.',
+      );
+      storeProgress();
+    });
+  for (const button of $('info-content').querySelectorAll('[data-buy-ammo]'))
+    button.addEventListener('click', () => {
+      const purchased = buyAmmo(state, button.dataset.buyAmmo);
+      showWeaponShop(
+        purchased
+          ? `Ammunition purchased for ${WEAPONS[button.dataset.buyAmmo].name}.`
+          : state.notifications.at(-1)?.text || 'The purchase could not be completed.',
+      );
+      storeProgress();
+    });
+}
+function showActionShelf() {
+  info(
+    'Your next move.',
+    `<div class="action-shelf"><button id="action-jump">JUMP / VAULT / CLIMB</button><button id="action-cover">ENTER / LEAVE COVER</button><button id="action-crouch" class="${touchCombat.crouch ? 'selected' : ''}">CROUCH ${touchCombat.crouch ? 'ON' : 'OFF'}</button><button id="action-aim" class="${touchCombat.aim ? 'selected' : ''}">AIM ${touchCombat.aim ? 'ON' : 'OFF'}</button><button id="action-block" class="${touchCombat.block ? 'selected' : ''}">GUARD ${touchCombat.block ? 'ON' : 'OFF'}</button><button id="action-weapon">SWITCH WEAPON</button><button id="action-heavy">HEAVY STRIKE</button><button id="action-counter">COUNTER</button><button id="action-disarm">DISARM</button><button id="action-surrender">SURRENDER</button></div><p>Use cover near a wall. Jump toward low barriers, ledges, or a parked vehicle to traverse it. Guard before a melee hit, then counter while your opponent is exposed.</p>`,
+  );
+  const bind = (id, callback) =>
+    $(id).addEventListener('click', () => {
+      closeAllDialogs();
+      callback();
+    });
+  bind('action-jump', () => jumpOrVault(state));
+  bind('action-cover', () => toggleCover(state));
+  bind('action-crouch', () => {
+    touchCombat.crouch = !touchCombat.crouch;
+  });
+  bind('action-aim', () => {
+    touchCombat.aim = !touchCombat.aim;
+  });
+  bind('action-block', () => {
+    touchCombat.block = !touchCombat.block;
+  });
+  bind('action-weapon', () => {
+    const list = state.player.weapons;
+    selectWeapon(state, list[(list.indexOf(state.player.weapon) + 1) % list.length]);
+  });
+  bind('action-heavy', () => {
+    game.input.press('Act:heavy');
+    game.input.press('Act:fire');
+    setTimeout(() => {
+      game.input.release('Act:heavy');
+      game.input.release('Act:fire');
+    }, 70);
+  });
+  bind('action-counter', () => {
+    game.input.press('Act:counter');
+    setTimeout(() => game.input.release('Act:counter'), 70);
+  });
+  bind('action-disarm', () => {
+    game.input.press('Act:disarm');
+    setTimeout(() => game.input.release('Act:disarm'), 70);
+  });
+  bind('action-surrender', () => {
+    game.input.press('Act:surrender');
+    setTimeout(() => game.input.release('Act:surrender'), 5000);
+  });
+}
+$('touch-more').addEventListener('click', showActionShelf);
+$('pause-actions').addEventListener('click', showActionShelf);
 $('pause-phone').addEventListener('click', showPhone);
 $('pause-weapon').addEventListener('click', () => {
   const list = state.player.weapons;
@@ -403,6 +618,30 @@ function drawMap(canvas, full = false) {
       Math.PI * 2,
     );
     g.stroke();
+    for (const officer of state.police) {
+      if (officer.health <= 0 || officer.inVehicle) continue;
+      const q = pt(officer.x, officer.y);
+      g.fillStyle = '#ce8a70';
+      g.fillRect(q[0] - 2, q[1] - 2, 4, 4);
+    }
+    for (const vehicle of state.vehicles) {
+      if (!vehicle.policeControlled || vehicle.health <= 0) continue;
+      const q = pt(vehicle.x, vehicle.y);
+      g.fillStyle = '#91b7c4';
+      g.fillRect(q[0] - 3, q[1] - 3, 6, 6);
+    }
+    for (const craft of state.policeAircraft || []) {
+      if (craft.health <= 0) continue;
+      const q = pt(craft.x, craft.y);
+      g.strokeStyle = '#d4b88b';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(q[0] - 4, q[1]);
+      g.lineTo(q[0] + 4, q[1]);
+      g.moveTo(q[0], q[1] - 4);
+      g.lineTo(q[0], q[1] + 4);
+      g.stroke();
+    }
   }
   if (full) {
     for (const l of WORLD.locations) {
@@ -540,12 +779,17 @@ addEventListener('blur', () => {
   touch.id = null;
   touch.x = touch.y = 0;
   $('joystick-knob').style.transform = '';
-  if (mode === 'play') pause();
+  if (activityUI.dialog.open) {
+    activityUI.pause();
+    storeProgress();
+  } else if (mode === 'play') pause();
 });
+addEventListener('focus', () => activityUI.resume());
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && mode === 'play') {
     storeProgress();
-    pause();
+    if (activityUI.dialog.open) activityUI.pause();
+    else pause();
   }
 });
 addEventListener('resize', () => {
@@ -570,8 +814,14 @@ function updateHud() {
   $('weapon-name').textContent = p.vehicleId
     ? VEHICLE_SPECS[currentVehicle(state)?.spec]?.name || 'VEHICLE'
     : definition.name;
-  $('ammo').innerHTML = `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
+  $('ammo').innerHTML =
+    definition.mode === 'melee'
+      ? '<small>READY</small>'
+      : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
   $('wanted-stars').textContent = '★'.repeat(state.wanted.level);
+  $('wanted-stars').style.color = ['search', 'cooling'].includes(state.wanted.status)
+    ? '#9daf9f'
+    : '#e6c281';
   $('wanted-stars').setAttribute(
     'aria-label',
     state.wanted.level
@@ -601,6 +851,7 @@ function updateHud() {
   $('context-prompt').hidden = !candidate || !!state.dialogue;
   if (candidate) $('context-text').textContent = candidate.prompt || candidate.name;
   $('dialogue-panel').hidden = !state.dialogue;
+  $('touch-more').hidden = !!state.dialogue;
   if (state.dialogue) {
     $('dialogue-speaker').textContent = state.dialogue.speaker;
     $('dialogue-text').textContent = state.dialogue.text;
@@ -632,6 +883,10 @@ function updateControllerMenus() {
     return;
   }
   const pressed = (index) => !!pad.buttons[index]?.pressed && !padPrevious[index];
+  if (activityUI.dialog.open && activityUI.handleGamepad(pad, pressed)) {
+    padPrevious = pad.buttons.map((button) => button.pressed);
+    return;
+  }
   const open = dialogs.find((dialog) => dialog.open);
   const menu = open || (mode === 'title' ? $('title-screen') : null);
   if (menu) {
@@ -722,18 +977,33 @@ game.start({
       settings.camera = settings.camera === 'city' ? 'topdown' : 'city';
       applyCamera();
     }
-    if (input.pressed('weapon')) {
+    const guardChord = input.down('aim') && WEAPONS[state.player.weapon].mode === 'melee';
+    const counterPressed = input.pressed('counter') || (guardChord && input.pressed('fire'));
+    const disarmPressed = input.pressed('disarm') || (guardChord && input.pressed('weapon'));
+    if (input.pressed('weapon') && !guardChord) {
       const list = state.player.weapons;
       selectWeapon(state, list[(list.indexOf(state.player.weapon) + 1) % list.length]);
     }
     if (input.pressed('interact')) {
+      const candidate = nearestInteractable(state);
+      if (candidate?.type === 'weapons') {
+        showWeaponShop();
+        return;
+      }
       const result = interact(state);
       game.audio.sfx('select');
       if (result?.type === 'save') storeProgress(true);
+      if (result?.type === 'activity') {
+        openActivity(result.activity);
+        return;
+      }
     }
     const movement = touch.id !== null ? [touch.x, touch.y] : input.move();
     const ground = game.view.screenDirToGround(...movement);
-    let aimAngle;
+    let aimAngle, aimTarget;
+    const targetable = [...state.hostiles, ...state.police, ...(state.policeAircraft || [])].filter(
+      (actor) => actor.health > 0 && !actor.inVehicle,
+    );
     const padAim = input.padAim;
     if (padAim) {
       const worldAim = game.view.screenDirToGround(...padAim);
@@ -741,9 +1011,25 @@ game.start({
     } else if (input.mouse.active && input.aimSource === 'mouse') {
       const mouse = game.mouseGround();
       if (mouse) aimAngle = Math.atan2(mouse[1] - state.player.y, mouse[0] - state.player.x);
+      const projectedPointer = input.mouseScreen();
+      if (projectedPointer) {
+        const hovered = targetable
+          .map((actor) => {
+            const z = (actor.z || 0) + (actor.role === 'air-search' ? 0 : 13),
+              point = game.view.p(actor.x, actor.y, z);
+            return {
+              actor,
+              z,
+              distance: Math.hypot(projectedPointer[0] - point[0], projectedPointer[1] - point[1]),
+            };
+          })
+          .filter((target) => target.distance < 24)
+          .sort((a, b) => a.distance - b.distance)[0];
+        if (hovered) aimTarget = { x: hovered.actor.x, y: hovered.actor.y, z: hovered.z };
+      }
     } else if (input.down('fire') || input.pressed('fire')) {
-      const enemies = [...state.hostiles, ...state.police]
-        .filter((e) => e.health > 0)
+      const enemies = targetable
+        .filter((e) => state.hostiles.includes(e) || state.wanted.level >= 2)
         .sort(
           (a, b) =>
             Math.hypot(a.x - state.player.x, a.y - state.player.y) -
@@ -752,10 +1038,15 @@ game.start({
       if (
         enemies[0] &&
         Math.hypot(enemies[0].x - state.player.x, enemies[0].y - state.player.y) < 350
-      )
+      ) {
         aimAngle = Math.atan2(enemies[0].y - state.player.y, enemies[0].x - state.player.x);
+        aimTarget = {
+          x: enemies[0].x,
+          y: enemies[0].y,
+          z: (enemies[0].z || 0) + (enemies[0].role === 'air-search' ? 0 : 13),
+        };
+      }
     }
-    const bulletsBefore = state.bullets.filter((b) => b.owner === 'player').length;
     updateSimulation(state, dt, {
       moveX: ground[0],
       moveY: ground[1],
@@ -765,11 +1056,25 @@ game.start({
       right: movement[0] > 0.15,
       sprint: input.down('sprint'),
       brake: input.down('sprint'),
-      fire: input.down('fire') || input.pressed('fire'),
+      fire: (input.down('fire') || input.pressed('fire')) && !counterPressed && !disarmPressed,
       reload: input.pressed('reload'),
+      aim: input.down('aim') || touchCombat.aim,
+      crouch: input.down('crouch') || touchCombat.crouch,
+      cover: input.pressed('cover'),
+      jump: input.pressed('jump'),
+      block:
+        (input.down('aim') && WEAPONS[state.player.weapon].mode === 'melee') || touchCombat.block,
+      dodge: input.pressed('dodge'),
+      counter: counterPressed,
+      disarm: disarmPressed,
+      heavyAttack: input.down('heavy'),
+      surrender: input.down('surrender'),
       aimAngle,
+      aimTarget,
     });
     state.player.firing = input.down('fire') || input.pressed('fire');
+    const zoom = state.player.scoped ? WEAPONS[state.player.weapon].scopeZoom || 1 : 1;
+    if (game.zoom !== zoom) game.setZoom(zoom);
     const vehicle = currentVehicle(state);
     game.focus(
       state.player.x + (vehicle ? Math.cos(vehicle.angle) * vehicle.speed * 0.14 : 0),
@@ -783,11 +1088,62 @@ game.start({
         sound: 'hurt',
       });
     }
-    if (state.bullets.filter((b) => b.owner === 'player').length > bulletsBefore) {
-      game.audio.sfx('shoot', { vol: 0.17, pitch: 0.6 });
-      game.particles.sparks(state.player.x, state.player.y, 14, 3, state.player.angle, {
-        color: '#e8d398',
+    if (
+      state.wanted.level >= 2 &&
+      Math.floor(game.real * 2) !== Math.floor((game.real - dt) * 2) &&
+      state.vehicles.some(
+        (car) =>
+          car.policeControlled &&
+          car.health > 0 &&
+          Math.hypot(car.x - state.player.x, car.y - state.player.y) < 220,
+      )
+    ) {
+      game.audio.sfx({
+        wave: 'sine',
+        freq: Math.floor(game.real) % 2 ? 580 : 760,
+        to: Math.floor(game.real) % 2 ? 760 : 580,
+        dur: 0.38,
+        vol: 0.055,
       });
+    }
+    if (state.player.attackSerial > lastAttackSerial) {
+      const attack = state.player.lastAttack;
+      weaponSound(game, attack.weapon, attack.kind);
+      if (WEAPONS[attack.weapon].mode === 'ballistic')
+        game.particles.sparks(
+          state.player.x + Math.cos(state.player.angle) * 15,
+          state.player.y + Math.sin(state.player.angle) * 15,
+          (state.player.z || 0) + 14,
+          3,
+          state.player.angle,
+          {
+            color: '#e8d398',
+          },
+        );
+      lastAttackSerial = state.player.attackSerial;
+    }
+    for (const effect of state.combatEffects || []) {
+      if (combatEffectsSeen.has(effect.id)) continue;
+      combatEffectsSeen.add(effect.id);
+      if (effect.type === 'explosion')
+        game.particles.explosion(
+          effect.x,
+          effect.y,
+          effect.z || 0,
+          Math.min(1.5, (effect.radius || 30) / 40),
+        );
+      else if (effect.type === 'glass-break') {
+        game.particles.bits(effect.x, effect.y, 6, 9, ['#afc6b4', '#d4e0c5']);
+        game.audio.sfx('bump', { vol: 0.15, pitch: 1.8 });
+      } else if (effect.type === 'parry' || effect.type === 'block') {
+        game.particles.sparks(effect.x, effect.y, (effect.z || 0) + 12, 6);
+        game.audio.sfx('bump', { vol: 0.15 });
+      } else if (effect.type === 'impact' || effect.type === 'object-impact')
+        game.particles.impact(effect.x, effect.y, (effect.z || 0) + 12, 4, '#c8a878');
+    }
+    if (combatEffectsSeen.size > 1500) {
+      combatEffectsSeen.clear();
+      for (const effect of state.combatEffects || []) combatEffectsSeen.add(effect.id);
     }
     lastHealth = state.player.health;
     if (
@@ -803,6 +1159,7 @@ game.start({
   },
   draw(r) {
     updateControllerMenus();
+    activityUI.tick();
     renderer.draw(r, state, {
       title: mode === 'title',
       rain: settings.rain && !settings.reduceMotion,

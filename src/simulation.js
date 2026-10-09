@@ -1,3 +1,29 @@
+import {
+  initializePolicing,
+  resetPolicing,
+  forcePoliceWanted,
+  reportObservedCrime,
+  updatePolicing,
+  relinquishPoliceVehicle,
+  validatePoliceSave,
+} from './police.js';
+import { WORLD, ROAD_XS as roadXs, ROAD_YS as roadYs } from './world.js';
+import {
+  WEAPONS,
+  SHOP_WEAPONS,
+  initializeCombat,
+  equipOwnedWeapon,
+  acquireWeapon,
+  fireCombatWeapon,
+  combatDefenseInput,
+  updateMelee,
+  updateOrdnance,
+  hitCombatant,
+  predictThrow,
+  startActorMelee,
+  validateCombatSave,
+} from './combat.js';
+export { WORLD, WEAPONS };
 /** LOWLIGHT's deterministic, renderer-independent city simulation. */
 const TAU = Math.PI * 2;
 const SAVE_VERSION = 1;
@@ -68,188 +94,6 @@ export const VEHICLE_SPECS = Object.freeze({
     health: 170,
     seats: 4,
   },
-});
-
-export const WEAPONS = Object.freeze({
-  pistol: {
-    name: 'Service pistol',
-    damage: 28,
-    clipSize: 12,
-    fireInterval: 0.25,
-    reloadTime: 1.15,
-    range: 370,
-    bulletSpeed: 600,
-    spread: 0.025,
-    pellets: 1,
-    cost: 0,
-  },
-  shotgun: {
-    name: 'Pump shotgun',
-    damage: 15,
-    clipSize: 6,
-    fireInterval: 0.82,
-    reloadTime: 1.8,
-    range: 210,
-    bulletSpeed: 510,
-    spread: 0.14,
-    pellets: 6,
-    cost: 620,
-  },
-  smg: {
-    name: 'Compact SMG',
-    damage: 17,
-    clipSize: 30,
-    fireInterval: 0.095,
-    reloadTime: 1.45,
-    range: 340,
-    bulletSpeed: 640,
-    spread: 0.065,
-    pellets: 1,
-    cost: 940,
-  },
-});
-
-const roadXs = [180, 480, 780, 1080, 1380, 1620];
-const roadYs = [180, 440, 700, 960, 1220];
-const districts = [
-  { id: 'saint-brigid', name: 'Saint Brigid', x: 0, y: 0, w: 650, h: 620, color: '#71817c' },
-  { id: 'breakwater', name: 'Breakwater', x: 0, y: 620, w: 650, h: 780, color: '#967d64' },
-  { id: 'glassward', name: 'Glassward', x: 650, y: 0, w: 650, h: 620, color: '#8395a1' },
-  { id: 'the-narrows', name: 'The Narrows', x: 650, y: 620, w: 650, h: 780, color: '#7c716a' },
-  { id: 'ironhaven', name: 'Ironhaven', x: 1300, y: 0, w: 500, h: 1400, color: '#787f81' },
-];
-const roads = [
-  ...roadXs.map((x, i) => ({ id: `avenue-${i}`, x1: x, y1: 68, x2: x, y2: 1338, width: 80 })),
-  ...roadYs.map((y, i) => ({ id: `street-${i}`, x1: 68, y1: y, x2: 1690, y2: y, width: 80 })),
-];
-const buildings = [];
-for (let row = 0; row < roadYs.length - 1; row += 1) {
-  for (let col = 0; col < roadXs.length - 1; col += 1) {
-    const x = roadXs[col] + 64;
-    const y = roadYs[row] + 64;
-    const availableWidth = roadXs[col + 1] - roadXs[col] - 128;
-    const h = roadYs[row + 1] - roadYs[row] - 128;
-    const district = districts.find(
-      (item) => x >= item.x && x < item.x + item.w && y >= item.y && y < item.y + item.h,
-    );
-    const gap = col === 4 ? 13 : 18;
-    const w = (availableWidth - gap) / 2;
-    for (let wing = 0; wing < 2; wing += 1) {
-      buildings.push({
-        id: `block-${row}-${col}-${wing}`,
-        x: x + wing * (w + gap),
-        y,
-        w,
-        h,
-        height: 14 + ((row * 13 + col * 7 + wing * 5) % 6) * 7,
-        color: district.color,
-        type: col > 3 ? 'warehouse' : row > 2 ? 'tenement' : 'office',
-        district: district.id,
-      });
-    }
-  }
-}
-const locations = [
-  {
-    id: 'felix-office',
-    name: 'Voss Dispatch',
-    type: 'home',
-    x: 458,
-    y: 700,
-    color: '#dfbd62',
-    description: 'Felix keeps the lights on here. Rest and save.',
-  },
-  {
-    id: 'saira-shop',
-    name: 'Saira’s Garage',
-    type: 'garage',
-    x: 780,
-    y: 718,
-    color: '#55cfc2',
-    cost: 120,
-    description: 'Repair your current vehicle · $120',
-  },
-  {
-    id: 'clinic',
-    name: 'Southbank Clinic',
-    type: 'clinic',
-    x: 180,
-    y: 960,
-    color: '#83dfae',
-    cost: 60,
-    description: 'Restore health · $60',
-  },
-  {
-    id: 'armour-shop',
-    name: 'Night Market Supply',
-    type: 'armour',
-    x: 1080,
-    y: 192,
-    color: '#b99aeb',
-    cost: 180,
-    description: 'Armour and ammunition · $180',
-  },
-  {
-    id: 'weapon-shop',
-    name: 'Rook’s Sporting Goods',
-    type: 'weapons',
-    x: 1380,
-    y: 440,
-    color: '#de8266',
-    cost: 620,
-    description: 'Buy shotgun, then SMG; refill ammo · $120',
-  },
-  {
-    id: 'diner',
-    name: 'The Blue Hour Diner',
-    type: 'food',
-    x: 480,
-    y: 440,
-    color: '#eabb75',
-    cost: 18,
-    description: 'Hot meal and a little peace · $18',
-  },
-  {
-    id: 'taxi-rank',
-    name: 'Harbor Taxi Rank',
-    type: 'taxi',
-    x: 480,
-    y: 718,
-    color: '#e7bd56',
-    description: 'Pick up a paying passenger in a taxi.',
-  },
-  {
-    id: 'imani-radio',
-    name: 'Signal House',
-    type: 'radio',
-    x: 780,
-    y: 440,
-    color: '#76badd',
-    description: 'Independent radio. Imani knows what the city hides.',
-  },
-  {
-    id: 'port-depot',
-    name: 'Pier 8 Depot',
-    type: 'depot',
-    x: 1620,
-    y: 960,
-    color: '#87c8bd',
-    description: 'The night freight never stops.',
-  },
-];
-
-export const WORLD = Object.freeze({
-  width: 1800,
-  height: 1400,
-  roads,
-  buildings,
-  districts,
-  locations,
-  water: [{ x: 1716, y: 0, w: 84, h: 1400 }],
-  spawn: { x: 480, y: 700 },
-  bounds: { left: 54, top: 54, right: 1708, bottom: 1360 },
-  title: 'Harbor City',
-  description: 'Five connected districts, one very long night.',
 });
 
 const target = (x, y, name, radius = 35) => ({ x, y, name, radius });
@@ -746,6 +590,8 @@ export function createSimulation(seed = 61) {
       panic: 0,
     });
   }
+  initializeCombat(state, WORLD.pickups || []);
+  initializePolicing(state);
   startMission(state, 'first-shift');
   return state;
 }
@@ -759,7 +605,7 @@ function circleRectCollision(x, y, radius, rect) {
   const nearY = clamp(y, rect.y, rect.y + rect.h);
   return Math.hypot(x - nearX, y - nearY) < radius;
 }
-export function isBlocked(x, y, radius = 7) {
+export function isBlocked(x, y, radius = 7, z = 0) {
   if (
     x - radius < WORLD.bounds.left ||
     x + radius > WORLD.bounds.right ||
@@ -767,7 +613,14 @@ export function isBlocked(x, y, radius = 7) {
     y + radius > WORLD.bounds.bottom
   )
     return true;
-  return WORLD.buildings.some((building) => circleRectCollision(x, y, radius, building));
+  return (
+    WORLD.buildings.some(
+      (building) => z < (building.height || 40) && circleRectCollision(x, y, radius, building),
+    ) ||
+    (WORLD.obstacles || []).some(
+      (obstacle) => z < obstacle.height && circleRectCollision(x, y, radius, obstacle),
+    )
+  );
 }
 function moveBody(body, dx, dy, radius) {
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (radius * 0.65)));
@@ -775,14 +628,14 @@ function moveBody(body, dx, dy, radius) {
   for (let i = 0; i < steps; i += 1) {
     const nextX = body.x + dx / steps;
     const nextY = body.y + dy / steps;
-    if (!isBlocked(nextX, nextY, radius)) {
+    if (!isBlocked(nextX, nextY, radius, body.z || 0)) {
       body.x = nextX;
       body.y = nextY;
       continue;
     }
     collided = true;
-    if (!isBlocked(nextX, body.y, radius)) body.x = nextX;
-    if (!isBlocked(body.x, nextY, radius)) body.y = nextY;
+    if (!isBlocked(nextX, body.y, radius, body.z || 0)) body.x = nextX;
+    if (!isBlocked(body.x, nextY, radius, body.z || 0)) body.y = nextY;
   }
   return collided;
 }
@@ -791,14 +644,22 @@ function hasLineOfSight(a, b) {
   const segments = Math.ceil(length / 9);
   for (let i = 1; i < segments; i += 1) {
     const fraction = i / segments;
+    const z0 = (a.z || 0) + (a.health !== undefined ? 14 : 0),
+      z1 = (b.z || 0) + (b.health !== undefined ? 14 : 0);
+    const z = z0 + (z1 - z0) * fraction;
     if (
-      WORLD.buildings.some((building) =>
-        circleRectCollision(
-          a.x + (b.x - a.x) * fraction,
-          a.y + (b.y - a.y) * fraction,
-          1,
-          building,
-        ),
+      [...WORLD.buildings, ...(WORLD.obstacles || [])].some(
+        (building) =>
+          z <
+            (building.type === 'barrier' || building.type === 'ledge' || building.type === 'fence'
+              ? building.height
+              : building.height || 40) &&
+          circleRectCollision(
+            a.x + (b.x - a.x) * fraction,
+            a.y + (b.y - a.y) * fraction,
+            1,
+            building,
+          ),
       )
     )
       return false;
@@ -810,10 +671,16 @@ function damagePlayer(state, damage) {
   const absorbed = Math.min(state.player.armour, damage * 0.75);
   state.player.armour -= absorbed;
   state.player.health = Math.max(0, state.player.health - (damage - absorbed));
+  if (damage > 0) state.player.reloadRemaining = 0;
   if (state.player.health <= 0) killPlayer(state);
 }
 function damageVehicle(state, vehicle, damage) {
   if (vehicle.health <= 0) return;
+  if (vehicle.armour > 0) {
+    const absorbed = Math.min(vehicle.armour, damage * 0.55);
+    vehicle.armour -= absorbed;
+    damage -= absorbed;
+  }
   vehicle.health = Math.max(0, vehicle.health - damage);
   if (vehicle.health === 0) {
     vehicle.speed = 0;
@@ -835,6 +702,12 @@ function killPlayer(state) {
     vehicle.speed = 0;
   }
   state.player.vehicleId = null;
+  state.player.cover = null;
+  state.player.traversal = null;
+  state.player.meleeAction = null;
+  state.player.defending = false;
+  state.player.z = 0;
+  state.player.vz = 0;
   if (state.mission) failMission(state, 'Mara was incapacitated. The assignment can be retried.');
   state.taxiJob = null;
   state.hostiles = [];
@@ -862,20 +735,41 @@ function respawn(state) {
     unseen: 0,
     pursuitTime: 0,
   };
-  state.police = [];
+  resetPolicing(state);
   state.respawnTimer = 0;
   notify(state, `Southbank Clinic patched you up. Treatment: $${fee}.`, 'info');
 }
 
+function policeContext(state) {
+  return {
+    world: WORLD,
+    specs: VEHICLE_SPECS,
+    id: (prefix) => nextId(state, prefix),
+    random: () => random(state),
+    hasLineOfSight,
+    isBlocked,
+    moveBody,
+    damageVehicle: (vehicle, amount) => damageVehicle(state, vehicle, amount),
+    fire: (actor) => fireHostile(state, actor),
+    reloadActor: updateEnemyReload,
+    notify: (text, kind) => notify(state, text, kind),
+    onArrest: () => {
+      if (state.mission) failMission(state, 'Mara was arrested. The assignment can be retried.');
+      state.taxiJob = null;
+      state.dialogue = null;
+      state.bullets = [];
+      state.ordnance = [];
+    },
+  };
+}
+export function forceWanted(state, level, point = state.player) {
+  forcePoliceWanted(state, level, point, policeContext(state));
+}
+export function reportCrime(state, crime) {
+  return reportObservedCrime(state, crime, policeContext(state));
+}
 function raiseWanted(state, level = 1) {
-  state.lastCrimeTime = state.time;
-  state.wanted.level = Math.min(5, Math.max(state.wanted.level, level));
-  state.wanted.heat = Math.max(state.wanted.heat, level);
-  state.wanted.status = 'pursuit';
-  state.wanted.unseen = 0;
-  state.wanted.timer = 0;
-  state.wanted.lastSeen = { x: state.player.x, y: state.player.y };
-  state.wanted.searchRadius = 150 + state.wanted.level * 35;
+  forceWanted(state, level);
 }
 function finishReload(state) {
   const ammo = state.player.ammo[state.player.weapon];
@@ -889,6 +783,7 @@ export function reloadWeapon(state) {
   const ammo = state.player.ammo[state.player.weapon];
   if (
     state.player.health <= 0 ||
+    !['ballistic', 'rocket'].includes(weapon.mode) ||
     state.player.reloadRemaining > 0 ||
     ammo.clip === weapon.clipSize ||
     ammo.reserve <= 0
@@ -898,65 +793,119 @@ export function reloadWeapon(state) {
   return true;
 }
 export function selectWeapon(state, id) {
-  if (!WEAPONS[id] || !state.player.weapons.includes(id)) return false;
-  state.player.weapon = id;
-  state.player.reloadRemaining = 0;
-  return true;
+  return equipOwnedWeapon(state, id);
 }
-export function fireWeapon(state) {
-  const player = state.player;
-  if (player.health <= 0 || player.reloadRemaining > 0 || player.fireCooldown > 0) return false;
-  const weapon = WEAPONS[player.weapon];
-  const ammo = player.ammo[player.weapon];
-  if (ammo.clip <= 0) {
-    reloadWeapon(state);
-    return false;
+function combatContext(state) {
+  return {
+    random: () => random(state),
+    id: (prefix) => nextId(state, prefix),
+    damagePlayer: (amount) => damagePlayer(state, amount),
+    damageVehicle: (vehicle, amount) => damageVehicle(state, vehicle, amount),
+    raiseWanted: (level) => reportCrime(state, { type: 'gunfire', severity: level }),
+    reportCrime: (crime) => reportCrime(state, crime),
+    hasLineOfSight,
+    isBlocked,
+    moveBody,
+    reload: () => reloadWeapon(state),
+    notify: (text, kind) => notify(state, text, kind),
+  };
+}
+export function fireWeapon(state, input = {}) {
+  return fireCombatWeapon(state, combatContext(state), input);
+}
+export function throwTrajectory(state) {
+  return predictThrow(state, combatContext(state));
+}
+function updateEnemyReload(actor, dt) {
+  const weapon = WEAPONS[actor.weapon] || WEAPONS.pistol;
+  actor.ammo ??= {
+    clip: weapon.mode === 'throwable' ? weapon.supply || 1 : weapon.clipSize,
+    reserve: weapon.mode === 'throwable' ? 0 : weapon.clipSize * 3,
+  };
+  actor.reloadRemaining ??= 0;
+  if (actor.reloadRemaining > 0) {
+    actor.reloadRemaining = Math.max(0, actor.reloadRemaining - dt);
+    if (actor.reloadRemaining === 0) {
+      const amount = Math.min(weapon.clipSize - actor.ammo.clip, actor.ammo.reserve);
+      actor.ammo.clip += amount;
+      actor.ammo.reserve -= amount;
+    }
   }
-  ammo.clip -= 1;
-  player.fireCooldown = weapon.fireInterval;
-  for (let pellet = 0; pellet < weapon.pellets; pellet += 1) {
-    const angle = player.angle + (random(state) - 0.5) * weapon.spread * 2;
-    state.bullets.push({
-      id: nextId(state, 'bullet'),
-      x: player.x + Math.cos(angle) * 10,
-      y: player.y + Math.sin(angle) * 10,
-      prevX: player.x,
-      prevY: player.y,
-      angle,
-      vx: Math.cos(angle) * weapon.bulletSpeed,
-      vy: Math.sin(angle) * weapon.bulletSpeed,
-      remaining: weapon.range,
-      damage: weapon.damage,
-      owner: 'player',
-    });
-  }
-  state.pedestrians.forEach((person) => {
-    if (distance(person, player) < 130) person.panic = 7;
-  });
-  if (
-    state.police.some(
-      (officer) => distance(officer, player) < 280 && hasLineOfSight(officer, player),
-    )
-  )
-    raiseWanted(state, Math.max(1, state.wanted.level));
-  return true;
 }
 function fireHostile(state, hostile) {
+  const weapon = WEAPONS[hostile.weapon] || WEAPONS.pistol;
+  if (hostile.staggerRemaining > 0 || hostile.reloadRemaining > 0) return;
+  if (weapon.mode === 'melee' || distance(hostile, state.player) < 24) {
+    startActorMelee(
+      state,
+      hostile,
+      weapon.mode === 'melee' ? hostile.weapon : 'unarmed',
+      combatContext(state),
+    );
+    return;
+  }
+  hostile.ammo ??= { clip: weapon.clipSize, reserve: weapon.clipSize * 3 };
+  if (hostile.ammo.clip <= 0) {
+    if (hostile.ammo.reserve > 0) hostile.reloadRemaining = weapon.reloadTime;
+    else hostile.weapon = 'unarmed';
+    return;
+  }
+  hostile.ammo.clip--;
   const angle = angleTo(hostile, state.player) + (random(state) - 0.5) * 0.22;
-  state.bullets.push({
-    id: nextId(state, 'bullet'),
-    x: hostile.x + Math.cos(angle) * 10,
-    y: hostile.y + Math.sin(angle) * 10,
-    prevX: hostile.x,
-    prevY: hostile.y,
-    angle,
-    vx: Math.cos(angle) * 400,
-    vy: Math.sin(angle) * 400,
-    remaining: 255,
-    damage: hostile.kind === 'police' ? 7 : 9,
-    owner: hostile.id,
-  });
-  hostile.fireCooldown = hostile.weapon === 'smg' ? 0.65 : 1.0 + random(state) * 0.4;
+  if (weapon.mode === 'rocket' || weapon.mode === 'throwable') {
+    const speed = weapon.mode === 'rocket' ? weapon.bulletSpeed : weapon.throwSpeed;
+    const range = Math.max(1, distance(hostile, state.player)),
+      heightDelta = (state.player.z || 0) + 12 - ((hostile.z || 0) + 13),
+      length = Math.hypot(range, heightDelta);
+    const horizontalSpeed = weapon.mode === 'rocket' ? (speed * range) / length : speed;
+    state.ordnance.push({
+      id: nextId(state, 'enemy-ordnance'),
+      kind: weapon.mode === 'rocket' ? 'rocket' : weapon.kind,
+      weapon: hostile.weapon,
+      owner: hostile.id,
+      x: hostile.x,
+      y: hostile.y,
+      z: (hostile.z || 0) + 13,
+      vx: Math.cos(angle) * horizontalSpeed,
+      vy: Math.sin(angle) * horizontalSpeed,
+      vz: weapon.mode === 'rocket' ? (speed * heightDelta) / length : weapon.throwLift,
+      remaining: weapon.mode === 'rocket' ? weapon.range / speed : 8,
+      fuse: weapon.fuse ?? null,
+      damage: weapon.damage * 0.65,
+      radius: weapon.blastRadius || 0,
+      material: 'metal',
+      objectName: 'Discarded can',
+      bounces: 0,
+    });
+    hostile.fireCooldown = weapon.mode === 'rocket' ? 3.8 : 3;
+    return;
+  }
+  for (let pellet = 0; pellet < Math.max(1, weapon.pellets); pellet++) {
+    const direction = angle + (pellet ? (random(state) - 0.5) * weapon.spread * 2 : 0);
+    const range = Math.max(1, distance(hostile, state.player)),
+      heightDelta =
+        (state.player.z || 0) + (state.player.crouching ? 8 : 12) - ((hostile.z || 0) + 13);
+    const length = Math.hypot(range, heightDelta),
+      speed = Math.min(600, weapon.bulletSpeed),
+      horizontalSpeed = (speed * range) / length;
+    state.bullets.push({
+      id: nextId(state, 'bullet'),
+      x: hostile.x + Math.cos(direction) * 10,
+      y: hostile.y + Math.sin(direction) * 10,
+      prevX: hostile.x,
+      prevY: hostile.y,
+      z: (hostile.z || 0) + 13,
+      angle: direction,
+      vx: Math.cos(direction) * horizontalSpeed,
+      vy: Math.sin(direction) * horizontalSpeed,
+      vz: (speed * heightDelta) / length,
+      remaining: Math.min(weapon.range, 500),
+      damage: weapon.damage * (hostile.kind === 'police' ? 0.25 : 0.33),
+      owner: hostile.id,
+      weapon: hostile.weapon,
+    });
+  }
+  hostile.fireCooldown = Math.max(0.3, weapon.fireInterval * 3) + random(state) * 0.4;
 }
 function segmentDistance(point, start, end) {
   const dx = end.x - start.x,
@@ -968,35 +917,75 @@ function segmentDistance(point, start, end) {
   );
   return Math.hypot(point.x - start.x - dx * fraction, point.y - start.y - dy * fraction);
 }
+function segmentHeight(point, start, end) {
+  const dx = end.x - start.x,
+    dy = end.y - start.y,
+    t = clamp(
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy || 1),
+      0,
+      1,
+    );
+  return (start.z || 0) + ((end.z || 0) - (start.z || 0)) * t;
+}
 function updateBullets(state, dt) {
   for (const bullet of state.bullets) {
     bullet.prevX = bullet.x;
     bullet.prevY = bullet.y;
+    bullet.prevZ = bullet.z;
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
-    bullet.remaining -= Math.hypot(bullet.vx, bullet.vy) * dt;
-    const previous = { x: bullet.prevX, y: bullet.prevY };
-    if (!hasLineOfSight(previous, bullet) || isBlocked(bullet.x, bullet.y, 1)) {
+    if (bullet.vz) {
+      bullet.z = (bullet.z || 0) + bullet.vz * dt;
+      if (bullet.z < 0) {
+        bullet.remaining = 0;
+        continue;
+      }
+    }
+    bullet.remaining -= Math.hypot(bullet.vx, bullet.vy, bullet.vz || 0) * dt;
+    const previous = { x: bullet.prevX, y: bullet.prevY, z: bullet.prevZ };
+    if (!hasLineOfSight(previous, bullet) || isBlocked(bullet.x, bullet.y, 1, bullet.z || 0)) {
       bullet.remaining = 0;
       continue;
     }
     if (bullet.owner === 'player') {
-      const targets = [...state.hostiles, ...state.police, ...state.pedestrians].filter(
-        (person) => person.health > 0 && segmentDistance(person, previous, bullet) < 9,
+      const targets = [
+        ...state.hostiles,
+        ...state.police,
+        ...state.pedestrians,
+        ...state.policeAircraft,
+      ].filter(
+        (person) =>
+          person.health > 0 &&
+          segmentDistance(person, previous, bullet) < (person.role === 'air-search' ? 24 : 9) &&
+          (bullet.z === undefined ||
+            (segmentHeight(person, previous, bullet) >= (person.z || 0) &&
+              segmentHeight(person, previous, bullet) <= (person.z || 0) + 18)),
       );
       targets.sort((a, b) => distance(a, previous) - distance(b, previous));
       const victim = targets[0];
-      if (victim) {
-        victim.health = Math.max(0, victim.health - bullet.damage);
+      const car = state.vehicles
+        .filter(
+          (vehicle) =>
+            vehicle.health > 0 &&
+            vehicle.id !== state.player.vehicleId &&
+            segmentDistance(vehicle, previous, bullet) < VEHICLE_SPECS[vehicle.spec].width * 0.7 &&
+            (bullet.z === undefined || segmentHeight(vehicle, previous, bullet) <= 18),
+        )
+        .sort((a, b) => distance(a, previous) - distance(b, previous))[0];
+      if (car && (!victim || distance(car, previous) < distance(victim, previous))) {
+        damageVehicle(state, car, bullet.damage * 0.65);
         bullet.remaining = 0;
-        victim.panic = 9;
-        if (victim.kind === 'police') raiseWanted(state, Math.min(5, state.wanted.level + 1));
-        else if (!state.hostiles.some((person) => person.id === victim.id))
-          raiseWanted(state, Math.max(2, state.wanted.level));
-        if (victim.health <= 0) state.progress.kills += 1;
+      } else if (victim) {
+        hitCombatant(state, victim, bullet.damage, 'player', combatContext(state));
+        bullet.remaining = 0;
       }
     } else if (
-      segmentDistance(state.player, previous, bullet) < (state.player.vehicleId ? 16 : 8)
+      segmentDistance(state.player, previous, bullet) < (state.player.vehicleId ? 16 : 8) &&
+      (bullet.z === undefined ||
+        state.player.vehicleId ||
+        (segmentHeight(state.player, previous, bullet) >= state.player.z &&
+          segmentHeight(state.player, previous, bullet) <=
+            state.player.z + (state.player.crouching ? 10 : 18)))
     ) {
       const vehicle = currentVehicle(state);
       if (vehicle) damageVehicle(state, vehicle, bullet.damage * 1.3);
@@ -1072,7 +1061,10 @@ function drive(state, vehicle, dt, input) {
     person.panic = 8;
     vehicle.speed *= 0.68;
     if (!state.hostiles.some((hostile) => hostile.id === person.id))
-      raiseWanted(state, person.kind === 'police' ? 3 : 2);
+      reportCrime(state, {
+        type: person.kind === 'police' ? 'police-assault' : 'hit-and-run',
+        severity: person.kind === 'police' ? 3 : 2,
+      });
   }
   state.progress.distanceDriven += distance(vehicle, before);
   state.player.x = vehicle.x;
@@ -1080,8 +1072,201 @@ function drive(state, vehicle, dt, input) {
   state.player.angle = vehicle.angle;
   state.player.speed = vehicle.speed;
 }
+export function toggleCover(state) {
+  const p = state.player;
+  if (p.vehicleId || p.health <= 0 || p.z > 1 || p.traversal) return false;
+  if (p.cover) {
+    p.cover = null;
+    return true;
+  }
+  let best = null;
+  for (const b of WORLD.buildings) {
+    const candidates = [
+      {
+        x: b.x - 8,
+        y: clamp(p.y, b.y, b.y + b.h),
+        side: 'west',
+        nx: -1,
+        ny: 0,
+        min: b.y,
+        max: b.y + b.h,
+      },
+      {
+        x: b.x + b.w + 8,
+        y: clamp(p.y, b.y, b.y + b.h),
+        side: 'east',
+        nx: 1,
+        ny: 0,
+        min: b.y,
+        max: b.y + b.h,
+      },
+      {
+        x: clamp(p.x, b.x, b.x + b.w),
+        y: b.y - 8,
+        side: 'north',
+        nx: 0,
+        ny: -1,
+        min: b.x,
+        max: b.x + b.w,
+      },
+      {
+        x: clamp(p.x, b.x, b.x + b.w),
+        y: b.y + b.h + 8,
+        side: 'south',
+        nx: 0,
+        ny: 1,
+        min: b.x,
+        max: b.x + b.w,
+      },
+    ];
+    for (const point of candidates) {
+      const d = distance(p, point);
+      if (d < 20 && (!best || d < best.distance) && !isBlocked(point.x, point.y, 7))
+        best = { ...point, buildingId: b.id, distance: d };
+    }
+  }
+  if (!best) return false;
+  p.cover = best;
+  p.x = best.x;
+  p.y = best.y;
+  p.crouching = true;
+  return true;
+}
+function carBlocksFoot(state, x, y, z = 0) {
+  if (z >= 16) return false;
+  return state.vehicles.some((car) => {
+    if (car.health <= 0) return false;
+    const spec = VEHICLE_SPECS[car.spec],
+      dx = x - car.x,
+      dy = y - car.y,
+      c = Math.cos(car.angle),
+      s = Math.sin(car.angle);
+    const lx = dx * c + dy * s,
+      ly = -dx * s + dy * c;
+    return (
+      Math.hypot(
+        lx - clamp(lx, -spec.length / 2, spec.length / 2),
+        ly - clamp(ly, -spec.width / 2, spec.width / 2),
+      ) < 7
+    );
+  });
+}
+function movePlayer(state, dx, dy) {
+  const p = state.player,
+    steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+  for (let i = 0; i < steps; i++) {
+    const x = p.x + dx / steps,
+      y = p.y + dy / steps;
+    if (!carBlocksFoot(state, x, y, p.z)) moveBody(p, dx / steps, dy / steps, 7);
+    else if (!carBlocksFoot(state, x, p.y, p.z)) moveBody(p, dx / steps, 0, 7);
+    else if (!carBlocksFoot(state, p.x, y, p.z)) moveBody(p, 0, dy / steps, 7);
+  }
+}
+export function jumpOrVault(state, { vaultOnly = false } = {}) {
+  const p = state.player;
+  if (p.vehicleId || p.health <= 0 || p.z > 0 || p.traversal || p.stamina < 16) return false;
+  let obstacle = null;
+  for (const item of WORLD.obstacles || []) {
+    const nearest = {
+      x: clamp(p.x, item.x, item.x + item.w),
+      y: clamp(p.y, item.y, item.y + item.h),
+    };
+    if (
+      item.height <= 36 &&
+      distance(p, nearest) < 24 &&
+      Math.abs(normalizeAngle(angleTo(p, nearest) - p.angle)) < 1
+    ) {
+      const nx = Math.cos(p.angle),
+        ny = Math.sin(p.angle);
+      const end =
+        Math.abs(nx) > Math.abs(ny)
+          ? { x: nx > 0 ? item.x + item.w + 12 : item.x - 12, y: p.y }
+          : { x: p.x, y: ny > 0 ? item.y + item.h + 12 : item.y - 12 };
+      if (!isBlocked(end.x, end.y, 7) && !carBlocksFoot(state, end.x, end.y))
+        obstacle = { kind: item.height > 20 ? 'climb' : 'vault', end, height: item.height + 12 };
+    }
+  }
+  if (!obstacle)
+    for (const car of state.vehicles) {
+      if (
+        car.health <= 0 ||
+        Math.abs(car.speed) > 2 ||
+        distance(p, car) > 36 ||
+        Math.abs(normalizeAngle(angleTo(p, car) - p.angle)) > 0.8
+      )
+        continue;
+      const end = { x: car.x + Math.cos(p.angle) * 29, y: car.y + Math.sin(p.angle) * 29 };
+      if (!isBlocked(end.x, end.y, 7) && !carBlocksFoot(state, end.x, end.y))
+        obstacle = { kind: 'vault', end, height: 26 };
+    }
+  p.cover = null;
+  p.crouching = false;
+  if (obstacle) {
+    // Reject a path that would tunnel through an unrelated building.
+    const clear = WORLD.buildings.every(
+      (b) =>
+        !Array.from({ length: 8 }, (_, i) => ({
+          x: p.x + ((obstacle.end.x - p.x) * (i + 1)) / 8,
+          y: p.y + ((obstacle.end.y - p.y) * (i + 1)) / 8,
+        })).some((q) => circleRectCollision(q.x, q.y, 7, b)),
+    );
+    if (!clear) return false;
+    p.stamina -= 20;
+    p.traversal = {
+      ...obstacle,
+      start: { x: p.x, y: p.y },
+      elapsed: 0,
+      duration: obstacle.kind === 'climb' ? 0.95 : 0.62,
+    };
+    return true;
+  }
+  if (vaultOnly) return false;
+  p.stamina -= 16;
+  p.vz = 94;
+  return true;
+}
 function walk(state, dt, input) {
-  const player = state.player;
+  const p = state.player;
+  p.aiming = Boolean(input.aim);
+  p.aimTarget =
+    input.aimTarget &&
+    Number.isFinite(input.aimTarget.x) &&
+    Number.isFinite(input.aimTarget.y) &&
+    Number.isFinite(input.aimTarget.z)
+      ? { x: input.aimTarget.x, y: input.aimTarget.y, z: clamp(input.aimTarget.z, 0, 250) }
+      : null;
+  if (p.aimTarget) p.angle = angleTo(p, p.aimTarget);
+  p.scoped = Boolean(input.aim && WEAPONS[p.weapon].scopeZoom);
+  if (p.cover) p.cover.peeking = p.aiming;
+  p.throwCharge = clamp(Number(input.throwCharge) || 0, 0, 1);
+  p.crouching = Boolean(input.crouch || p.cover);
+  if (Number.isFinite(input.aimAngle) && !p.aimTarget) p.angle = normalizeAngle(input.aimAngle);
+  if (p.traversal) {
+    const action = p.traversal;
+    action.elapsed += dt;
+    const t = clamp(action.elapsed / action.duration, 0, 1);
+    p.x = action.start.x + (action.end.x - action.start.x) * t;
+    p.y = action.start.y + (action.end.y - action.start.y) * t;
+    p.z = Math.sin(Math.PI * t) * action.height;
+    p.speed = 0;
+    if (t === 1) {
+      p.z = 0;
+      p.vz = 0;
+      p.traversal = null;
+    }
+    return;
+  }
+  if (p.z > 0 || p.vz > 0) {
+    p.vz -= 220 * dt;
+    p.z = Math.max(0, p.z + p.vz * dt);
+    if (p.z === 0) p.vz = 0;
+  }
+  if (p.dodgeRemaining > 0) {
+    p.dodgeRemaining = Math.max(0, p.dodgeRemaining - dt);
+    movePlayer(state, Math.cos(p.dodgeAngle) * 125 * dt, Math.sin(p.dodgeAngle) * 125 * dt);
+    p.speed = 125;
+    return;
+  }
   let dx = Number.isFinite(input.moveX)
     ? clamp(input.moveX, -1, 1)
     : (input.right ? 1 : 0) - (input.left ? 1 : 0);
@@ -1093,18 +1278,30 @@ function walk(state, dt, input) {
     dx /= magnitude;
     dy /= magnitude;
   }
-  const sprint = input.sprint && magnitude > 0 && player.stamina > 0;
-  const speed = sprint ? 88 : 51;
-  player.stamina = clamp(player.stamina + (sprint ? -17 : 12) * dt, 0, 100);
-  player.speed = magnitude ? speed : 0;
-  if (magnitude > 0) {
-    if (!Number.isFinite(input.aimAngle) && !input.fire) player.angle = Math.atan2(dy, dx);
-    moveBody(player, dx * speed * dt, dy * speed * dt, 7);
+  if (p.cover) {
+    if (dx * p.cover.nx + dy * p.cover.ny > 0.45) p.cover = null;
+    else {
+      const vertical = p.cover.nx !== 0;
+      dx = vertical ? 0 : dx;
+      dy = vertical ? dy : 0;
+    }
   }
-  if (Number.isFinite(input.aimAngle)) player.angle = normalizeAngle(input.aimAngle);
+  const sprint = input.sprint && magnitude > 0 && p.stamina > 0 && !p.crouching && !p.defending;
+  const speed = p.crouching ? 27 : p.defending ? 31 : sprint ? 88 : 51;
+  p.stamina = clamp(p.stamina + (sprint ? -17 : 12) * dt, 0, 100);
+  p.speed = magnitude ? speed : 0;
+  if (magnitude > 0) {
+    if (!Number.isFinite(input.aimAngle) && !input.fire && !p.cover) p.angle = Math.atan2(dy, dx);
+    movePlayer(state, dx * speed * dt, dy * speed * dt);
+  }
+  if (p.cover) {
+    const coordinate = p.cover.nx !== 0 ? p.y : p.x;
+    if (coordinate < p.cover.min - 1 || coordinate > p.cover.max + 1) p.cover = null;
+  }
 }
 function updateTraffic(state, dt) {
   for (const vehicle of state.vehicles) {
+    if (vehicle.policeControlled) continue;
     if (vehicle.kind !== 'traffic' || vehicle.occupied || vehicle.health <= 0 || !vehicle.route)
       continue;
     const waypoint = vehicle.route[vehicle.routeIndex];
@@ -1146,110 +1343,23 @@ function updatePedestrians(state, dt) {
   }
 }
 function spawnPolice(state) {
-  const desiredCount = state.wanted.level * 2;
-  if (state.police.filter((officer) => officer.health > 0).length >= desiredCount) return;
-  const offset = 240 + random(state) * 70;
-  const axis = random(state) < 0.5 ? 'x' : 'y';
-  // Reinforcements respond to the reported position, rather than knowing where an unseen driver went.
-  const reported = state.wanted.lastSeen;
-  const nearRoadX = roadXs.reduce(
-    (best, x) => (Math.abs(x - reported.x) < Math.abs(best - reported.x) ? x : best),
-    roadXs[0],
-  );
-  const nearRoadY = roadYs.reduce(
-    (best, y) => (Math.abs(y - reported.y) < Math.abs(best - reported.y) ? y : best),
-    roadYs[0],
-  );
-  const direction = random(state) < 0.5 ? -1 : 1;
-  const x = clamp(axis === 'x' ? reported.x + offset * direction : nearRoadX + 15, 75, 1665);
-  const y = clamp(axis === 'y' ? reported.y + offset * direction : nearRoadY + 15, 75, 1320);
-  if (isBlocked(x, y, 8)) return;
-  state.police.push({
-    id: nextId(state, 'police'),
-    kind: 'police',
-    x,
-    y,
-    angle: 0,
-    health: 85,
-    speed: 46,
-    fireCooldown: 2,
-    mode: 'pursuit',
-    weapon: 'pistol',
-    color: '#719bbb',
-  });
+  state.policeDispatch.nextDeployment = state.time;
 }
-function updatePolice(state, dt) {
-  const wanted = state.wanted;
-  if (!wanted.level) {
-    state.police = state.police.filter((officer) => officer.health > 0);
-    return;
-  }
-  wanted.pursuitTime += dt;
-  if (Math.floor((state.time - dt) / 2) !== Math.floor(state.time / 2)) spawnPolice(state);
-  const visible = state.police.some(
-    (officer) =>
-      officer.health > 0 &&
-      distance(officer, state.player) < 190 + wanted.level * 20 &&
-      hasLineOfSight(officer, state.player),
-  );
-  if (visible) {
-    wanted.status = 'pursuit';
-    wanted.unseen = 0;
-    wanted.timer = 0;
-    wanted.lastSeen = { x: state.player.x, y: state.player.y };
-  } else {
-    wanted.unseen += dt;
-    if (wanted.unseen > 2.5) wanted.status = 'search';
-    if (
-      wanted.status === 'search' &&
-      distance(state.player, wanted.lastSeen) > wanted.searchRadius
-    ) {
-      wanted.status = 'cooling';
-      wanted.timer += dt;
-      if (wanted.timer >= 7 + wanted.level * 2) {
-        wanted.level = 0;
-        wanted.heat = 0;
-        wanted.status = 'clear';
-        wanted.searchRadius = 0;
-        state.police = [];
-        notify(state, 'Pursuit ended. Your wanted level is clear.', 'success');
-      }
-    } else if (wanted.status !== 'pursuit') {
-      wanted.status = 'search';
-      wanted.timer = 0;
-    }
-  }
-  for (const officer of state.police) {
-    if (officer.health <= 0) continue;
-    officer.fireCooldown = Math.max(0, officer.fireCooldown - dt);
-    const destination = wanted.status === 'pursuit' ? state.player : wanted.lastSeen;
-    officer.angle = angleTo(officer, destination);
-    officer.mode = wanted.status;
-    const range = distance(officer, state.player);
-    if (distance(officer, destination) > 65)
-      moveBody(
-        officer,
-        Math.cos(officer.angle) * officer.speed * dt,
-        Math.sin(officer.angle) * officer.speed * dt,
-        7,
-      );
-    if (
-      visible &&
-      range < 170 &&
-      hasLineOfSight(officer, state.player) &&
-      officer.fireCooldown === 0
-    )
-      fireHostile(state, officer);
-  }
+function updatePolice(state, dt, input = {}) {
+  updatePolicing(state, dt, input, policeContext(state));
 }
 function updateHostiles(state, dt) {
   for (const hostile of state.hostiles) {
     if (hostile.health <= 0) continue;
     hostile.fireCooldown = Math.max(0, hostile.fireCooldown - dt);
+    updateEnemyReload(hostile, dt);
     const range = distance(hostile, state.player);
     if (range > 500) continue;
     hostile.angle = angleTo(hostile, state.player);
-    if (range > 120 || !hasLineOfSight(hostile, state.player))
+    if (
+      range > (WEAPONS[hostile.weapon]?.mode === 'melee' ? 18 : 120) ||
+      !hasLineOfSight(hostile, state.player)
+    )
       moveBody(hostile, Math.cos(hostile.angle) * 32 * dt, Math.sin(hostile.angle) * 32 * dt, 7);
     if (range < 250 && hasLineOfSight(hostile, state.player) && hostile.fireCooldown === 0)
       fireHostile(state, hostile);
@@ -1459,6 +1569,16 @@ function interactionCandidates(state) {
     }
   }
   if (!player.vehicleId) {
+    for (const pickup of state.pickups || [])
+      if (pickup.available)
+        candidates.push({
+          ...pickup,
+          type: 'pickup',
+          name: WEAPONS[pickup.weapon]?.name || pickup.name,
+          prompt: `Pick up ${pickup.type === 'object' ? pickup.name : WEAPONS[pickup.weapon]?.name || pickup.name}`,
+          radius: 27,
+          available: true,
+        });
     for (const vehicle of state.vehicles) {
       if (vehicle.health <= 0 || (vehicle.kind === 'traffic' && vehicle.speed > 24)) continue;
       candidates.push({
@@ -1479,9 +1599,21 @@ function interactionCandidates(state) {
     .map((item) => ({ ...item, distance: distance(player, item) }))
     .filter((item) => item.distance < item.radius)
     .sort((a, b) => {
-      const priority = { objective: 0, mission: 1, vehicle: 2 };
-      const rank = (item) =>
-        item.type === 'objective' && !item.available ? 2.5 : (priority[item.type] ?? 3);
+      const priority = { objective: 0, mission: 1, pickup: 1.5, vehicle: 2 };
+      const currentStage = state.mission
+        ? MISSIONS.find((mission) => mission.id === state.mission.id)?.stages[state.mission.stage]
+        : null;
+      const requiredVehicle = currentStage?.requiredVehicle || currentStage?.vehicle;
+      const rank = (item) => {
+        if (item.type === 'objective' && !item.available) return 2.5;
+        if (item.type === 'vehicle' && requiredVehicle) {
+          const vehicle = state.vehicles.find((vehicle) => vehicle.id === item.id);
+          if (vehicle && (vehicle.id === requiredVehicle || vehicle.spec === requiredVehicle))
+            return 1.3;
+        }
+        if (!(item.type in priority) && item.distance <= 16) return 1.4;
+        return priority[item.type] ?? 3;
+      };
       return rank(a) - rank(b) || a.distance - b.distance;
     });
 }
@@ -1526,6 +1658,83 @@ function pay(state, amount) {
     return false;
   }
   state.player.money -= amount;
+  return true;
+}
+function atWeaponStore(state) {
+  return (
+    !state.player.vehicleId &&
+    state.player.health > 0 &&
+    WORLD.locations.some(
+      (location) => location.type === 'weapons' && distance(location, state.player) < 42,
+    )
+  );
+}
+export function buyWeapon(state, id) {
+  const weapon = WEAPONS[id];
+  if (!weapon || !SHOP_WEAPONS.includes(id) || !atWeaponStore(state)) return false;
+  if (state.player.ownedWeapons.includes(id)) {
+    equipOwnedWeapon(state, id);
+    notify(state, `${weapon.name} equipped from your stored loadout.`, 'success');
+    return true;
+  }
+  if (!pay(state, weapon.cost)) return false;
+  acquireWeapon(state, id, weapon.mode === 'melee' ? 0 : (weapon.supply ?? weapon.clipSize * 5));
+  notify(state, `${weapon.name} purchased.`, 'success');
+  return true;
+}
+export function buyAmmo(state, id = state.player.weapon) {
+  const weapon = WEAPONS[id],
+    ammo = state.player.ammo[id];
+  if (
+    !weapon ||
+    !SHOP_WEAPONS.includes(id) ||
+    weapon.mode === 'melee' ||
+    !state.player.ownedWeapons.includes(id) ||
+    !atWeaponStore(state) ||
+    !ammo
+  )
+    return false;
+  if ((weapon.mode === 'throwable' && ammo.clip >= weapon.clipSize) || ammo.reserve >= 100000)
+    return false;
+  if (!pay(state, weapon.ammoCost)) return false;
+  if (weapon.mode === 'throwable')
+    ammo.clip = Math.min(weapon.clipSize, ammo.clip + (weapon.supply || 3));
+  else
+    ammo.reserve = Math.min(
+      100000,
+      ammo.reserve + (weapon.mode === 'rocket' ? 1 : weapon.clipSize * 3),
+    );
+  notify(state, `${weapon.name} ammunition restocked.`, 'success');
+  return true;
+}
+export function pickupWeapon(state, id) {
+  const pickup = state.pickups.find((item) => item.id === id && item.available);
+  if (
+    !pickup ||
+    state.player.vehicleId ||
+    state.player.health <= 0 ||
+    distance(state.player, pickup) >= 28 ||
+    !hasLineOfSight(state.player, pickup)
+  )
+    return false;
+  if (
+    !acquireWeapon(
+      state,
+      pickup.weapon,
+      pickup.ammo ?? WEAPONS[pickup.weapon].clipSize,
+      pickup.type === 'object'
+        ? { name: pickup.name, material: pickup.material, pickupId: pickup.id }
+        : null,
+    )
+  )
+    return false;
+  pickup.available = false;
+  pickup.remaining = pickup.respawnSeconds || 0;
+  notify(
+    state,
+    `Collected ${pickup.type === 'object' ? pickup.name : WEAPONS[pickup.weapon].name}.`,
+    'success',
+  );
   return true;
 }
 function startTaxiJob(state) {
@@ -1630,22 +1839,43 @@ export function interact(state) {
     startMission(state, candidate.missionId);
     return candidate;
   }
+  if (candidate.type === 'pickup') {
+    pickupWeapon(state, candidate.id);
+    return candidate;
+  }
+  if (candidate.type === 'activity') {
+    if (state.mission || state.taxiJob || state.wanted.level) {
+      notify(state, 'Finish the assignment and lose police attention before taking a break.');
+      return null;
+    }
+    return candidate;
+  }
   if (candidate.type === 'vehicle') {
+    if (state.player.traversal || state.player.z > 2 || state.player.dodgeRemaining > 0) {
+      notify(state, 'Land and finish moving before entering the vehicle.');
+      return null;
+    }
     const vehicle = state.vehicles.find((item) => item.id === candidate.id);
+    if (vehicle.policeControlled) {
+      if (Math.abs(vehicle.speed) > 20) {
+        notify(state, 'The cruiser is moving too fast to take.');
+        return null;
+      }
+      relinquishPoliceVehicle(state, vehicle, policeContext(state));
+      reportCrime(state, { type: 'vehicle-theft', severity: 2 });
+    }
     vehicle.occupied = true;
     const isOwned = vehicle.id === 'starter-taxi' || vehicle.id === 'medicine-van';
     if (!isOwned && !vehicle.stolen) {
       vehicle.stolen = true;
-      if (
-        vehicle.kind === 'traffic' ||
-        state.police.some(
-          (officer) => distance(officer, vehicle) < 230 && hasLineOfSight(officer, vehicle),
-        )
-      )
-        raiseWanted(state, vehicle.spec === 'police' ? 2 : 1);
+      reportCrime(state, { type: 'vehicle-theft', severity: vehicle.spec === 'police' ? 2 : 1 });
       notify(state, `Borrowed ${VEHICLE_SPECS[vehicle.spec].name}.`, 'info');
     }
     vehicle.kind = 'parked';
+    state.player.cover = null;
+    state.player.crouching = false;
+    state.player.defending = false;
+    state.player.meleeAction = null;
     state.player.vehicleId = vehicle.id;
     state.player.x = vehicle.x;
     state.player.y = vehicle.y;
@@ -1673,7 +1903,7 @@ export function interact(state) {
     const vehicle = currentVehicle(state);
     if (!vehicle) notify(state, 'Bring a vehicle to Saira’s garage.');
     else if (pay(state, candidate.cost)) {
-      vehicle.health = VEHICLE_SPECS[vehicle.spec].health;
+      vehicle.health = vehicle.maxHealth || VEHICLE_SPECS[vehicle.spec].health;
       notify(state, 'Repairs complete. Drive carefully.', 'success');
     }
   } else if (candidate.type === 'home') {
@@ -1700,28 +1930,17 @@ export function interact(state) {
     if (pay(state, candidate.cost)) {
       state.player.armour = 100;
       for (const weapon of state.player.weapons)
-        state.player.ammo[weapon].reserve += WEAPONS[weapon].clipSize * 2;
+        if (['ballistic', 'rocket'].includes(WEAPONS[weapon].mode))
+          state.player.ammo[weapon].reserve = Math.min(
+            100000,
+            state.player.ammo[weapon].reserve + WEAPONS[weapon].clipSize * 2,
+          );
       notify(state, 'Body armour equipped. Ammunition restocked.', 'success');
     }
   } else if (candidate.type === 'weapons') {
-    const nextWeapon = ['shotgun', 'smg'].find((id) => !state.player.weapons.includes(id));
-    if (pay(state, nextWeapon ? WEAPONS[nextWeapon].cost : 120)) {
-      if (nextWeapon) {
-        state.player.weapons.push(nextWeapon);
-        state.player.weapon = nextWeapon;
-        state.player.ammo[nextWeapon] = {
-          clip: WEAPONS[nextWeapon].clipSize,
-          reserve: WEAPONS[nextWeapon].clipSize * 4,
-        };
-      } else
-        for (const id of state.player.weapons)
-          state.player.ammo[id].reserve += WEAPONS[id].clipSize * 3;
-      notify(
-        state,
-        nextWeapon ? `${WEAPONS[nextWeapon].name} purchased.` : 'Ammunition refilled.',
-        'success',
-      );
-    }
+    const nextWeapon = SHOP_WEAPONS.find((id) => !state.player.ownedWeapons.includes(id));
+    if (nextWeapon) buyWeapon(state, nextWeapon);
+    else buyAmmo(state);
   } else if (candidate.type === 'taxi') startTaxiJob(state);
   else if (candidate.type === 'radio') {
     state.radio.station = (state.radio.station + 1) % state.radio.stations.length;
@@ -1738,28 +1957,44 @@ export function updateSimulation(state, dt, input = {}) {
   if (input.confirm && !state.lastInput.confirm) interact(state);
   if (input.reload && !state.lastInput.reload) reloadWeapon(state);
   if (input.weapon && input.weapon !== state.player.weapon) selectWeapon(state, input.weapon);
+  if (input.cover && !state.lastInput.cover) toggleCover(state);
+  if (input.jump && !state.lastInput.jump) jumpOrVault(state);
+  if (input.vault && !state.lastInput.vault) jumpOrVault(state, { vaultOnly: true });
+  const context = combatContext(state);
+  combatDefenseInput(state, input, context);
   for (let i = 0; i < steps; i += 1) {
     state.time += step;
     state.clock = (20.25 + state.time / 90) % 24;
     state.player.fireCooldown = Math.max(0, state.player.fireCooldown - step);
+    state.player.recoil = Math.max(0, state.player.recoil - step * 0.2);
     if (state.player.reloadRemaining > 0) {
       state.player.reloadRemaining = Math.max(0, state.player.reloadRemaining - step);
       if (state.player.reloadRemaining === 0) finishReload(state);
     }
     if (state.respawnTimer > 0) {
       state.respawnTimer -= step;
+      updateOrdnance(state, step, context);
       if (state.respawnTimer <= 0) respawn(state);
       continue;
     }
     const vehicle = currentVehicle(state);
-    if (vehicle) drive(state, vehicle, step, input);
-    else walk(state, step, input);
-    if (input.fire) fireWeapon(state);
+    if (vehicle) {
+      drive(state, vehicle, step, input);
+      state.player.cover = null;
+      state.player.z = 0;
+      state.player.vz = 0;
+      state.player.crouching = false;
+      if (Number.isFinite(input.aimAngle) && WEAPONS[state.player.weapon].vehicleAllowed)
+        state.player.angle = normalizeAngle(input.aimAngle);
+    } else walk(state, step, input);
+    if (input.fire) fireWeapon(state, input);
     updateTraffic(state, step);
     updatePedestrians(state, step);
     updateHostiles(state, step);
-    updatePolice(state, step);
+    updatePolice(state, step, input);
     updateBullets(state, step);
+    updateMelee(state, step, context);
+    updateOrdnance(state, step, context);
     if (state.player.health > 0) {
       updateMission(state, step);
       updateTaxiJob(state, step);
@@ -1775,7 +2010,20 @@ export function updateSimulation(state, dt, input = {}) {
       state.player.y < item.y + item.h,
   );
   if (district) state.district = district.id;
-  state.lastInput = { confirm: Boolean(input.confirm), reload: Boolean(input.reload) };
+  state.lastInput = Object.fromEntries(
+    [
+      'confirm',
+      'reload',
+      'cover',
+      'jump',
+      'vault',
+      'block',
+      'dodge',
+      'counter',
+      'disarm',
+      'fire',
+    ].map((key) => [key, Boolean(input[key])]),
+  );
   return state;
 }
 
@@ -1832,6 +2080,10 @@ export function restoreGame(serialized) {
     !finiteNumber(state.lastCrimeTime, -1000, 1e9)
   )
     throw new Error('The save is incomplete or corrupted.');
+  if (state.combatVersion === undefined) initializeCombat(state, WORLD.pickups || []);
+  validateCombatSave(state, WORLD);
+  if (state.policeVersion === undefined) initializePolicing(state);
+  validatePoliceSave(state, WORLD);
   if (
     state.vehicles.length > 200 ||
     state.pedestrians.length > 500 ||
@@ -1908,13 +2160,13 @@ export function restoreGame(serialized) {
     throw new Error('The saved projectiles are invalid.');
   if (
     !Number.isInteger(state.wanted.level) ||
-    !finiteNumber(state.wanted.level, 0, 5) ||
+    !finiteNumber(state.wanted.level, 0, 6) ||
     !validPoint(state.wanted.lastSeen) ||
     !finiteNumber(state.wanted.searchRadius, 0, 1000) ||
     !finiteNumber(state.wanted.timer, 0, 1e9) ||
     !finiteNumber(state.wanted.unseen, 0, 1e9) ||
     !finiteNumber(state.wanted.pursuitTime, 0, 1e9) ||
-    !['clear', 'pursuit', 'search', 'cooling'].includes(state.wanted.status)
+    !['clear', 'pursuit', 'search', 'cooling', 'arrest'].includes(state.wanted.status)
   )
     throw new Error('The saved police state is invalid.');
   if (

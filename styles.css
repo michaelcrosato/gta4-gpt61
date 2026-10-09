@@ -1315,3 +1315,383 @@ kbd {
     transition: none !important;
   }
 }
+
+.activity-dialog {
+  width: min(930px, calc(100vw - 32px));
+  padding: 24px 30px;
+}
+.activity-dialog h2 {
+  margin: 5px 0 16px;
+  font-size: 28px;
+}
+.activity-dialog > canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 640/380;
+  background: #152a23;
+  touch-action: none;
+  image-rendering: pixelated;
+}
+.activity-score {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 15px;
+  justify-content: space-between;
+}
+.activity-player {
+  padding: 8px 12px;
+  flex: 1;
+  border: 1px solid #91a38538;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.activity-player.active {
+  border-color: #e7c87580;
+  background: #e7c87508;
+}
+.activity-player span,
+.activity-player small {
+  font:
+    8px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+  color: #aebb9c;
+}
+.activity-player b {
+  font:
+    18px ui-monospace,
+    monospace;
+  color: #e9d69a;
+}
+.activity-status {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 12px 0;
+  color: #dbc997;
+}
+.activity-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px 25px;
+  padding: 8px 0;
+}
+.activity-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font:
+    8px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+}
+.activity-range > span {
+  width: 65px;
+  color: #b1bea5;
+}
+.activity-range input {
+  width: 100%;
+  min-width: 30px;
+  accent-color: var(--gold);
+}
+.activity-range output {
+  width: 28px;
+  text-align: right;
+  color: var(--gold);
+}
+.activity-launch {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 3px;
+  height: 47px;
+}
+.activity-rules {
+  font-size: 11px !important;
+  line-height: 1.6 !important;
+  margin: 12px 0 0;
+}
+.activity-check {
+  font:
+    9px ui-monospace,
+    monospace;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.activity-check input {
+  accent-color: var(--gold);
+}
+.activity-hint {
+  font-size: 11px !important;
+  margin: 0 !important;
+  grid-column: 1 / -1;
+}
+.arcade-buttons,
+.arcade-specials {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+.arcade-buttons button,
+.arcade-specials button {
+  padding: 12px;
+  flex: 1;
+  border: 1px solid #adbea254;
+  background: #1b382a;
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--gold);
+}
+.arcade-specials button {
+  font-size: 8px;
+  padding: 10px 5px;
+}
+.activity-result {
+  background: #e7c8750c;
+  border: 1px solid #e7c87544;
+  padding: 17px;
+  margin-top: 17px;
+}
+.activity-result > b {
+  font:
+    12px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+.activity-result .primary-button {
+  width: 100%;
+  height: 44px;
+  font-size: 10px;
+}
+.bowling-scorecard {
+  width: 100%;
+  overflow: auto;
+  font-family: ui-monospace, monospace;
+}
+.scorecard-heading,
+.scorecard-player {
+  display: grid;
+  grid-template-columns: 76px repeat(10, minmax(21px, 1fr)) 45px;
+  align-items: stretch;
+}
+.scorecard-heading > * {
+  padding: 7px 2px;
+  background: #243d2a;
+  text-align: center;
+  font-size: 7px;
+  color: #c3cfb2;
+}
+.scorecard-player > * {
+  border: 1px solid #859e7138;
+  min-height: 37px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 9px;
+  padding: 3px;
+}
+.scorecard-player.active {
+  background: #e7c8750b;
+  color: var(--gold);
+}
+.scorecard-player small {
+  font-size: 7px;
+  color: #c7cdae;
+}
+.touch-more {
+  position: absolute;
+  right: 20px;
+  bottom: 152px;
+  pointer-events: auto;
+  width: 110px;
+  height: 31px;
+  background: #1a352be8;
+  border: 1px solid #c8d5ac66;
+  color: var(--gold);
+  font:
+    8px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+}
+.action-shelf {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.action-shelf button {
+  border: 1px solid #afc1a352;
+  padding: 14px 7px;
+  font:
+    9px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+}
+.action-shelf button.selected {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.weapon-catalogue {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.weapon-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+}
+.weapon-card h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.weapon-card p {
+  font-size: 10px;
+  margin: 0;
+}
+.weapon-card button {
+  padding: 9px 11px;
+  border: 1px solid #c1cdb16b;
+  font:
+    9px ui-monospace,
+    monospace;
+  letter-spacing: 1px;
+  align-self: center;
+  color: var(--gold);
+}
+.weapon-card .ammo-purchase {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (max-width: 600px) {
+  .activity-dialog {
+    padding: 18px 17px;
+  }
+  .activity-dialog h2 {
+    font-size: 24px;
+  }
+  .activity-score {
+    gap: 6px;
+  }
+  .activity-player {
+    padding: 7px;
+  }
+  .activity-player b {
+    font-size: 14px;
+  }
+  .activity-player span,
+  .activity-player small {
+    font-size: 6px;
+  }
+  .activity-controls {
+    gap: 12px 10px;
+  }
+  .activity-range > span {
+    width: 45px;
+    font-size: 7px;
+  }
+  .activity-range {
+    gap: 5px;
+    font-size: 7px;
+  }
+  .activity-range output {
+    width: 23px;
+  }
+  .activity-status {
+    font-size: 10px;
+  }
+  .activity-rules {
+    font-size: 10px !important;
+  }
+  .scorecard-heading,
+  .scorecard-player {
+    grid-template-columns: 46px repeat(10, minmax(16px, 1fr)) 32px;
+  }
+  .scorecard-player > * {
+    font-size: 7px;
+  }
+  .scorecard-player small {
+    font-size: 6px;
+  }
+  .scorecard-heading > * {
+    font-size: 6px;
+  }
+  .arcade-specials button {
+    font-size: 6px;
+  }
+  .touch-more {
+    right: 19px;
+    bottom: 148px;
+    width: 106px;
+  }
+  .activity-hint {
+    font-size: 10px !important;
+  }
+}
+@media (min-width: 760px) {
+  .activity-dialog[open] {
+    display: grid;
+    grid-template-columns: minmax(0, 2.7fr) minmax(190px, 1fr);
+    column-gap: 22px;
+    row-gap: 8px;
+  }
+  .activity-dialog > .dialog-header,
+  .activity-dialog > h2,
+  .activity-dialog > .activity-score {
+    grid-column: 1 / -1;
+  }
+  .activity-dialog > .activity-score {
+    margin-bottom: 5px;
+  }
+  .activity-dialog > #activity-board {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .activity-dialog > .activity-controls {
+    grid-column: 2;
+    grid-row: 4 / 6;
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 14px;
+    padding-top: 0;
+  }
+  .activity-dialog > .activity-status {
+    grid-column: 1;
+    grid-row: 5;
+    padding: 7px 0;
+  }
+  .activity-dialog > .activity-rules,
+  .activity-dialog > .activity-result {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+  }
+  .activity-dialog .activity-launch {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 0 14px;
+    height: 46px;
+  }
+  .activity-dialog .activity-range > span {
+    width: 48px;
+  }
+  .activity-dialog .arcade-specials {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .activity-dialog .arcade-buttons button {
+    padding: 12px 7px;
+    font-size: 9px;
+  }
+  .activity-dialog .activity-hint {
+    font-size: 10px !important;
+  }
+  .activity-dialog > h2 {
+    margin: 0 0 7px;
+  }
+}
