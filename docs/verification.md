@@ -379,3 +379,148 @@ engines. Reports are `/tmp/lowlight-city-game-publication-matrix` and
 `/tmp/lowlight-city-smoke-publication`. The staged city snapshot independently
 passed the 278-test JavaScript suite and 16 publication tests, plus syntax,
 format, catalogue-integrity and build checks.
+
+## Interiors and Metro checkpoint (0.4)
+
+Four real local rooms are implemented: Voss Dispatch, Saira’s Garage, The
+Lantern and Blue Hour Lanes. They use shared movement/combat, finite ammunition,
+cover, doors and destructible prop collision rather than a room-only substitute
+combat system. Room occupants have their own persistent health/death and scene
+ownership; doors, prop damage, actors, vehicles and player position survive
+revisits and whole-game saves. Indoor gunfire can damage an actual occupant and
+enter the witness delay/dispatch pipeline at the room’s exterior entrance.
+These are four produced spaces, not proof of the complete interior catalogue.
+
+Services have real location-specific stock, costs and affordability checks.
+Saira’s tools counter does not expose a fake ammunition catalogue; the working
+vehicle repair bay charges $120 and repairs the actual admitted vehicle. The
+Lantern charges $12 per drink, with health/intoxication effects; the lanes’ meal
+costs $18 and bowling admission $10. Darts remains free. Repeated paid purchases
+are real transactions, and unavailable attendants can prevent service.
+
+The earlier isolated renderer report at
+[/tmp/lowlight-interior-qa/report.json](/tmp/lowlight-interior-qa/report.json)
+records 96 zero-difference native floor comparisons and four-room captures in
+Chromium desktop and WebKit desktop/phone/tablet profiles. Its scope explicitly
+uses local-room/garage fixtures and makes no natural-input gameplay claim.
+The separate
+[/tmp/lowlight-interior-ui-qa/report.json](/tmp/lowlight-interior-ui-qa/report.json)
+records five desktop/phone/tablet/wide profile runs. Those checks declare venue,
+local-counter/door approaches, budgets, cleared onboarding and vehicle fixtures,
+then use actual keyboard, pointer, touch and button input for entry/exit,
+scene-filtered aim/attack, map, journal, room save/Continue, paid stores, repair,
+darts and bowling. The
+[small-phone report](/tmp/lowlight-interior-ui-qa/small-phone-report.json) and
+[input report](/tmp/lowlight-interior-ui-qa/input-report.json) retain heading,
+joystick release and held-controller-neutral checks. Controller axes are mocked;
+these are not physical-controller or real iOS Safari results.
+
+The interior-aware activity regression passed **18/18 scenarios** across
+Chromium, Firefox and WebKit. It combines real portals and keyboard room
+approaches/exits with genuine activity controls, scoring/physics, fees, aborts
+and mid-roll save/Continue. Venue relocation, budget, dart checkout, final-eight
+and arcade overflow fixtures remain disclosed, so these are not clean-save full
+matches or campaign access proof. Report:
+[/tmp/lowlight-activities-interior-qa/report.json](/tmp/lowlight-activities-interior-qa/report.json).
+The unchanged control smoke script also passed all **three engines** after the
+interior integration; its genuine E onboarding, taxi driving, menus, maps,
+phone, save/Continue, touch and virtual-controller records are at
+[/tmp/lowlight-browser-smoke/20261009T044443Z/report.json](/tmp/lowlight-browser-smoke/20261009T044443Z/report.json).
+
+Harbor Metro now has four runtime through-services: G1 Seaward Loop, G2 Landward
+Loop, C1 Civic Canal Loop and C2 Canal Civic Loop. The topology contains **26
+station complexes and 56 directional stop roles**, not 56 different stations.
+The runtime includes moving train/rider geometry, door-aware boarding/alighting,
+served-destination phone selection, actual fares, dispatch signals and saved
+fleet/passenger state. A later-stop journey currently starts at a disclosed $2
+fare and settles on alighting; boarding alone does not debit that fare.
+The default movement guard composes compiled physical clearance with dispatcher
+permission. The adopted world builds 10,818 bounded clearance chambers with graded floors
+and roofs, native union boundary walls/cutaways, road-preserving supports,
+canonical rails and two-car doors/windows/couplers. The full 68×20×16 consist
+passes continuous swept-body checks through all 56 actual route legs, including
+52 with bends, with dispatcher permission on all four complete service circuits.
+No protected buildings or coast geometry are removed. Thirteen native rail
+renderer tests verify layers, culling, shared boundaries, duplicates, doors and
+exact projected/direct pixels. Fifteen rail terrain tests include 1,680 disk-union
+queries, shared chamber/legacy tunnel joins, graded floors/roofs and continuous
+sight; real narrow earth gaps remain blocked.
+
+Before those final clearance/rendering edits, the
+[rail browser script](../tests/browser-rail.py) passed Chromium, Firefox and
+WebKit desktop. Its setup explicitly clears onboarding, relocates Mara to a
+real physical platform and supplies health/$1000 budget fixtures. Subsequent E
+boarding, phone destination selection, normal-clock movement, manual
+save/Continue and later open-door E alighting use real browser inputs. All three
+checks paid exactly $2 once ($1000 to $998), with no recorded engine/page errors;
+all six moving/alighted screenshots were inspected. Aggregate report:
+[/tmp/lowlight-rail-qa-current/report.json](/tmp/lowlight-rail-qa-current/report.json).
+This does not prove natural street-to-platform access, every service circuit or
+clean-save city/campaign travel. The
+[runtime inventory](/tmp/lowlight-rail-qa-current/runtime-snapshot.json) records
+source hashes and intervening clearance changes, so this earlier pass must not
+be substituted for the final three-engine rerun.
+
+Work-in-progress title and gameplay matrices each produced 24 clean captures
+over 14 viewport sizes, including small phones, foldables, tablets, wide desktop
+and WebKit. Representative phone portrait/landscape, tablet and ultrawide PNGs
+were inspected; the reports recorded no horizontal overflow, console/page errors
+or failed requests. Reports:
+[/tmp/lowlight-rail-qa-current/viewports-title/report.json](/tmp/lowlight-rail-qa-current/viewports-title/report.json)
+and
+[/tmp/lowlight-rail-qa-current/viewports-game/report.json](/tmp/lowlight-rail-qa-current/viewports-game/report.json).
+Source changed during this capture window; these are preliminary UI checks, not
+verification of one final stable 0.4 snapshot.
+
+The first 20 original source-mapped campaign missions and
+[pure director](../src/campaign/director.js) are **authored-unintegrated**. They
+have explicit scenes, dialogue, encounters, branches, failures/checkpoints,
+capability gates and observed-condition/whole-state contracts. Synthetic
+director fixtures test those contracts; they demonstrate no physical campaign
+playthrough and earn no source completion credit. The four existing jobs remain
+additional onboarding, and the retained input-only attempts still have not
+completed all four naturally. Pursuit deaths, normal clinic charges/recovery
+and harness failures remain valid evidence of partial attempts.
+
+Performance remains a release gate. The cited smoke report’s short samples were
+about 60 actual frames/second in Chromium/Firefox desktop and 38.6 in its WebKit
+phone profile. These samples do not establish sustained interior/rail/full-city
+performance, physical Safari performance or a balanced complete campaign.
+The frozen staged application at `/tmp/lowlight-04-staged-jM6BpA65`, served on
+localhost:5175, passed **487 JavaScript tests**, **16 publication tests**, syntax
+checks over 35 game modules, formatting, catalogue integrity, whitespace and
+static build checks. Source completion still fails its strict audit as expected;
+the complete game remains unfinished.
+
+Frozen city verification passed 36 scene captures and 36 exact cached/direct
+RGBA comparisons across Chromium, WebKit and Firefox. Title and game matrices
+each produced 24 clean captures over 14 viewport sizes (48 total), with no
+overflow, page/console errors or failed requests. Phone portrait/landscape,
+tablet, ultrawide, Android, opening, bridge, bore, finance and swimming PNGs were
+inspected. Reports: `/tmp/lowlight-04-final-city`,
+`/tmp/lowlight-04-final-title-matrix`, `/tmp/lowlight-04-final-game-matrix`.
+
+Final rail journeys passed all three engines (12 grouped checks): normal
+movement, manual save/Continue and later open-door alighting charge exactly $2
+once ($1000 to $998). Five rail UI profiles passed real touch/E/menu input,
+served-stop selection, unique upper/lower platform labels, target reachability,
+and zero-stop $0 alighting. All 37 served HTML/CSS/JS hashes remained unchanged.
+Reports: `/tmp/lowlight-04-final-rail-journeys/report.json` and
+`/tmp/lowlight-04-final-rail-ui/report.json`. All six final moving/alighted PNGs
+and representative phone/landscape/tablet/ultrawide UI images were inspected.
+
+All six interior profiles passed 48 grouped controls/service/save checks;
+small-phone paused shop cash agrees with the actual wallet. All 18 activity
+cases passed in completed Chromium, WebKit and Firefox reports. The genuine
+control smoke passed all three engines. Reports are
+`/tmp/lowlight-04-final-interiors-adaptive/report.json`,
+`/tmp/lowlight-04-final-activities-aggregate/report.json` and
+`/tmp/lowlight-04-final-smoke-aggregate/report.json`. Failed preliminary
+artifacts are retained. The first combined activity command ended with exit code 143 (SIGTERM)
+after 14 printed PASS cases; its two completed engine reports and the full
+six-case Firefox rerun make up the aggregate. A slow-frame portal input defect
+was repaired in the simulation and retains a multi-step regression. The door
+return assertion now compares the actual saved exterior entry pose instead of
+a venue marker that can differ after genuine movement before entering. Browser harnesses now observe actual displacement,
+door exit or braking thresholds instead of assuming fixed wall-time delays
+always advance the same amount of simulation under concurrent QA load.

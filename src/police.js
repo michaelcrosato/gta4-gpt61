@@ -143,6 +143,7 @@ export function resetPolicing(state) {
 }
 
 export function forcePoliceWanted(state, level, point, ctx, observedAt = state.time) {
+  point = ctx.dispatchPoint?.(point) ?? point;
   const desired = clamp(Math.round(Number(level) || 1), 1, 6),
     wanted = state.wanted;
   const previousLevel = wanted.level;
@@ -191,7 +192,8 @@ export function reportObservedCrime(state, crime, ctx) {
   const point = {
     x: crime.x ?? state.player.x,
     y: crime.y ?? state.player.y,
-    z: state.player.z || 0,
+    z: crime.z ?? state.player.z ?? 0,
+    ...(crime.sceneId ? { sceneId: crime.sceneId } : {}),
     health: state.player.health,
   };
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
@@ -209,7 +211,9 @@ export function reportObservedCrime(state, crime, ctx) {
     return true;
   }
   const witnesses = [
-    ...state.pedestrians.filter((person) => canObserve(person, point, 220, ctx)),
+    ...(ctx.civilianWitnesses?.() ?? state.pedestrians).filter((person) =>
+      canObserve(person, point, 220, ctx),
+    ),
     ...state.vehicles.filter(
       (vehicle) =>
         vehicle.kind === 'traffic' &&
@@ -235,7 +239,12 @@ export function reportObservedCrime(state, crime, ctx) {
       severity,
       time: state.time,
       remaining: 1.4 + ctx.random() * 1.6,
-      point: { x: point.x, y: point.y, ...(point.z ? { z: point.z } : {}) },
+      point: {
+        x: point.x,
+        y: point.y,
+        ...(point.z ? { z: point.z } : {}),
+        ...(point.sceneId ? { sceneId: point.sceneId } : {}),
+      },
       heading: state.player.angle,
       speed: state.player.speed || 0,
       vehicleId: state.player.vehicleId,
@@ -249,9 +258,9 @@ export function reportObservedCrime(state, crime, ctx) {
 }
 function updateReports(state, dt, ctx) {
   for (const report of state.policeDispatch.reports) {
-    const witness = [...state.pedestrians, ...state.vehicles].find(
-      (actor) => actor.id === report.witnessId,
-    );
+    const witness =
+      ctx.findWitness?.(report.witnessId) ??
+      [...state.pedestrians, ...state.vehicles].find((actor) => actor.id === report.witnessId);
     if (!witness || witness.health <= 0) {
       report.remaining = -1;
       if (witness) witness.reporting = false;

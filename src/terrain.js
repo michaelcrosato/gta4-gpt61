@@ -1,4 +1,5 @@
 import { createSpatialIndex } from './spatial-index.js';
+import { createRailTerrain, railSpaceInterval, railIntervalsCover } from './rail-terrain.js';
 
 const EPSILON = 1e-9;
 const STEP_HEIGHT = 6;
@@ -300,15 +301,88 @@ export function createTerrain(world) {
   const tunnelIndex = indexRecords(
     roads.filter((road) => road.item.tunnel || Math.min(road.z1 ?? road.z, road.z2 ?? road.z) < 0),
   );
-  const earthEnabled = Array.isArray(world.tunnels) && world.tunnels.length > 0;
-  function tunnelSpace(x, y, z, radius = 0) {
-    return tunnelIndex.queryRadius(x, y, radius).some((road) => {
-      const surface = roadSurface(road, x, y);
-      if (!surface || segmentProjection(x, y, road.a, road.b).distance + radius > road.width / 2)
-        return false;
-      const ceiling = surface.height < -8 ? Math.min(-2, surface.height + 18) : surface.height + 18;
-      return z >= surface.height - 0.5 && z <= ceiling;
+  const railTerrain = createRailTerrain(world);
+  const legacyTunnelSpaces = roads
+    .filter((road) => road.item.tunnel || Math.min(road.z1 ?? road.z, road.z2 ?? road.z) < 0)
+    .flatMap((road) => {
+      const positions = [0, road.length];
+      if (road.z1 === undefined) {
+        if (road.rampStart) positions.push(road.rampStart);
+        if (road.rampEnd) positions.push(road.length - road.rampEnd);
+      }
+      positions.sort((a, b) => a - b);
+      const at = (d) => ({
+        x: road.a.x + ((road.b.x - road.a.x) * d) / road.length,
+        y: road.a.y + ((road.b.y - road.a.y) * d) / road.length,
+      });
+      const initial = [...new Set(positions)],
+        cuts = [...initial];
+      for (let i = 1; i < initial.length; i++) {
+        const lo = initial[i - 1],
+          hi = initial[i],
+          a = at(lo),
+          b = at(hi),
+          A = roadSurface(road, a.x, a.y).height,
+          B = roadSurface(road, b.x, b.y).height;
+        for (const h of [-20, -8])
+          if (h > Math.min(A, B) + EPSILON && h < Math.max(A, B) - EPSILON)
+            cuts.push(lo + ((hi - lo) * (h - A)) / (B - A));
+      }
+      cuts.sort((a, b) => a - b);
+      return cuts.slice(1).flatMap((end, i) => {
+        const start = cuts[i];
+        if (end - start <= EPSILON) return [];
+        const a = at(start),
+          b = at(end),
+          A = roadSurface(road, a.x, a.y).height,
+          B = roadSurface(road, b.x, b.y).height,
+          mid = (A + B) / 2,
+          L = Math.hypot(b.x - a.x, b.y - a.y),
+          nx = ((-(b.y - a.y) / L) * road.width) / 2,
+          ny = (((b.x - a.x) / L) * road.width) / 2;
+        const polygon = [
+          { x: a.x - nx, y: a.y - ny },
+          { x: b.x - nx, y: b.y - ny },
+          { x: b.x + nx, y: b.y + ny },
+          { x: a.x + nx, y: a.y + ny },
+        ];
+        const floorStart = { ...a, z: A },
+          floorEnd = { ...b, z: B },
+          roofStart = { ...a, z: mid >= -8 || mid < -20 ? A + 18 : -2 },
+          roofEnd = { ...b, z: mid >= -8 || mid < -20 ? B + 18 : -2 };
+        const xs = polygon.map((p) => p.x),
+          ys = polygon.map((p) => p.y),
+          x = Math.min(...xs),
+          y = Math.min(...ys);
+        return [
+          {
+            polygon,
+            floorStart,
+            floorEnd,
+            roofStart,
+            roofEnd,
+            referenceFloorMin: Math.min(A, B),
+            zMax: Math.max(roofStart.z, roofEnd.z),
+            bounds: { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y },
+          },
+        ];
+      });
     });
+  const legacyTunnelSpaceIndex = indexRecords(legacyTunnelSpaces);
+  const earthEnabled =
+    (Array.isArray(world.tunnels) && world.tunnels.length > 0) ||
+    !!world.transit?.railClearanceVolumes?.length;
+  function tunnelSpace(x, y, z, radius = 0) {
+    return (
+      tunnelIndex.queryRadius(x, y, radius).some((road) => {
+        const surface = roadSurface(road, x, y);
+        if (!surface || segmentProjection(x, y, road.a, road.b).distance + radius > road.width / 2)
+          return false;
+        const ceiling =
+          surface.height < -8 ? Math.min(-2, surface.height + 18) : surface.height + 18;
+        return z >= surface.height - 0.5 && z <= ceiling;
+      }) || railTerrain.space(x, y, z, radius, legacyTunnelSpaceIndex.queryRadius(x, y, radius))
+    );
   }
   const roadIds = new Set(roads.map((road) => road.item.id));
   const separateDecks = list(world, 'decks')
@@ -349,7 +423,7 @@ export function createTerrain(world) {
     return { height: road.z, ramp: false };
   }
   function surfaces(x, y, radius = 0) {
-    const result = [];
+    const result = railTerrain.surfaces(x, y, radius);
     for (const road of roadIndex.queryRadius(x, y, radius)) {
       const surface = roadSurface(road, x, y);
       if (surface && segmentProjection(x, y, road.a, road.b).distance + radius <= road.width / 2)
@@ -471,25 +545,32 @@ export function createTerrain(world) {
           const t = -start.z / (end.z - start.z),
             x = start.x + (end.x - start.x) * t,
             y = start.y + (end.y - start.y) * t;
-          const openPortal = tunnelIndex.queryRadius(x, y, 0).some((road) => {
-            const surface = roadSurface(road, x, y);
-            return surface && surface.height >= -8;
-          });
+          const openPortal =
+            railTerrain.openPortal(x, y) ||
+            tunnelIndex.queryRadius(x, y, 0).some((road) => {
+              const surface = roadSurface(road, x, y);
+              return surface && surface.height >= -8;
+            });
           if (!openPortal) return false;
         }
-        const count = Math.max(
-          1,
-          Math.ceil(Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z) / 8),
-        );
-        for (let i = 0; i <= count; i++) {
-          const t = i / count,
-            z = start.z + (end.z - start.z) * t;
-          if (
-            z < 0 &&
-            !tunnelSpace(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t, z)
-          )
-            return false;
-        }
+        const delta = end.z - start.z,
+          zero = delta ? -start.z / delta : 0;
+        const low = start.z < 0 ? 0 : zero,
+          high = end.z < 0 ? 1 : zero;
+        const query = {
+          x: Math.min(start.x, end.x),
+          y: Math.min(start.y, end.y),
+          w: Math.abs(end.x - start.x),
+          h: Math.abs(end.y - start.y),
+        };
+        const intervals = [
+          ...railTerrain.segmentIntervals(start, end),
+          ...legacyTunnelSpaceIndex
+            .queryRect(query)
+            .map((volume) => railSpaceInterval(volume, start, end))
+            .filter(Boolean),
+        ];
+        if (!railIntervalsCover(intervals, low, high)) return false;
       }
       const query = {
         x: Math.min(start.x, end.x),

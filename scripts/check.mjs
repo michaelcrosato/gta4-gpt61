@@ -2,9 +2,18 @@ import { readdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const files = (await readdir(new URL('../src/', import.meta.url)))
-  .filter((file) => file.endsWith('.js'))
-  .sort();
+async function gameModules(directory, prefix = '') {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory())
+      files.push(
+        ...(await gameModules(new URL(`${entry.name}/`, directory), `${prefix}${entry.name}/`)),
+      );
+    else if (entry.name.endsWith('.js')) files.push(`${prefix}${entry.name}`);
+  }
+  return files;
+}
+const files = (await gameModules(new URL('../src/', import.meta.url))).sort();
 for (const file of files) {
   const result = spawnSync(
     process.execPath,

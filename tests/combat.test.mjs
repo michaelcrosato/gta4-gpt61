@@ -20,6 +20,7 @@ import {
   WEAPONS,
 } from '../src/simulation.js';
 import { acquireWeapon } from '../src/combat.js';
+import { INTERIOR_LAYOUTS } from '../src/interiors.js';
 
 function free() {
   const state = createSimulation(2026);
@@ -616,8 +617,15 @@ test('activity interaction hands control to a real minigame without granting mon
   state.player.x = venue.x;
   state.player.y = venue.y;
   state.pickups = [];
-  const before = state.player.money,
+  const before = state.player.money;
+  let result = interact(state);
+  if (result.type === 'enter') {
+    const hook = INTERIOR_LAYOUTS[state.interior.active.roomId].hooks.find(
+      (hook) => hook.type === 'activity',
+    );
+    Object.assign(state.player, { x: hook.x, y: hook.y });
     result = interact(state);
+  }
   assert.equal(result.type, 'activity');
   assert.equal(result.activity, venue.activity);
   assert.equal(state.player.money, before);

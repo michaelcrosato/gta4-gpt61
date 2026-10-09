@@ -5,6 +5,12 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const spatialDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
 const angleDifference = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+const sameScene = (actor, ctx) =>
+  ctx.sceneId === undefined ||
+  (actor.sceneId ?? (actor.scene?.kind === 'interior' ? actor.scene.id : null)) === ctx.sceneId;
+const vehicles = (state, ctx) => ctx.vehicles?.() ?? state.vehicles;
+const aircraft = (state, ctx) => ctx.aircraft?.() ?? state.policeAircraft ?? [];
+const civilians = (state, ctx) => ctx.civilians?.() ?? state.pedestrians;
 const melee = (catalogId, name, changes) => ({
   catalogId,
   name,
@@ -360,6 +366,7 @@ function effect(state, ctx, type, point, details = {}) {
     x: point.x,
     y: point.y,
     z: point.z || 0,
+    sceneId: point.sceneId ?? ctx.sceneId ?? null,
     remaining: type === 'explosion' ? 0.65 : 0.35,
     ...details,
   });
@@ -405,6 +412,8 @@ export function hitCombatant(state, victim, damage, owner, ctx, kind = 'bullet')
       name: WEAPONS[victim.weapon].name,
       x: victim.x,
       y: victim.y,
+      z: victim.z || 0,
+      sceneId: victim.sceneId ?? ctx.sceneId ?? null,
       ammo,
       available: true,
       remaining: 0,
@@ -417,8 +426,8 @@ export function hitCombatant(state, victim, damage, owner, ctx, kind = 'bullet')
   }
 }
 
-function hostileList(state) {
-  return [...state.hostiles, ...state.police, ...state.pedestrians];
+function hostileList(state, ctx) {
+  return ctx?.combatants?.() ?? [...state.hostiles, ...state.police, ...state.pedestrians];
 }
 function recordAttack(state, player, weapon, kind) {
   player.attackSerial++;
@@ -478,7 +487,9 @@ function defendMelee(state, attacker, damage, ctx) {
 }
 
 export function updateMelee(state, dt, ctx) {
-  for (const actor of [state.player, ...state.hostiles, ...state.police]) {
+  for (const actor of [state.player, ...hostileList(state, ctx)].filter((actor) =>
+    sameScene(actor, ctx),
+  )) {
     const action = actor.meleeAction;
     actor.staggerRemaining = Math.max(0, (actor.staggerRemaining || 0) - dt);
     if (!action || actor.health <= 0) continue;
@@ -486,7 +497,8 @@ export function updateMelee(state, dt, ctx) {
     if (!action.hit && action.elapsed >= action.windup) {
       action.hit = true;
       if (actor === state.player) {
-        const targets = hostileList(state)
+        ctx.strikeProps?.(actor, action);
+        const targets = hostileList(state, ctx)
           .filter(
             (victim) =>
               victim.health > 0 &&
@@ -500,7 +512,7 @@ export function updateMelee(state, dt, ctx) {
           victim.staggerRemaining = action.weapon === 'club' ? 0.9 : 0.35;
           if (action.weapon === 'knife') victim.bleedingRemaining = 1.5;
         }
-        for (const vehicle of state.vehicles)
+        for (const vehicle of vehicles(state, ctx))
           if (
             vehicle.health > 0 &&
             distance(actor, vehicle) < action.reach &&
@@ -594,7 +606,9 @@ export function fireCombatWeapon(state, ctx, input = {}) {
     (player.aiming ? (weapon.scopeZoom ? 0.35 : 0.6) : weapon.scopeZoom ? 8 : 1) *
     (player.crouching ? 0.75 : 1) *
     (player.cover && !player.aiming ? 2.2 : 1);
-  const spread = weapon.spread * movement * accuracy + player.recoil * 0.16;
+  const spread =
+    weapon.spread * movement * accuracy * (1 + (player.intoxication || 0) * 2) +
+    player.recoil * 0.16;
   const angle = player.angle + (ctx.random() - 0.5) * spread * 2;
   player.recoil = Math.min(0.65, player.recoil + weapon.recoil);
   recordAttack(state, player, player.weapon, weapon.mode);
@@ -624,6 +638,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
         damage: weapon.damage,
         owner: 'player',
         weapon: player.weapon,
+        sceneId: ctx.sceneId ?? null,
       });
     }
   } else if (weapon.mode === 'rocket') {
@@ -660,6 +675,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
       kind: 'rocket',
       weapon: player.weapon,
       owner: 'player',
+      sceneId: ctx.sceneId ?? null,
       ...muzzle,
       groundZ: player.groundZ || 0,
       vx: Math.cos(heading) * horizontalSpeed,
@@ -688,6 +704,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
       kind: weapon.kind,
       weapon: player.weapon,
       owner: 'player',
+      sceneId: ctx.sceneId ?? null,
       x: player.x + Math.cos(angle) * Math.max(0, offset),
       y: player.y + Math.sin(angle) * Math.max(0, offset),
       z: (player.z || 0) + 13,
@@ -705,7 +722,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
     });
     if (weapon.kind === 'object') player.heldObject = null;
   }
-  state.pedestrians.forEach((person) => {
+  civilians(state, ctx).forEach((person) => {
     if (distance(person, player) < 130) person.panic = 7;
   });
   if (ctx.reportCrime)
@@ -717,8 +734,9 @@ export function fireCombatWeapon(state, ctx, input = {}) {
 }
 
 function explode(state, projectile, ctx) {
+  ctx.damageProps?.(projectile, projectile.radius, projectile.damage);
   effect(state, ctx, 'explosion', projectile, { radius: projectile.radius });
-  for (const person of [...hostileList(state), ...(state.policeAircraft || [])]) {
+  for (const person of [...hostileList(state, ctx), ...aircraft(state, ctx)]) {
     const range = spatialDistance(
       { ...person, z: (person.z || 0) + (person.crouching ? 5 : 9) },
       projectile,
@@ -739,7 +757,7 @@ function explode(state, projectile, ctx) {
   );
   if (playerRange < projectile.radius && ctx.hasLineOfSight(projectile, state.player))
     ctx.damagePlayer(projectile.damage * Math.max(0.12, 1 - playerRange / projectile.radius));
-  for (const vehicle of state.vehicles) {
+  for (const vehicle of vehicles(state, ctx)) {
     const range = spatialDistance({ ...vehicle, z: (vehicle.z || 0) + 7 }, projectile);
     if (range < projectile.radius + 8 && ctx.hasLineOfSight(projectile, vehicle))
       ctx.damageVehicle(
@@ -747,11 +765,18 @@ function explode(state, projectile, ctx) {
         projectile.damage * 1.8 * Math.max(0.1, 1 - range / (projectile.radius + 8)),
       );
   }
-  state.pedestrians.forEach((person) => {
+  civilians(state, ctx).forEach((person) => {
     if (distance(person, projectile) < projectile.radius + 120) person.panic = 12;
   });
   if (projectile.owner === 'player' && ctx.reportCrime)
-    ctx.reportCrime({ type: 'explosion', severity: 3 });
+    ctx.reportCrime({
+      type: 'explosion',
+      severity: 3,
+      x: projectile.x,
+      y: projectile.y,
+      z: projectile.z,
+      sceneId: projectile.sceneId ?? ctx.sceneId ?? null,
+    });
   projectile.remaining = 0;
 }
 function ignite(state, projectile, ctx) {
@@ -761,6 +786,7 @@ function ignite(state, projectile, ctx) {
     x: projectile.x,
     y: projectile.y,
     z: projectile.groundZ || 0,
+    sceneId: projectile.sceneId ?? ctx.sceneId ?? null,
     radius: weapon.fireRadius,
     maxRadius: weapon.maxFireRadius,
     remaining: weapon.fireDuration,
@@ -782,6 +808,7 @@ function settleObject(state, projectile, ctx) {
       x: projectile.x,
       y: projectile.y,
       z: projectile.groundZ || 0,
+      sceneId: projectile.sceneId ?? ctx.sceneId ?? null,
       name: projectile.objectName,
       material: projectile.material,
       ammo: 1,
@@ -860,6 +887,7 @@ function rocketSolidContact(start, end, ctx) {
 
 export function updateOrdnance(state, dt, ctx) {
   for (const projectile of state.ordnance) {
+    if (!sameScene(projectile, ctx)) continue;
     const previous = { x: projectile.x, y: projectile.y, z: projectile.z };
     projectile.remaining -= dt;
     if (projectile.fuse !== null && projectile.fuse !== undefined) projectile.fuse -= dt;
@@ -878,9 +906,9 @@ export function updateOrdnance(state, dt, ctx) {
         impact = impact === null ? ground : Math.min(impact, ground);
       }
       const actors = [
-        ...hostileList(state),
-        ...(state.policeAircraft || []),
-        ...state.vehicles,
+        ...hostileList(state, ctx),
+        ...aircraft(state, ctx),
+        ...vehicles(state, ctx),
         state.player,
       ];
       for (const actor of actors) {
@@ -918,7 +946,7 @@ export function updateOrdnance(state, dt, ctx) {
       }
       projectile.bounces++;
     }
-    const victims = hostileList(state).filter(
+    const victims = hostileList(state, ctx).filter(
       (person) =>
         person.id !== projectile.owner &&
         person.health > 0 &&
@@ -948,9 +976,10 @@ export function updateOrdnance(state, dt, ctx) {
   }
   state.ordnance = state.ordnance.filter((projectile) => projectile.remaining > 0);
   for (const fire of state.fires) {
+    if (!sameScene(fire, ctx)) continue;
     fire.remaining -= dt * (1 + (state.weather?.rain || 0) * 0.2);
     fire.radius = Math.min(fire.maxRadius, fire.radius + dt * 2);
-    for (const victim of hostileList(state))
+    for (const victim of hostileList(state, ctx))
       if (
         victim.health > 0 &&
         distance(victim, fire) < fire.radius &&
@@ -964,7 +993,7 @@ export function updateOrdnance(state, dt, ctx) {
       }
     if (distance(state.player, fire) < fire.radius && ctx.hasLineOfSight(fire, state.player))
       ctx.damagePlayer(fire.damage * dt);
-    for (const vehicle of state.vehicles)
+    for (const vehicle of vehicles(state, ctx))
       if (
         vehicle.health > 0 &&
         distance(vehicle, fire) < fire.radius &&
@@ -973,19 +1002,20 @@ export function updateOrdnance(state, dt, ctx) {
         ctx.damageVehicle(vehicle, fire.damage * dt * 0.8);
   }
   state.fires = state.fires.filter((fire) => fire.remaining > 0);
-  for (const item of state.combatEffects) item.remaining -= dt;
+  for (const item of state.combatEffects) if (sameScene(item, ctx)) item.remaining -= dt;
   state.combatEffects = state.combatEffects.filter((item) => item.remaining > 0);
   for (const pickup of state.pickups)
-    if (!pickup.available && pickup.respawnSeconds) {
+    if (sameScene(pickup, ctx) && !pickup.available && pickup.respawnSeconds) {
       pickup.remaining -= dt;
       if (pickup.remaining <= 0) pickup.available = true;
     }
   for (const pickup of state.pickups)
-    if (pickup.despawnRemaining !== undefined) pickup.despawnRemaining -= dt;
+    if (sameScene(pickup, ctx) && pickup.despawnRemaining !== undefined)
+      pickup.despawnRemaining -= dt;
   state.pickups = state.pickups.filter(
     (pickup) => pickup.despawnRemaining === undefined || pickup.despawnRemaining > 0,
   );
-  for (const person of [...state.hostiles, ...state.police])
+  for (const person of hostileList(state, ctx))
     if (person.health > 0 && person.bleedingRemaining > 0) {
       person.bleedingRemaining = Math.max(0, person.bleedingRemaining - dt);
       hitCombatant(state, person, dt * 2, 'player', ctx, 'bleeding');

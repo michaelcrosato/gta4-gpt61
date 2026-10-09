@@ -6,18 +6,21 @@ active. The current playable build is an opening foundation, not the final game.
 ## Identity and design
 
 LOWLIGHT takes place in Harbor City. Its protagonist, Mara Voss, is a former
-disaster-relief driver returning to a city that turns public emergencies into
-private fortunes. Family, neighborhood businesses, city contractors, and a
-reconstruction authority pull her in different directions. The central conflict
-is who gets to decide what rebuilding means, and who must pay for it.
+disaster-relief driver arriving after coastal civil unrest in a city that turns
+public emergencies into private fortunes. Family, neighborhood businesses, city
+contractors, and a reconstruction authority pull her in different directions.
+The central conflict is who gets to decide what rebuilding means, and who must pay
+for it.
 
 The city comprises Breakwater, Saint Brigid, Glassward, The Narrows, and Ironhaven.
 These need different street geometry, architecture, residents, landmarks,
 transport, interiors, lighting, traffic, sound, and mission opportunities. The
 current exterior world has 65 original neighborhood layouts, coastal landforms,
-194 site addresses, graded crossings, and district populations. Interiors,
-working transit and the complete traversal/fleet content are still required
-before the city can pass its production audit.
+194 site addresses, graded crossings, and district populations. Four local
+interiors and four Metro services now have runtime implementations. The broader
+interior inventory, station-access reconciliation, complete traversal/fleet
+content, natural station-network travel and release-performance checks remain
+required before the city can pass its production audit.
 
 The visual direction uses procedural pixel geometry, rain-muted stone, warm
 windows, cool streets, clear animation silhouettes, and restrained gold interface
@@ -52,6 +55,17 @@ must offer distinct reasons to inhabit the city outside the campaign.
 The four currently authored opening jobs are additional original onboarding
 content. They do not collapse the 90 source-mapped campaign requirements into
 four missions. None of those 90 records is claimed complete by this build.
+
+The first 20 source-mapped original missions are now individually authored in
+[first-arc.js](../src/campaign/first-arc.js), with dialogue, routes, encounters,
+branches, checkpoints, failure/retry rules and explicit missing-capability notes.
+The [director](../src/campaign/director.js) handles deterministic progression,
+observed conditions, choices, interruption/resumption and complete parent-world
+save/checkpoint transactions. These definitions and contracts are
+`authored-unintegrated`, with no source completion credit. Missing physical
+handlers remain unmet gates. Public Terminal (`LL-ST-022`) remains an explicit
+out-of-pack prerequisite for Pressure Vessel; neither that mission nor other
+missing mechanics is silently folded into a menu or discarded.
 
 ## Production stages
 
@@ -102,9 +116,28 @@ in-progress saves; full bowling, 301 darts, eight-ball and STACKLIGHT rule/physi
 matches with opponents and scene controls; title, pause, map/waypoint, journal,
 settings, gear purchasing, and basic phone.
 
+The 0.4 interior work adds four actual room layouts: Voss Dispatch, Saira’s
+Garage, The Lantern and Blue Hour Lanes. Room-local combat, cover, doors,
+destructible props, persistent NPC health/death, witness reporting at the
+exterior entrance, portal return and local/exterior save ownership use the shared
+simulation. Paid services include store-specific workshop tools, garage repair,
+bar refreshments and bowling/food, with real stock, affordability and charges.
+These four rooms do not satisfy the complete city interior inventory.
+
+Harbor Metro now runs G1/G2 and C1/C2 through-services over 26 station complexes
+and 56 directional stop roles. Its runtime includes moving train/rider bodies,
+door boarding and alighting, served-destination phone selection, disclosed fares,
+signal dispatch and save continuation. Train movement requires both compiled
+physical clearance and dispatcher permission. The adopted chamber world passes
+continuous full-consist checks on all four service circuits, shared-union terrain
+checks and native rendering tests. Three-engine browser journeys verify real
+boarding, movement, save/Continue and later-stop fares. They use disclosed
+platform fixtures, not naturally reached stations or complete-network playthroughs.
+
 The phone currently shows mission/contact information. It does not implement the
 complete call, relationship, date, email, web, and multiplayer entry systems.
-Likewise, five vehicle specifications, four assignments, exterior site geometry,
+It now also exposes served Metro destinations. Likewise, the limited road
+vehicle specifications, four assignments, exterior site geometry,
 and synthesized background music are foundation evidence, not reference-wide
 parity.
 
@@ -112,6 +145,21 @@ parity.
 finite ammunition, wall obstruction, death/respawn, vehicle collision, police
 escape, shop costs, taxi payment, and mid-mission save continuation. These are
 system/contract tests, not a substitute for natural-control playthroughs.
+
+The recorded interior activity regression passed 18/18 scenarios across three
+engines, and the opening/control smoke regression passed Chromium, Firefox and
+WebKit. Interior renderer/UI reports distinguish isolated room fixtures from
+real keyboard, pointer and touch actions. Input-only opening runs retain genuine
+pursuit deaths, clinic recovery and harness failures; natural completion of all
+four jobs remains unproven.
+
+The frozen 0.4 snapshot passes 487 JavaScript and 16 publication tests, plus
+syntax, formatting, catalogue integrity, whitespace and build checks. Final
+browser evidence includes all three rail journey engines, five rail UI profiles,
+six interior profiles, 18 activity cases, three control-smoke engines, 36 city
+scenes/raster comparisons and 48 viewport captures. The [verification record](verification.md)
+retains fixtures, initial harness failures and corrected reruns; these checks
+do not establish full-game completion or sustained real-device performance.
 
 Browser checks use Chromium, Firefox, and WebKit; phone, tablet, desktop, and
 ultrawide screenshots are reviewed separately. Reports stay under `/tmp`.
