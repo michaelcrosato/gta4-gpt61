@@ -1,13 +1,43 @@
 /** Harbor City's expanded exterior geometry; prologue bindings remain stable. */
 import { CITY_BLUEPRINT } from './city-blueprint.js';
+import { createRailWorld } from './rail-geometry.js';
+import { createRailClearanceWorld } from './rail-clearance.js';
+const railCity = createRailWorld(CITY_BLUEPRINT);
+const physicalRail = createRailClearanceWorld(railCity.world);
+if (physicalRail.report.unresolved.length)
+  throw new Error('Harbor Metro has unresolved physical construction conflicts.');
+export const RAIL_GEOMETRY_REPORT = railCity.report;
+export const RAIL_CLEARANCE_REPORT = {
+  ...physicalRail.report,
+  status: 'constructed-core',
+  requiresConstruction: false,
+  boundary:
+    'Shared terrain and native rail rendering construct these chambers. Full source acceptance and gameplay release remain unverified.',
+};
 export { ROAD_XS, ROAD_YS } from './prologue-world.js';
 export const WORLD = Object.freeze({
-  ...CITY_BLUEPRINT,
+  ...physicalRail.world,
+  transit: {
+    ...physicalRail.world.transit,
+    railClearanceVolumes: physicalRail.world.transit.railClearanceVolumes.map((volume) => ({
+      ...volume,
+      construction: 'built',
+      access: ['rail', 'foot'],
+    })),
+    railClearanceGeometry: {
+      ...physicalRail.world.transit.railClearanceGeometry,
+      status: 'constructed-core',
+      requiresConstruction: false,
+    },
+    runtimeStatus: 'operating-core',
+  },
   description:
     'Harbor City exterior world; full interiors, transport and content remain in production.',
   implementation: {
     ...CITY_BLUEPRINT.implementation,
     cityRuntime: 'exterior-core',
     traffic: 'regional-core',
+    interiors: 'four-room-core',
+    transit: 'operating-core',
   },
 });

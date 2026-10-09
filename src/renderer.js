@@ -915,7 +915,8 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       frame++;
       stats.frame = frame;
       underground = (state.player.z || 0) < -1;
-      if (cityGround) {
+      if (options.drawGround) options.drawGround(r, state);
+      else if (cityGround) {
         if (underground) cityGround.drawUnderground(r, state.player);
         else {
           cityGround.draw(r);
@@ -925,7 +926,8 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       const visible = underground ? [] : visibleBuildings(r);
       stats.visibleBuildings = visible.length;
       for (const b of visible) drawBuilding(r, b, state);
-      if (!underground) streetFurniture(r, state);
+      if (options.drawScenery) options.drawScenery(r, state);
+      else if (!underground) streetFurniture(r, state);
       retireRigs();
       for (const car of state.vehicles) drawVehicle(r, car, state);
       for (const person of state.pedestrians) drawPerson(r, person, 'pedestrian', 1 / 60);

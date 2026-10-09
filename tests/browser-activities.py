@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """UI activity/shop/traversal checks using explicitly declared setup fixtures.
 
-The tests relocate the player to venues and clear the introductory assignment.
+The tests relocate the player to exterior venues and clear the introductory assignment.
+Darts and bowling then use real portals and keyboard walking to their room hooks;
+room exits are also physical before the next exterior relocation fixture.
 Late-turn darts/pool/arcade fixtures isolate finishing/bust/overflow behavior.
 They are not clean-save matches or a full-game playthrough. After setup, all
 actions use browser buttons, keys, pointer or touch, never simulation helpers.
@@ -92,7 +94,111 @@ async def cleanup(page, phone):
             await page.wait_for_timeout(200)
 
 
+async def walk_to(page, x, y, room_id, report, tolerance=6, stop_on_exit=False):
+    """Choose real WASD presses from the camera projection; never assign local positions."""
+    start = await page.evaluate("({x:lowlight.state.player.x,y:lowlight.state.player.y})")
+    held = set()
+    steps = 0
+    try:
+        for steps in range(160):
+            next_step = await page.evaluate("""({x,y}) => {
+              const s=lowlight.state,p=s.player;
+              if (!s.interior?.active) return {exterior:true,x:p.x,y:p.y};
+              const dx=x-p.x,dy=y-p.y,distance=Math.hypot(dx,dy);
+              const directions=[
+                {keys:['w'],x:0,y:-1},{keys:['s'],x:0,y:1},
+                {keys:['a'],x:-1,y:0},{keys:['d'],x:1,y:0},
+                {keys:['w','a'],x:-1,y:-1},{keys:['w','d'],x:1,y:-1},
+                {keys:['s','a'],x:-1,y:1},{keys:['s','d'],x:1,y:1}
+              ].map(direction=>{
+                const ground=lowlight.game.view.screenDirToGround(direction.x,direction.y);
+                return {...direction,score:dx*ground[0]+dy*ground[1]};
+              }).sort((a,b)=>b.score-a.score);
+              return {room:s.interior.active.roomId,distance,keys:directions[0].keys,x:p.x,y:p.y};
+            }""", {"x": x, "y": y})
+            if next_step.get("exterior"):
+                require(stop_on_exit, "Walking unexpectedly left the room before the activity")
+                break
+            require(next_step["room"] == room_id, "Walking changed to the wrong room")
+            if next_step["distance"] <= tolerance and not stop_on_exit:
+                break
+            desired = set(next_step["keys"])
+            for button in held - desired:
+                await page.keyboard.up(button)
+            for button in desired - held:
+                await page.keyboard.down(button)
+            held = desired
+            await page.wait_for_timeout(90)
+        else:
+            raise AssertionError(f"Physical walking did not reach {room_id} ({x}, {y}); last {next_step}")
+    finally:
+        for button in held:
+            await page.keyboard.up(button)
+    await page.wait_for_timeout(100)
+    end = await page.evaluate("({x:lowlight.state.player.x,y:lowlight.state.player.y,room:lowlight.state.interior?.active?.roomId||null})")
+    report.setdefault("roomTraversals", []).append({"room": room_id, "start": start,
+                                                   "target": {"x": x, "y": y}, "end": end,
+                                                   "keyboardSteps": steps, "exit": stop_on_exit})
+    require(end["room"] is None if stop_on_exit else end["room"] == room_id,
+            "Physical room traversal ended in the wrong scene")
+
+
+async def leave_room(page, report):
+    room = await page.evaluate("""async () => {
+      const {INTERIOR_LAYOUTS}=await import('/src/interiors.js');
+      const active=lowlight.state.interior?.active;
+      if (!active) return null;
+      const room=INTERIOR_LAYOUTS[active.roomId],door=room.doors.find(door=>door.exit);
+      return {id:room.id,height:room.height,door,exterior:active.exterior};
+    }""")
+    if not room:
+        return
+    # The pub divider needs a north-side approach; never cross its collision slab.
+    points = [(280, 112), (112, 112), (112, 212)] if room["id"] == "lantern-bar" else []
+    door = room["door"]
+    points.append((door["x"] + door["w"] / 2, door["y"] - 13))
+    for x, y in points:
+        await walk_to(page, x, y, room["id"], report)
+    opened = await page.evaluate("id=>lowlight.state.interior.rooms[lowlight.state.interior.active.roomId].doors[id].open", door["id"])
+    if not opened:
+        await key(page, "e")
+    require(await page.evaluate("id=>lowlight.state.interior.rooms[lowlight.state.interior.active.roomId].doors[id].open", door["id"]),
+            "Real E input did not open the physical exit door")
+    await walk_to(page, door["x"] + door["w"] / 2, room["height"] + 4,
+                  room["id"], report, tolerance=1, stop_on_exit=True)
+    returned = await page.evaluate("({x:lowlight.state.player.x,y:lowlight.state.player.y,sceneId:lowlight.state.player.sceneId})")
+    require(returned["sceneId"] is None and abs(returned["x"]-room["exterior"]["x"]) < 2
+            and abs(returned["y"]-room["exterior"]["y"]) < 2,
+            "Walking through the exit lost the actual exterior entrance anchor")
+
+
+async def approach_activity(page, kind, report):
+    if kind not in {"bowling", "darts"}:
+        return
+    room_id = "blue-hour-lanes" if kind == "bowling" else "lantern-bar"
+    before = await money(page)
+    require(await model(page) is None, "The room entry began with fabricated activity state")
+    await page.wait_for_function("() => document.querySelector('#context-text')?.textContent.startsWith('Enter ') && !lowlight.state.interior?.active")
+    await key(page, "e")
+    await page.wait_for_function("id=>lowlight.state.interior?.active?.roomId===id", arg=room_id)
+    require(await money(page) == before, "Entering the room charged the activity fee too early")
+    require(await model(page) is None and not await page.locator("#activity-dialog").is_visible(),
+            "The exterior portal bypassed physical approach to the activity")
+    points = [(380, 420), (380, 390)] if kind == "bowling" else [(112, 212), (112, 112), (280, 112), (280, 130)]
+    for x, y in points:
+        await walk_to(page, x, y, room_id, report)
+    candidate = await page.evaluate("""async () => {
+      const {nearestInteractable}=await import('/src/simulation.js');
+      const item=nearestInteractable(lowlight.state);
+      return item && {type:item.type,activity:item.activity,distance:item.distance,radius:item.radius};
+    }""")
+    require(candidate and candidate["type"] == "activity" and candidate["activity"] == kind
+            and candidate["distance"] < candidate["radius"],
+            "Physical walking did not reach the correct usable activity hook")
+
+
 async def venue_fixture(page, kind, report, budget=1000):
+    await leave_room(page, report)
     data = await page.evaluate("""async ({kind,budget}) => {
       const {WORLD} = await import('/src/world.js');
       const venue = WORLD.locations.find(location => location.activity === kind);
@@ -101,7 +207,7 @@ async def venue_fixture(page, kind, report, budget=1000):
       s.mission=null; s.dialogue=null; s.taxiJob=null; s.hostiles=[]; s.police=[];
       s.wanted.level=0; s.wanted.heat=0; s.wanted.status='clear';
       for(const vehicle of s.vehicles) vehicle.occupied=false;
-      Object.assign(s.player,{x:venue.x,y:venue.y,vehicleId:null,z:0,vz:0,
+      Object.assign(s.player,{x:venue.x,y:venue.y,vehicleId:null,z:0,groundZ:0,vz:0,
         traversal:null,cover:null,crouching:false,health:100,money:budget});
       return {kind,venue:venue.id,x:venue.x,y:venue.y,budget};
     }""", {"kind": kind, "budget": budget})
@@ -112,6 +218,7 @@ async def venue_fixture(page, kind, report, budget=1000):
 async def open_activity(page, kind, report, phone, budget=1000):
     await cleanup(page, phone)
     await venue_fixture(page, kind, report, budget)
+    await approach_activity(page, kind, report)
     before = await money(page)
     fee = {"bowling": 10, "darts": 0, "pool": 20, "arcade": 2}[kind]
     prompt_price = f"${fee}" if fee else "Free"
@@ -133,6 +240,8 @@ async def close_activity(page, phone):
 async def bowling_case(page, report, output, name, phone):
     await cleanup(page, phone)
     await venue_fixture(page, "bowling", report, 1)
+    await approach_activity(page, "bowling", report)
+    await page.wait_for_function("document.querySelector('#context-text')?.textContent.includes('$10')")
     await key(page, "e")
     require(not await page.locator("#activity-dialog").is_visible(), "Bowling admitted an unaffordable entry")
     require(await money(page) == 1, "Rejected bowling entry still charged money")
@@ -176,8 +285,19 @@ async def saved_bowling_case(page, context, report, output, name, phone):
     require(saved is not None and saved["session"]["phase"] == "rolling"
             and saved["session"]["ball"]["y"] > 3,
             "Automatic activity save did not capture a moving ball")
+    saved_room = await page.evaluate("""() => {
+      const s=JSON.parse(localStorage.getItem('lowlight.save.v1')).state;
+      return {active:s.interior?.active,scene:s.scene,playerSceneId:s.player.sceneId};
+    }""")
+    require(saved_room["active"] and saved_room["active"]["roomId"] == "blue-hour-lanes"
+            and saved_room["scene"]["kind"] == "interior"
+            and saved_room["scene"]["id"] == "blue-hour-lanes"
+            and saved_room["playerSceneId"] == "blue-hour-lanes",
+            "The moving activity snapshot lost its physical room identity")
     report["savedActivity"] = {"kind": saved["kind"], "phase": saved["session"]["phase"],
-                               "ballY": saved["session"]["ball"]["y"], "paused": saved["session"]["paused"]}
+                               "ballY": saved["session"]["ball"]["y"], "paused": saved["session"]["paused"],
+                               "roomId": saved_room["active"]["roomId"],
+                               "exterior": saved_room["active"]["exterior"]}
     await page.reload()
     await page.wait_for_function("window.lowlight")
     await click(page, "#continue-game", phone)
@@ -185,10 +305,17 @@ async def saved_bowling_case(page, context, report, output, name, phone):
     restored = await model(page)
     require(restored["kind"] == "bowling" and restored["phase"] == "rolling", "Continue lost the active bowling phase")
     require(restored["ball"]["y"] >= saved["session"]["ball"]["y"] - .01, "Continue reset the moving ball to its release point")
+    restored_room = await page.evaluate("({active:lowlight.state.interior?.active,scene:lowlight.state.scene,playerSceneId:lowlight.state.player.sceneId})")
+    require(restored_room["active"] and restored_room["active"]["roomId"] == "blue-hour-lanes"
+            and restored_room["scene"]["kind"] == "interior"
+            and restored_room["scene"]["id"] == "blue-hour-lanes"
+            and restored_room["playerSceneId"] == "blue-hour-lanes"
+            and restored_room["active"]["exterior"] == saved_room["active"]["exterior"],
+            "Continue failed to restore the room and its exact exterior return context")
     require(await money(page) == charged, "Continuing an activity charged its entry fee twice")
     await settled_screenshot(page, output, f"{name}-bowling-restored.png")
     await close_activity(page, phone)
-    report["checks"].append("real automatic snapshot and Continue restoring mid-roll activity without duplicate fees")
+    report["checks"].append("real automatic snapshot and Continue restoring mid-roll activity, physical room and exterior identity without duplicate fees")
 
 
 async def darts_case(page, report, output, name, phone):
@@ -410,6 +537,8 @@ async def run_engine(p, name, args, output):
             cases = [(label, case) for label, case in cases if label in requested]
         for label, case in cases:
             try:
+                await cleanup(page, phone)
+                await leave_room(page, report)
                 if label == "saved-bowling":
                     await case(page, context, report, output, name, phone)
                 else:
@@ -453,8 +582,8 @@ async def main(args):
             reports.append(await run_engine(p, name, args, output))
     result = {"passed": all(r["passed"] for r in reports), "url": args.url,
               "requestedCases": args.cases or "all",
-              "scope": "Declared venue and last-phase fixtures followed by genuine browser gameplay actions; not clean-save matches or a full-game playthrough.",
-              "limitations": ["WebKit uses an iPhone profile; physical iOS Safari is not tested.", "Venue relocation, budgets and last-phase fixtures are listed in each report."],
+              "scope": "Declared exterior venue and last-phase fixtures followed by real portals, physical keyboard room approaches/exits and genuine activity inputs; not clean-save matches or a full-game playthrough.",
+              "limitations": ["WebKit uses an iPhone profile; physical iOS Safari is not tested.", "Venue relocation, budgets and last-phase fixtures are listed in each report.", "Room movement uses genuine keyboard input; phone activity buttons and boards use touch taps."],
               "engines": reports}
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(f"Activity reports and screenshots: {output}", flush=True)

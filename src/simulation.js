@@ -11,6 +11,45 @@ import { WORLD, ROAD_XS as roadXs, ROAD_YS as roadYs } from './world.js';
 import { createTerrain } from './terrain.js';
 import { createSurfaceMovement } from './surface-movement.js';
 import { worldElevation } from './world-elevation.js';
+import {
+  initializeRail,
+  updateRail,
+  railPassenger,
+  railInteraction,
+  interactRail,
+  chooseRailStop,
+  recoverRail,
+  validateRailRuntime,
+} from './rail-runtime.js';
+import { railGateBlocked, updateRailImpacts } from './rail-collision.js';
+import {
+  PORTAL_DEFINITIONS,
+  INTERIOR_LAYOUTS,
+  initializeInteriors,
+  nearbyInteriorPortals,
+  enterInterior,
+  exitInterior,
+  emergencyExteriorReturn,
+  tickInterior,
+  interiorScene,
+  interiorActors,
+  interiorCollisionVolumes,
+  nearestInteriorInteractable,
+  interactInterior,
+  toggleInteriorCover,
+  withExteriorContext,
+  validateInteriorState,
+  damageInteriorProp,
+} from './interiors.js';
+import {
+  createSceneContext,
+  currentSceneId,
+  actorSceneId,
+  inScene,
+  scenePeople,
+  sceneVehicles,
+  findScenePerson,
+} from './scene-context.js';
 import { initializeAmbient, updateAmbient, validateAmbient } from './ambient-city.js';
 import {
   WEAPONS,
@@ -27,13 +66,15 @@ import {
   startActorMelee,
   validateCombatSave,
 } from './combat.js';
-export { WORLD, WEAPONS };
+export { WORLD, WEAPONS, currentSceneId, scenePeople };
 /** LOWLIGHT's deterministic, renderer-independent city simulation. */
 const TAU = Math.PI * 2;
 const SAVE_VERSION = 1;
 export const TERRAIN = createTerrain(WORLD);
 const ELEVATION = worldElevation(WORLD);
 const surfaceMovement = createSurfaceMovement(TERRAIN);
+const SCENES = createSceneContext(WORLD, TERRAIN);
+const geometryFor = (state) => SCENES.queries(state);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
@@ -467,6 +508,7 @@ export function createSimulation(seed = 61) {
       armour: 0,
       money: 240,
       vehicleId: null,
+      sceneId: null,
       weapon: 'pistol',
       weapons: ['pistol'],
       ammo: {
@@ -479,6 +521,7 @@ export function createSimulation(seed = 61) {
       stamina: 100,
       speed: 0,
     },
+    scene: { kind: 'exterior', id: 'harbor-city' },
     vehicles: [],
     pedestrians: [],
     police: [],
@@ -600,6 +643,9 @@ export function createSimulation(seed = 61) {
       panic: 0,
     });
   }
+  initializeInteriors(state);
+  initializeRail(state, WORLD);
+  updateRail(state, WORLD, 0, railOptions(state));
   initializeCombat(state, WORLD.pickups || []);
   initializePolicing(state);
   startMission(state, 'first-shift');
@@ -617,14 +663,25 @@ function circleRectCollision(x, y, radius, rect) {
   const nearY = clamp(y, rect.y, rect.y + rect.h);
   return Math.hypot(x - nearX, y - nearY) < radius;
 }
-export function isBlocked(x, y, radius = 7, z = 0) {
-  return TERRAIN.isBlocked(x, y, radius, z);
+export function isBlocked(x, y, radius = 7, z = 0, state = null) {
+  return (state ? geometryFor(state) : TERRAIN).isBlocked(x, y, radius, z);
 }
-function moveBody(body, dx, dy, radius, options) {
-  return surfaceMovement.moveBody(body, dx, dy, radius, options);
+function moveBody(body, dx, dy, radius, options = {}) {
+  if (
+    options.state &&
+    body.spec &&
+    actorSceneId(body) === null &&
+    railGateBlocked(options.state, WORLD, body.x + dx, body.y + dy, radius, body.z || 0, body)
+  )
+    return true;
+  return options.state
+    ? SCENES.moveBody(options.state, body, dx, dy, radius, options)
+    : surfaceMovement.moveBody(body, dx, dy, radius, options);
 }
-function hasLineOfSight(a, b) {
-  return TERRAIN.hasLineOfSight(a, b);
+function hasLineOfSight(a, b, state = null, sceneId) {
+  return state
+    ? SCENES.sight(state, a, b, sceneId === undefined ? currentSceneId(state) : sceneId)
+    : TERRAIN.hasLineOfSight(a, b);
 }
 function damagePlayer(state, damage) {
   if (state.player.health <= 0 || state.respawnTimer > 0) return;
@@ -654,6 +711,7 @@ function damageVehicle(state, vehicle, damage) {
 }
 function killPlayer(state) {
   state.player.health = 0;
+  if (railPassenger(state)) recoverRail(state, WORLD, railOptions(state));
   state.progress.deaths += 1;
   state.respawnTimer = 2.5;
   const vehicle = currentVehicle(state);
@@ -675,6 +733,8 @@ function killPlayer(state) {
   notify(state, 'INCAPACITATED · Clinic recovery in a moment.', 'danger');
 }
 function respawn(state) {
+  if (state.interior?.active)
+    emergencyExteriorReturn(state, interiorContext(state), 'clinic-recovery');
   const fee = Math.min(80, state.player.money);
   state.player.money -= fee;
   Object.assign(state.player, {
@@ -710,9 +770,19 @@ function policeContext(state) {
     specs: VEHICLE_SPECS,
     id: (prefix) => nextId(state, prefix),
     random: () => random(state),
-    hasLineOfSight,
+    civilianWitnesses: () =>
+      scenePeople(state).filter((actor) => actor.kind !== 'police' && actor.kind !== 'hostile'),
+    findWitness: (id) => findScenePerson(state, id) || state.vehicles.find((car) => car.id === id),
+    dispatchPoint: (point) => {
+      const roomId = point?.sceneId;
+      if (!roomId) return point;
+      const portal = PORTAL_DEFINITIONS.find((portal) => portal.roomId === roomId);
+      const location = WORLD.locations.find((location) => location.id === portal?.locationId);
+      return location ? { x: location.x, y: location.y, z: location.z || 0 } : point;
+    },
+    hasLineOfSight: (a, b) => hasLineOfSight(a, b, state, actorSceneId(a)),
     isBlocked,
-    moveBody,
+    moveBody: (body, dx, dy, r) => moveBody(body, dx, dy, r, { state }),
     damageVehicle: (vehicle, amount) => damageVehicle(state, vehicle, amount),
     fire: (actor) => fireHostile(state, actor),
     reloadActor: updateEnemyReload,
@@ -730,7 +800,11 @@ export function forceWanted(state, level, point = state.player) {
   forcePoliceWanted(state, level, point, policeContext(state));
 }
 export function reportCrime(state, crime) {
-  return reportObservedCrime(state, crime, policeContext(state));
+  return reportObservedCrime(
+    state,
+    { ...crime, sceneId: crime.sceneId ?? currentSceneId(state) },
+    policeContext(state),
+  );
 }
 function raiseWanted(state, level = 1) {
   forceWanted(state, level);
@@ -759,23 +833,81 @@ export function reloadWeapon(state) {
 export function selectWeapon(state, id) {
   return equipOwnedWeapon(state, id);
 }
-function combatContext(state) {
+function damageSceneProp(state, sceneId, id, amount) {
+  const local =
+    currentSceneId(state) === sceneId
+      ? state
+      : {
+          ...state,
+          player: { ...state.player, cover: null },
+          interior: { ...state.interior, active: { roomId: sceneId } },
+        };
+  return damageInteriorProp(local, id, amount);
+}
+function damageSceneArea(state, sceneId, point, radius, amount) {
+  if (!sceneId) return;
+  const geometry = SCENES.queries(state, sceneId);
+  for (const item of INTERIOR_LAYOUTS[sceneId].props) {
+    const target = {
+      x: item.x + item.w / 2,
+      y: item.y + item.h / 2,
+      z: Math.min(26, item.height) / 2,
+    };
+    const range = Math.hypot(point.x - target.x, point.y - target.y, (point.z || 0) - target.z);
+    if (range > radius) continue;
+    const contact = geometry.traceSolid(point, target, 0);
+    if (!contact || contact.volume.id === item.id)
+      damageSceneProp(state, sceneId, item.id, amount * Math.max(0.15, 1 - range / radius));
+  }
+}
+function combatContext(state, sceneId = currentSceneId(state)) {
+  const geometry = SCENES.queries(state, sceneId);
   return {
+    sceneId,
+    damageProps: (point, radius, amount) => damageSceneArea(state, sceneId, point, radius, amount),
+    strikeProps: (actor, action) => {
+      if (!sceneId) return;
+      for (const item of INTERIOR_LAYOUTS[sceneId].props) {
+        const point = {
+          x: clamp(actor.x, item.x, item.x + item.w),
+          y: clamp(actor.y, item.y, item.y + item.h),
+          z: Math.min(14, item.height),
+        };
+        if (
+          distance(actor, point) <= action.reach &&
+          Math.abs(normalizeAngle(angleTo(actor, point) - actor.angle)) <= action.arc
+        ) {
+          const contact = geometry.traceSolid({ ...actor, z: (actor.z || 0) + 13 }, point, 0);
+          if (!contact || contact.volume.id === item.id)
+            damageSceneProp(state, sceneId, item.id, action.damage);
+        }
+      }
+    },
+    combatants: () => scenePeople(state, sceneId),
+    civilians: () =>
+      scenePeople(state, sceneId).filter(
+        (actor) => actor.kind !== 'hostile' && actor.kind !== 'police',
+      ),
+    vehicles: () => sceneVehicles(state, sceneId),
+    aircraft: () => (sceneId ? [] : state.policeAircraft),
     random: () => random(state),
     id: (prefix) => nextId(state, prefix),
-    damagePlayer: (amount) => damagePlayer(state, amount),
+    damagePlayer: (amount) => {
+      if (currentSceneId(state) === sceneId) damagePlayer(state, amount);
+    },
     damageVehicle: (vehicle, amount) => damageVehicle(state, vehicle, amount),
     raiseWanted: (level) => reportCrime(state, { type: 'gunfire', severity: level }),
-    reportCrime: (crime) => reportCrime(state, crime),
-    hasLineOfSight,
-    isBlocked,
-    surfaceHeight: (x, y, z) => TERRAIN.surfaceHeight(x, y, z),
-    moveBody,
+    reportCrime: (crime) => reportCrime(state, { ...crime, sceneId }),
+    hasLineOfSight: (a, b) => hasLineOfSight(a, b, state, sceneId),
+    isBlocked: (x, y, r, z) => geometry.isBlocked(x, y, r, z),
+    surfaceHeight: (x, y, z) => geometry.surfaceHeight(x, y, z),
+    moveBody: (body, dx, dy, r) => moveBody(body, dx, dy, r, { state }),
     reload: () => reloadWeapon(state),
     notify: (text, kind) => notify(state, text, kind),
   };
 }
 export function fireWeapon(state, input = {}) {
+  if (railPassenger(state)) return false;
   return fireCombatWeapon(state, combatContext(state), input);
 }
 export function throwTrajectory(state) {
@@ -828,6 +960,7 @@ function fireHostile(state, hostile) {
       kind: weapon.mode === 'rocket' ? 'rocket' : weapon.kind,
       weapon: hostile.weapon,
       owner: hostile.id,
+      sceneId: actorSceneId(hostile),
       x: hostile.x,
       y: hostile.y,
       z: (hostile.z || 0) + 13,
@@ -868,7 +1001,9 @@ function fireHostile(state, hostile) {
       remaining: Math.min(weapon.range, 500),
       damage: weapon.damage * (hostile.kind === 'police' ? 0.25 : 0.33),
       owner: hostile.id,
+      sceneId: actorSceneId(hostile),
       weapon: hostile.weapon,
+      sceneId: actorSceneId(hostile),
     });
   }
   hostile.fireCooldown = Math.max(0.3, weapon.fireInterval * 3) + random(state) * 0.4;
@@ -895,6 +1030,8 @@ function segmentHeight(point, start, end) {
 }
 function updateBullets(state, dt) {
   for (const bullet of state.bullets) {
+    const sceneId = bullet.sceneId ?? null,
+      geometry = SCENES.queries(state, sceneId);
     bullet.prevX = bullet.x;
     bullet.prevY = bullet.y;
     bullet.prevZ = bullet.z;
@@ -909,27 +1046,33 @@ function updateBullets(state, dt) {
     }
     bullet.remaining -= Math.hypot(bullet.vx, bullet.vy, bullet.vz || 0) * dt;
     const previous = { x: bullet.prevX, y: bullet.prevY, z: bullet.prevZ };
-    if (!hasLineOfSight(previous, bullet) || isBlocked(bullet.x, bullet.y, 1, bullet.z || 0)) {
+    if (
+      !hasLineOfSight(previous, bullet, state, sceneId) ||
+      geometry.isBlocked(bullet.x, bullet.y, 1, bullet.z || 0)
+    ) {
+      if (sceneId) {
+        const contact = geometry.traceSolid?.(previous, bullet);
+        if (contact) damageSceneProp(state, sceneId, contact.volume.id, bullet.damage);
+      }
       bullet.remaining = 0;
       continue;
     }
     if (bullet.owner === 'player') {
       const targets = [
-        ...state.hostiles,
-        ...state.police,
-        ...state.pedestrians,
-        ...state.policeAircraft,
+        ...scenePeople(state, sceneId),
+        ...(sceneId ? [] : state.policeAircraft),
       ].filter(
         (person) =>
           person.health > 0 &&
           segmentDistance(person, previous, bullet) < (person.role === 'air-search' ? 24 : 9) &&
           (bullet.z === undefined ||
             (segmentHeight(person, previous, bullet) >= (person.z || 0) &&
-              segmentHeight(person, previous, bullet) <= (person.z || 0) + 18)),
+              segmentHeight(person, previous, bullet) <=
+                (person.z || 0) + (actorSceneId(person) ? 30 : 18))),
       );
       targets.sort((a, b) => distance(a, previous) - distance(b, previous));
       const victim = targets[0];
-      const car = state.vehicles
+      const car = sceneVehicles(state, sceneId)
         .filter(
           (vehicle) =>
             vehicle.health > 0 &&
@@ -944,10 +1087,11 @@ function updateBullets(state, dt) {
         damageVehicle(state, car, bullet.damage * 0.65);
         bullet.remaining = 0;
       } else if (victim) {
-        hitCombatant(state, victim, bullet.damage, 'player', combatContext(state));
+        hitCombatant(state, victim, bullet.damage, 'player', combatContext(state, sceneId));
         bullet.remaining = 0;
       }
     } else if (
+      sceneId === currentSceneId(state) &&
       segmentDistance(state.player, previous, bullet) < (state.player.vehicleId ? 16 : 8) &&
       (bullet.z === undefined ||
         state.player.vehicleId ||
@@ -992,6 +1136,7 @@ function drive(state, vehicle, dt, input) {
     Math.cos(vehicle.angle) * vehicle.speed * dt,
     Math.sin(vehicle.angle) * vehicle.speed * dt,
     spec.width * 0.62,
+    { state },
   );
   if (collided) {
     if (Math.abs(vehicle.speed) > 40)
@@ -1014,6 +1159,7 @@ function drive(state, vehicle, dt, input) {
         Math.cos(separationAngle) * 2,
         Math.sin(separationAngle) * 2,
         spec.width * 0.62,
+        { state },
       );
       vehicle.speed *= -0.1;
       other.speed *= 0.2;
@@ -1023,7 +1169,7 @@ function drive(state, vehicle, dt, input) {
       }
     }
   }
-  for (const person of [...state.pedestrians, ...state.hostiles, ...state.police]) {
+  for (const person of scenePeople(state)) {
     if (
       person.health <= 0 ||
       Math.abs((person.z || 0) - (vehicle.z || 0)) > 12 ||
@@ -1047,6 +1193,8 @@ function drive(state, vehicle, dt, input) {
   state.player.speed = vehicle.speed;
 }
 export function toggleCover(state) {
+  if (railPassenger(state)) return false;
+  if (currentSceneId(state)) return toggleInteriorCover(state);
   const p = state.player;
   if (
     p.vehicleId ||
@@ -1062,7 +1210,7 @@ export function toggleCover(state) {
     return true;
   }
   let best = null;
-  for (const b of TERRAIN.nearbyBuildings(p.x, p.y, 22)) {
+  for (const b of geometryFor(state).nearbyBuildings(p.x, p.y, 22)) {
     const candidates = [
       {
         x: b.x - 8,
@@ -1103,7 +1251,7 @@ export function toggleCover(state) {
     ];
     for (const point of candidates) {
       const d = distance(p, point);
-      if (d < 20 && (!best || d < best.distance) && !isBlocked(point.x, point.y, 7, p.z))
+      if (d < 20 && (!best || d < best.distance) && !isBlocked(point.x, point.y, 7, p.z, state))
         best = { ...point, buildingId: b.id, distance: d };
     }
   }
@@ -1115,7 +1263,7 @@ export function toggleCover(state) {
   return true;
 }
 function carBlocksFoot(state, x, y, z = 0) {
-  return state.vehicles.some((car) => {
+  return sceneVehicles(state).some((car) => {
     if (car.health <= 0 || z < (car.z || 0) - 4 || z >= (car.z || 0) + 16) return false;
     const spec = VEHICLE_SPECS[car.spec],
       dx = x - car.x,
@@ -1139,14 +1287,15 @@ function movePlayer(state, dx, dy) {
     const x = p.x + dx / steps,
       y = p.y + dy / steps;
     if (!carBlocksFoot(state, x, y, p.z))
-      moveBody(p, dx / steps, dy / steps, 7, { allowWater: true });
+      moveBody(p, dx / steps, dy / steps, 7, { allowWater: true, state });
     else if (!carBlocksFoot(state, x, p.y, p.z))
-      moveBody(p, dx / steps, 0, 7, { allowWater: true });
+      moveBody(p, dx / steps, 0, 7, { allowWater: true, state });
     else if (!carBlocksFoot(state, p.x, y, p.z))
-      moveBody(p, 0, dy / steps, 7, { allowWater: true });
+      moveBody(p, 0, dy / steps, 7, { allowWater: true, state });
   }
 }
 export function jumpOrVault(state, { vaultOnly = false } = {}) {
+  if (railPassenger(state)) return false;
   const p = state.player;
   if (
     p.vehicleId ||
@@ -1158,7 +1307,9 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
   )
     return false;
   let obstacle = null;
-  for (const item of WORLD.obstacles || []) {
+  for (const item of currentSceneId(state)
+    ? interiorCollisionVolumes(state)
+    : WORLD.obstacles || []) {
     const nearest = {
       x: clamp(p.x, item.x, item.x + item.w),
       y: clamp(p.y, item.y, item.y + item.h),
@@ -1175,14 +1326,19 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
           ? { x: nx > 0 ? item.x + item.w + 12 : item.x - 12, y: p.y }
           : { x: p.x, y: ny > 0 ? item.y + item.h + 12 : item.y - 12 };
       if (
-        !isBlocked(end.x, end.y, 7, p.groundZ || 0) &&
+        !isBlocked(end.x, end.y, 7, p.groundZ || 0, state) &&
         !carBlocksFoot(state, end.x, end.y, p.groundZ || 0)
       )
-        obstacle = { kind: item.height > 20 ? 'climb' : 'vault', end, height: item.height + 12 };
+        obstacle = {
+          sourceVolumeId: item.id,
+          kind: item.height > 20 ? 'climb' : 'vault',
+          end,
+          height: item.height + 12,
+        };
     }
   }
   if (!obstacle)
-    for (const car of state.vehicles) {
+    for (const car of sceneVehicles(state)) {
       if (
         car.health <= 0 ||
         Math.abs(car.speed) > 2 ||
@@ -1192,7 +1348,7 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
         continue;
       const end = { x: car.x + Math.cos(p.angle) * 29, y: car.y + Math.sin(p.angle) * 29 };
       if (
-        !isBlocked(end.x, end.y, 7, p.groundZ || 0) &&
+        !isBlocked(end.x, end.y, 7, p.groundZ || 0, state) &&
         !carBlocksFoot(state, end.x, end.y, p.groundZ || 0)
       )
         obstacle = { kind: 'vault', end, height: 26 };
@@ -1201,13 +1357,16 @@ export function jumpOrVault(state, { vaultOnly = false } = {}) {
   p.crouching = false;
   if (obstacle) {
     // Reject a path that would tunnel through an unrelated building.
-    const clear = TERRAIN.nearbyBuildings(p.x, p.y, 80).every(
-      (b) =>
-        !Array.from({ length: 8 }, (_, i) => ({
-          x: p.x + ((obstacle.end.x - p.x) * (i + 1)) / 8,
-          y: p.y + ((obstacle.end.y - p.y) * (i + 1)) / 8,
-        })).some((q) => circleRectCollision(q.x, q.y, 7, b)),
-    );
+    const clear = geometryFor(state)
+      .nearbyBuildings(p.x, p.y, 80)
+      .filter((b) => b.id !== obstacle.sourceVolumeId)
+      .every(
+        (b) =>
+          !Array.from({ length: 8 }, (_, i) => ({
+            x: p.x + ((obstacle.end.x - p.x) * (i + 1)) / 8,
+            y: p.y + ((obstacle.end.y - p.y) * (i + 1)) / 8,
+          })).some((q) => circleRectCollision(q.x, q.y, 7, b)),
+      );
     if (!clear) return false;
     p.stamina -= 20;
     p.traversal = {
@@ -1253,14 +1412,14 @@ function walk(state, dt, input) {
     p.z = (action.groundZ || 0) + Math.sin(Math.PI * t) * action.height;
     p.speed = 0;
     if (t === 1) {
-      p.groundZ = TERRAIN.surfaceHeight(p.x, p.y, action.groundZ || 0);
+      p.groundZ = geometryFor(state).surfaceHeight(p.x, p.y, action.groundZ || 0);
       p.z = p.groundZ;
       p.vz = 0;
       p.traversal = null;
     }
     return;
   }
-  p.groundZ ??= TERRAIN.surfaceHeight(p.x, p.y, p.z);
+  p.groundZ ??= geometryFor(state).surfaceHeight(p.x, p.y, p.z);
   p.vz ||= 0;
   if (p.z > p.groundZ || p.vz > 0) {
     p.vz -= 220 * dt;
@@ -1268,7 +1427,7 @@ function walk(state, dt, input) {
     if (p.z === p.groundZ) p.vz = 0;
   }
   p.swimming = Boolean(
-    TERRAIN.isWater(p.x, p.y, { ignoreDeck: true }) && p.z <= 0 && p.groundZ >= 0,
+    geometryFor(state).isWater(p.x, p.y, { ignoreDeck: true }) && p.z <= 0 && p.groundZ >= 0,
   );
   if (p.dodgeRemaining > 0) {
     p.dodgeRemaining = Math.max(0, p.dodgeRemaining - dt);
@@ -1286,6 +1445,12 @@ function walk(state, dt, input) {
   if (magnitude > 1) {
     dx /= magnitude;
     dy /= magnitude;
+  }
+  if (p.intoxication && magnitude > 0) {
+    const sway = Math.sin(state.time * 2.4) * p.intoxication * 0.22,
+      x = dx;
+    dx = x * Math.cos(sway) - dy * Math.sin(sway);
+    dy = x * Math.sin(sway) + dy * Math.cos(sway);
   }
   if (p.cover) {
     if (dx * p.cover.nx + dy * p.cover.ny > 0.45) p.cover = null;
@@ -1325,6 +1490,7 @@ function walk(state, dt, input) {
 }
 function updateTraffic(state, dt) {
   for (const vehicle of state.vehicles) {
+    if (!inScene(vehicle, null)) continue;
     if (vehicle.policeControlled) continue;
     if (vehicle.kind !== 'traffic' || vehicle.occupied || vehicle.health <= 0 || !vehicle.route)
       continue;
@@ -1346,7 +1512,11 @@ function updateTraffic(state, dt) {
     vehicle.speed += ((obstacle ? 0 : desiredSpeed) - vehicle.speed) * Math.min(1, dt * 3);
     vehicle.angle = desiredAngle;
     const travel = Math.min(remaining, vehicle.speed * dt);
-    if (moveBody(vehicle, Math.cos(vehicle.angle) * travel, Math.sin(vehicle.angle) * travel, 8))
+    if (
+      moveBody(vehicle, Math.cos(vehicle.angle) * travel, Math.sin(vehicle.angle) * travel, 8, {
+        state,
+      })
+    )
       vehicle.speed = 0;
   }
 }
@@ -1360,6 +1530,7 @@ function ambientContext(state) {
 }
 function updatePedestrians(state, dt) {
   for (const person of state.pedestrians) {
+    if (!inScene(person, null)) continue;
     if (person.health <= 0) continue;
     person.panic = Math.max(0, person.panic - dt);
     if (person.panic > 0 && distance(person, state.player) < 100) {
@@ -1389,8 +1560,9 @@ function spawnPolice(state) {
 function updatePolice(state, dt, input = {}) {
   updatePolicing(state, dt, input, policeContext(state));
 }
-function updateHostiles(state, dt) {
+function updateHostiles(state, dt, sceneId = currentSceneId(state)) {
   for (const hostile of state.hostiles) {
+    if (!inScene(hostile, sceneId)) continue;
     if (hostile.health <= 0) continue;
     hostile.fireCooldown = Math.max(0, hostile.fireCooldown - dt);
     updateEnemyReload(hostile, dt);
@@ -1399,10 +1571,16 @@ function updateHostiles(state, dt) {
     hostile.angle = angleTo(hostile, state.player);
     if (
       range > (WEAPONS[hostile.weapon]?.mode === 'melee' ? 18 : 120) ||
-      !hasLineOfSight(hostile, state.player)
+      !hasLineOfSight(hostile, state.player, state, sceneId)
     )
-      moveBody(hostile, Math.cos(hostile.angle) * 32 * dt, Math.sin(hostile.angle) * 32 * dt, 7);
-    if (range < 250 && hasLineOfSight(hostile, state.player) && hostile.fireCooldown === 0)
+      moveBody(hostile, Math.cos(hostile.angle) * 32 * dt, Math.sin(hostile.angle) * 32 * dt, 7, {
+        state,
+      });
+    if (
+      range < 250 &&
+      hasLineOfSight(hostile, state.player, state, sceneId) &&
+      hostile.fireCooldown === 0
+    )
       fireHostile(state, hostile);
   }
 }
@@ -1570,9 +1748,10 @@ function validExitPoint(state, vehicle) {
       groundZ: vehicle.groundZ || 0,
     };
     if (
-      !isBlocked(point.x, point.y, 7, point.z) &&
-      Math.abs(TERRAIN.surfaceHeight(point.x, point.y, point.groundZ) - point.groundZ) < 6 &&
-      !state.vehicles.some((other) => other.id !== vehicle.id && distance(point, other) < 17)
+      !isBlocked(point.x, point.y, 7, point.z, state) &&
+      Math.abs(geometryFor(state).surfaceHeight(point.x, point.y, point.groundZ) - point.groundZ) <
+        6 &&
+      !sceneVehicles(state).some((other) => other.id !== vehicle.id && distance(point, other) < 17)
     )
       return point;
   }
@@ -1641,13 +1820,30 @@ function interactionCandidates(state) {
       });
     }
   }
+  for (const portal of nearbyInteriorPortals(state, WORLD))
+    candidates.push({
+      ...portal,
+      type: 'interior-portal',
+      prompt: `Enter ${portal.name}`,
+      available: true,
+      radius: portal.entryRadius,
+    });
+  const rail = railInteraction(state, WORLD);
+  if (rail) candidates.push({ ...rail, radius: 32 });
   for (const location of WORLD.locations)
     candidates.push({ ...location, prompt: location.description, available: true, radius: 34 });
   return candidates
     .map((item) => ({ ...item, distance: distance(player, item) }))
     .filter((item) => item.distance < item.radius && Math.abs((item.z || 0) - (player.z || 0)) < 16)
     .sort((a, b) => {
-      const priority = { objective: 0, mission: 1, pickup: 1.5, vehicle: 2 };
+      const priority = {
+        objective: 0,
+        mission: 1,
+        'interior-portal': 1.2,
+        'rail-board': 1.4,
+        pickup: 1.5,
+        vehicle: 2,
+      };
       const currentStage = state.mission
         ? MISSIONS.find((mission) => mission.id === state.mission.id)?.stages[state.mission.stage]
         : null;
@@ -1657,7 +1853,7 @@ function interactionCandidates(state) {
         if (item.type === 'vehicle' && requiredVehicle) {
           const vehicle = state.vehicles.find((vehicle) => vehicle.id === item.id);
           if (vehicle && (vehicle.id === requiredVehicle || vehicle.spec === requiredVehicle))
-            return 1.3;
+            return 1.05;
         }
         if (!(item.type in priority) && item.distance <= 16) return 1.4;
         return priority[item.type] ?? 3;
@@ -1667,6 +1863,7 @@ function interactionCandidates(state) {
 }
 export function nearestInteractable(state) {
   if (state.player.health <= 0) return null;
+  if (railPassenger(state)) return railInteraction(state, WORLD);
   if (state.dialogue)
     return {
       id: 'dialogue',
@@ -1678,13 +1875,48 @@ export function nearestInteractable(state) {
       prompt: 'Continue conversation',
       available: true,
     };
+  if (currentSceneId(state)) {
+    const item = nearestInteriorInteractable(state);
+    if (item)
+      return {
+        ...item,
+        name: item.prompt || item.id,
+        prompt: item.prompt || `Use ${item.id}`,
+        available: true,
+        distance: item.distance || 0,
+      };
+    const car = sceneVehicles(state).find(
+      (car) => car.health > 0 && distance(car, state.player) < 31,
+    );
+    if (state.player.vehicleId)
+      return {
+        id: state.player.vehicleId,
+        type: 'exit',
+        name: 'Leave vehicle',
+        prompt: 'Leave vehicle',
+        available: true,
+        distance: 0,
+      };
+    if (car)
+      return {
+        id: car.id,
+        type: 'vehicle',
+        name: VEHICLE_SPECS[car.spec].name,
+        prompt: `Enter ${VEHICLE_SPECS[car.spec].name}`,
+        available: true,
+        distance: distance(car, state.player),
+      };
+    return null;
+  }
   if (state.player.vehicleId) {
     const objective = interactionCandidates(state).find(
       (item) => item.type === 'objective' && item.available,
     );
     if (objective) return objective;
-    const service = interactionCandidates(state).find((item) =>
-      ['garage', 'taxi'].includes(item.type),
+    const service = interactionCandidates(state).find(
+      (item) =>
+        ['garage', 'taxi'].includes(item.type) ||
+        (item.type === 'interior-portal' && item.vehicleAllowed),
     );
     if (service) return service;
     return {
@@ -1708,24 +1940,61 @@ function pay(state, amount) {
   state.player.money -= amount;
   return true;
 }
-function atWeaponStore(state) {
-  return (
-    !state.player.vehicleId &&
-    state.player.health > 0 &&
-    WORLD.locations.some(
-      (location) => location.type === 'weapons' && distance(location, state.player) < 42,
-    )
+const WORKSHOP = ['club', 'knife', 'street-object'];
+const WORKSHOP_PRICES = { club: 55, knife: 60, 'street-object': 12 };
+export function getEquipmentStore(state) {
+  if (state.player.vehicleId || state.player.health <= 0) return null;
+  if (currentSceneId(state)) {
+    const item = nearestInteriorInteractable(state);
+    return currentSceneId(state) === 'saira-garage' &&
+      item?.service === 'garage-parts' &&
+      interiorActors(state).some((actor) => actor.health > 0)
+      ? {
+          id: 'workshop',
+          name: 'Saira’s Tools',
+          weaponIds: WORKSHOP,
+          ammoIds: [],
+          repeatPurchase: ['street-object'],
+        }
+      : null;
+  }
+  const shop = WORLD.locations.find(
+    (location) => location.type === 'weapons' && distance(location, state.player) < 42,
   );
+  return shop
+    ? {
+        id: 'weapons',
+        name: shop.name,
+        weaponIds: SHOP_WEAPONS,
+        ammoIds: SHOP_WEAPONS.filter((id) => WEAPONS[id].mode !== 'melee'),
+        repeatPurchase: [],
+      }
+    : null;
+}
+export function equipmentPrice(state, id) {
+  return getEquipmentStore(state)?.id === 'workshop'
+    ? (WORKSHOP_PRICES[id] ?? WEAPONS[id]?.cost ?? 0)
+    : (WEAPONS[id]?.cost ?? 0);
+}
+function atWeaponStore(state) {
+  return !!getEquipmentStore(state);
 }
 export function buyWeapon(state, id) {
   const weapon = WEAPONS[id];
-  if (!weapon || !SHOP_WEAPONS.includes(id) || !atWeaponStore(state)) return false;
+  const store = getEquipmentStore(state);
+  if (!weapon || !store?.weaponIds.includes(id)) return false;
+  if (store.repeatPurchase.includes(id)) {
+    if (!pay(state, equipmentPrice(state, id))) return false;
+    acquireWeapon(state, id, 1, { material: 'metal', name: 'Workshop tool' });
+    notify(state, 'Workshop tool purchased.', 'success');
+    return true;
+  }
   if (state.player.ownedWeapons.includes(id)) {
     equipOwnedWeapon(state, id);
     notify(state, `${weapon.name} equipped from your stored loadout.`, 'success');
     return true;
   }
-  if (!pay(state, weapon.cost)) return false;
+  if (!pay(state, equipmentPrice(state, id))) return false;
   acquireWeapon(state, id, weapon.mode === 'melee' ? 0 : (weapon.supply ?? weapon.clipSize * 5));
   notify(state, `${weapon.name} purchased.`, 'success');
   return true;
@@ -1735,7 +2004,7 @@ export function buyAmmo(state, id = state.player.weapon) {
     ammo = state.player.ammo[id];
   if (
     !weapon ||
-    !SHOP_WEAPONS.includes(id) ||
+    !getEquipmentStore(state)?.ammoIds.includes(id) ||
     weapon.mode === 'melee' ||
     !state.player.ownedWeapons.includes(id) ||
     !atWeaponStore(state) ||
@@ -1759,10 +2028,11 @@ export function pickupWeapon(state, id) {
   const pickup = state.pickups.find((item) => item.id === id && item.available);
   if (
     !pickup ||
+    !inScene(pickup, currentSceneId(state)) ||
     state.player.vehicleId ||
     state.player.health <= 0 ||
     distance(state.player, pickup) >= 28 ||
-    !hasLineOfSight(state.player, pickup)
+    !hasLineOfSight(state.player, pickup, state)
   )
     return false;
   if (
@@ -1874,6 +2144,19 @@ export function interact(state) {
       state.dialogue.expires = state.time + 14;
     }
     return candidate;
+  }
+  if (currentSceneId(state) && !['dialogue', 'vehicle', 'exit'].includes(candidate.type)) {
+    const result = interactInterior(state, interiorContext(state));
+    return result.ok
+      ? result.result || result
+      : (notify(state, result.reason || 'That service is unavailable.'), null);
+  }
+  if (['rail-board', 'rail-alight'].includes(candidate.type))
+    return interactRail(state, WORLD, candidate, railOptions(state));
+  if (candidate.type === 'interior-portal') {
+    const result = enterInterior(state, candidate.id, interiorContext(state));
+    if (!result.ok) notify(state, result.reason);
+    return result;
   }
   if (!candidate.available) {
     notify(state, 'Finish the objective on foot or bring the requested vehicle.');
@@ -2003,12 +2286,131 @@ export function interact(state) {
   return candidate;
 }
 
+function railOptions(state) {
+  return {
+    terrain: TERRAIN,
+    notify: (text) => notify(state, text),
+    damagePlayer: (amount) => damagePlayer(state, amount),
+    damageVehicle: (car, amount) => damageVehicle(state, car, amount),
+  };
+}
+export function selectMetroStop(state, stationId, platformId) {
+  return chooseRailStop(state, WORLD, stationId, platformId);
+}
+
+function interiorContext(state) {
+  return {
+    world: WORLD,
+    terrain: TERRAIN,
+    returnOnIncapacitation: false,
+    notify: (text) => notify(state, text),
+    onEnter: () => {
+      state.dialogue = null;
+      state.lastInput = {};
+    },
+    onExit: () => {
+      state.dialogue = null;
+      state.lastInput = {};
+    },
+    onHook: (action) => {
+      if (action.type === 'activity') {
+        if (state.mission || state.taxiJob || state.wanted.level) {
+          notify(state, 'Finish the assignment and lose police attention before taking a break.');
+          return false;
+        }
+        return { type: 'activity', activity: action.activity };
+      }
+      if (action.type === 'job') return { type: 'journal' };
+      if (action.service === 'garage-parts') return { type: 'workshop' };
+      if (action.service === 'rest-save') {
+        if (state.wanted.level) {
+          notify(state, 'Lose police attention before resting.');
+          return false;
+        }
+        state.player.health = Math.min(100, state.player.health + 25);
+        state.saveRequested = true;
+        state.checkpoint = { x: action.exterior.x, y: action.exterior.y };
+        notify(state, 'Rested at the cooperative. Progress can be saved.', 'success');
+        return { type: 'save' };
+      }
+      if (!interiorActors(state).some((actor) => actor.health > 0)) {
+        notify(state, 'The attendant is unavailable.');
+        return false;
+      }
+      if (action.service === 'vehicle-repair') {
+        const vehicle = state.vehicles.find((car) => car.id === state.interior.active.vehicleId);
+        if (!vehicle || vehicle.health <= 0) {
+          notify(state, 'Bring a working vehicle into the service bay.');
+          return false;
+        }
+        const cost = WORLD.locations.find((location) => location.id === 'saira-shop').cost;
+        if (!pay(state, cost)) return false;
+        vehicle.health = vehicle.maxHealth || VEHICLE_SPECS[vehicle.spec].health;
+        notify(state, 'Repairs complete. Drive carefully.', 'success');
+        return { type: 'repair', cost };
+      }
+      if (action.service === 'bar-drink' || action.service === 'venue-food') {
+        const cost = action.service === 'bar-drink' ? 12 : 18;
+        if (!pay(state, cost)) return false;
+        state.player.health = Math.min(
+          100,
+          state.player.health + (action.service === 'bar-drink' ? 5 : 35),
+        );
+        if (action.service === 'bar-drink')
+          state.player.intoxication = Math.min(1, (state.player.intoxication || 0) + 0.25);
+        notify(
+          state,
+          action.service === 'bar-drink' ? 'Drink served.' : 'A warm meal. Health restored.',
+          'success',
+        );
+        return { type: 'refreshment', cost };
+      }
+      return false;
+    },
+  };
+}
+function updateRoomPeople(state, dt) {
+  const room = interiorScene(state)?.room;
+  if (!room) return;
+  for (const actor of interiorActors(state)) {
+    if (actor.health <= 0) {
+      actor.speed = 0;
+      continue;
+    }
+    actor.panic = Math.max(0, (actor.panic || 0) - dt);
+    if (actor.panic > 0 && !(actor.staggerRemaining > 0)) {
+      actor.angle = angleTo(state.player, actor);
+      actor.speed = 35;
+      moveBody(actor, Math.cos(actor.angle) * 35 * dt, Math.sin(actor.angle) * 35 * dt, 6, {
+        state,
+      });
+      actor.x = clamp(actor.x, 8, room.width - 8);
+      actor.y = clamp(actor.y, 8, room.height - 8);
+    } else actor.speed = 0;
+  }
+}
+function updateAllOrdnance(state, dt) {
+  const ids = new Set([
+    currentSceneId(state),
+    null,
+    ...Object.keys(state.interior?.rooms || {}),
+    ...state.ordnance.map(actorSceneId),
+    ...state.fires.map(actorSceneId),
+    ...state.pickups.map(actorSceneId),
+    ...state.combatEffects.map(actorSceneId),
+  ]);
+  for (const sceneId of ids) updateOrdnance(state, dt, combatContext(state, sceneId));
+}
+
 export function updateSimulation(state, dt, input = {}) {
   if (!Number.isFinite(dt) || dt <= 0) return state;
+  const frameScene = currentSceneId(state),
+    originalInput = input;
   const elapsed = Math.min(dt, 0.5);
   const steps = Math.max(1, Math.ceil(elapsed / (1 / 60)));
   const step = elapsed / steps;
   if (input.confirm && !state.lastInput.confirm) interact(state);
+  if (currentSceneId(state) !== frameScene) input = {};
   if (input.reload && !state.lastInput.reload) reloadWeapon(state);
   if (input.weapon && input.weapon !== state.player.weapon) selectWeapon(state, input.weapon);
   if (input.cover && !state.lastInput.cover) toggleCover(state);
@@ -2017,8 +2419,14 @@ export function updateSimulation(state, dt, input = {}) {
   const context = combatContext(state);
   combatDefenseInput(state, input, context);
   for (let i = 0; i < steps; i += 1) {
+    // A portal may change scenes inside a multi-step frame. Discard the old
+    // scene's held commands immediately, before another step can move/fire.
+    if (currentSceneId(state) !== frameScene) input = {};
     state.time += step;
+    updateRail(state, WORLD, step, railOptions(state));
     state.clock = (20.25 + state.time / 90) % 24;
+    const context = combatContext(state);
+    state.player.intoxication = Math.max(0, (state.player.intoxication || 0) - step * 0.0007);
     state.player.fireCooldown = Math.max(0, state.player.fireCooldown - step);
     state.player.recoil = Math.max(0, state.player.recoil - step * 0.2);
     if (state.player.reloadRemaining > 0) {
@@ -2027,12 +2435,16 @@ export function updateSimulation(state, dt, input = {}) {
     }
     if (state.respawnTimer > 0) {
       state.respawnTimer -= step;
-      updateOrdnance(state, step, context);
+      updateAllOrdnance(state, step);
       if (state.respawnTimer <= 0) respawn(state);
       continue;
     }
     const vehicle = currentVehicle(state);
-    if (vehicle) {
+    if (railPassenger(state)) {
+      state.player.cover = null;
+      state.player.vz = 0;
+      state.player.crouching = false;
+    } else if (vehicle) {
       drive(state, vehicle, step, input);
       state.player.cover = null;
       state.player.z = vehicle.z || 0;
@@ -2044,43 +2456,64 @@ export function updateSimulation(state, dt, input = {}) {
         state.player.angle = normalizeAngle(input.aimAngle);
     } else walk(state, step, input);
     if (input.fire) fireWeapon(state, input);
-    updateTraffic(state, step);
-    updatePedestrians(state, step);
-    updateHostiles(state, step);
-    updatePolice(state, step, input);
+    if (currentSceneId(state)) {
+      tickInterior(state, step, interiorContext(state));
+      if (currentSceneId(state)) {
+        updateRoomPeople(state, step);
+        updateHostiles(state, step, currentSceneId(state));
+      }
+      withExteriorContext(state, () => {
+        updateTraffic(state, step);
+        updatePedestrians(state, step);
+        updateHostiles(state, step, null);
+        updatePolice(state, step, input);
+      });
+    } else {
+      updateTraffic(state, step);
+      updatePedestrians(state, step);
+      updateHostiles(state, step);
+      updatePolice(state, step, input);
+    }
+    updateRailImpacts(state, step, railOptions(state));
     updateBullets(state, step);
-    updateMelee(state, step, context);
-    updateOrdnance(state, step, context);
-    if (state.player.health > 0) {
+    for (const sceneId of new Set([null, ...Object.keys(state.interior?.rooms || {})]))
+      updateMelee(state, step, combatContext(state, sceneId));
+    updateAllOrdnance(state, step);
+    if (state.player.health > 0 && !currentSceneId(state)) {
       updateMission(state, step);
       updateTaxiJob(state, step);
     }
     if (state.dialogue && state.time > state.dialogue.expires) state.dialogue = null;
     state.notifications = state.notifications.filter((notice) => notice.expires > state.time);
   }
-  updateAmbient(state, WORLD, elapsed, ambientContext(state));
-  const district = WORLD.districts.find(
-    (item) =>
-      state.player.x >= item.x &&
-      state.player.x < item.x + item.w &&
-      state.player.y >= item.y &&
-      state.player.y < item.y + item.h,
-  );
-  const area = TERRAIN.neighbourhoodAt(state.player.x, state.player.y);
-  if (area?.districtId) state.district = area.districtId;
-  else if (district) state.district = district.id;
-  state.neighbourhood = area?.id || null;
-  const infrastructure = TERRAIN.infrastructureAt(
-    state.player.x,
-    state.player.y,
-    state.player.groundZ || 0,
-  );
-  const place = infrastructure
-    ? [...WORLD.bridges, ...WORLD.tunnels].find((item) => item.id === infrastructure.catalogueId)
-    : null;
-  state.place = place
-    ? { id: place.id, name: place.name, type: infrastructure.tunnel ? 'tunnel' : 'bridge' }
-    : null;
+  withExteriorContext(state, () => updateAmbient(state, WORLD, elapsed, ambientContext(state)));
+  if (!currentSceneId(state)) {
+    const district = WORLD.districts.find(
+      (item) =>
+        state.player.x >= item.x &&
+        state.player.x < item.x + item.w &&
+        state.player.y >= item.y &&
+        state.player.y < item.y + item.h,
+    );
+    const area = TERRAIN.neighbourhoodAt(state.player.x, state.player.y);
+    if (area?.districtId) state.district = area.districtId;
+    else if (district) state.district = district.id;
+    state.neighbourhood = area?.id || null;
+    const infrastructure = TERRAIN.infrastructureAt(
+      state.player.x,
+      state.player.y,
+      state.player.groundZ || 0,
+    );
+    const place = infrastructure
+      ? [...WORLD.bridges, ...WORLD.tunnels].find((item) => item.id === infrastructure.catalogueId)
+      : null;
+    state.place = place
+      ? { id: place.id, name: place.name, type: infrastructure.tunnel ? 'tunnel' : 'bridge' }
+      : null;
+  } else {
+    const room = interiorScene(state).room;
+    state.place = { id: room.id, name: room.name, type: 'interior' };
+  }
   state.lastInput = Object.fromEntries(
     [
       'confirm',
@@ -2093,7 +2526,7 @@ export function updateSimulation(state, dt, input = {}) {
       'counter',
       'disarm',
       'fire',
-    ].map((key) => [key, Boolean(input[key])]),
+    ].map((key) => [key, Boolean(originalInput[key])]),
   );
   return state;
 }
@@ -2111,6 +2544,45 @@ function finiteNumber(value, low, high) {
 function validPoint(value) {
   return value && finiteNumber(value.x, 0, WORLD.width) && finiteNumber(value.y, 0, WORLD.height);
 }
+function validateSceneLedger(state) {
+  const current = currentSceneId(state);
+  if ((state.player.sceneId ?? null) !== current)
+    throw new Error('The saved player scene is invalid.');
+  const entities = [
+    ...state.vehicles,
+    ...state.pedestrians,
+    ...state.hostiles,
+    ...state.police,
+    ...state.bullets,
+    ...state.ordnance,
+    ...state.fires,
+    ...state.pickups,
+    ...state.combatEffects,
+  ];
+  for (const item of entities) {
+    const id = actorSceneId(item);
+    if (id !== null && (!Object.hasOwn(INTERIOR_LAYOUTS, id) || typeof id !== 'string'))
+      throw new Error('The saved entity scene is invalid.');
+    if (
+      item.scene &&
+      (!['interior', 'exterior'].includes(item.scene.kind) ||
+        (item.scene.kind === 'exterior' && item.scene.id !== 'harbor-city'))
+    )
+      throw new Error('The saved entity scene identity is invalid.');
+    if (id) {
+      const room = INTERIOR_LAYOUTS[id];
+      if (
+        !finiteNumber(item.x, -40, room.width + 40) ||
+        !finiteNumber(item.y, -40, room.height + 40)
+      )
+        throw new Error('The saved local entity coordinates are invalid.');
+    }
+  }
+  for (const report of state.policeDispatch.reports)
+    if (report.point?.sceneId && !Object.hasOwn(INTERIOR_LAYOUTS, report.point.sceneId))
+      throw new Error('The saved witness scene is invalid.');
+}
+
 export function restoreGame(serialized) {
   let saved;
   try {
@@ -2145,18 +2617,29 @@ export function restoreGame(serialized) {
     !finiteNumber(state.respawnTimer, 0, 3) ||
     !finiteNumber(state.player.angle, -TAU, TAU) ||
     !finiteNumber(state.player.stamina, 0, 100) ||
+    (state.player.intoxication !== undefined && !finiteNumber(state.player.intoxication, 0, 1)) ||
     !finiteNumber(state.player.fireCooldown, 0, 5) ||
     !finiteNumber(state.player.reloadRemaining, 0, 5) ||
     !finiteNumber(state.player.speed, -300, 300) ||
     !finiteNumber(state.lastCrimeTime, -1000, 1e9)
   )
     throw new Error('The save is incomplete or corrupted.');
+  initializeInteriors(state);
+  state.scene ??= { kind: 'exterior', id: 'harbor-city' };
+  state.player.sceneId ??= currentSceneId(state);
+  validateInteriorState(state, { world: WORLD });
+  const hadSavedTransit = state.transit !== undefined;
+  initializeRail(state, WORLD);
+  if (!hadSavedTransit) updateRail(state, WORLD, 0, railOptions(state));
+  validateRailRuntime(state, WORLD);
+  if (!state.railSignals) throw new Error('The saved Metro signal reservations are missing.');
   if (state.combatVersion === undefined) initializeCombat(state, WORLD.pickups || []);
-  validateCombatSave(state, WORLD);
+  validateCombatSave(state, SCENES.validationWorld(state));
   if (state.policeVersion === undefined) initializePolicing(state);
   validatePoliceSave(state, WORLD);
+  validateSceneLedger(state);
   if (!state.ambient) initializeAmbient(state, WORLD);
-  validateAmbient(state, WORLD);
+  withExteriorContext(state, () => validateAmbient(state, WORLD));
   if (
     state.vehicles.length > 200 ||
     state.pedestrians.length > 500 ||

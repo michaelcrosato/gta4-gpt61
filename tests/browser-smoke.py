@@ -138,7 +138,7 @@ async def natural_flow(page, report, output, name, phone):
               + (after["y"] - before["y"]) ** 2) ** 0.5
     require(driven > 20, "Holding W did not move the taxi at least 20 world units")
     await page.keyboard.down("Shift")
-    await page.wait_for_timeout(900)
+    await page.wait_for_function("Math.abs(lowlight.state.vehicles.find(v=>v.id===lowlight.state.player.vehicleId).speed)<10", timeout=15000)
     await page.keyboard.up("Shift")
     await key(page, "e")
     require((await snapshot(page))["player"]["vehicleId"] is None,

@@ -9,6 +9,9 @@ import {
   selectWeapon,
   buyWeapon,
   buyAmmo,
+  getEquipmentStore,
+  equipmentPrice,
+  selectMetroStop,
   jumpOrVault,
   toggleCover,
   WORLD,
@@ -17,6 +20,13 @@ import {
   VEHICLE_SPECS,
 } from './simulation.js';
 import { createWorldRenderer } from './renderer.js';
+import { createRailRenderer } from './rail-renderer.js';
+import { railPassenger } from './rail-runtime.js';
+import { quoteTransitFare } from './transit.js';
+import { createInteriorRenderer } from './interior-renderer.js';
+import { interiorScene } from './interiors.js';
+import { currentSceneId, scenePeople, inScene } from './scene-context.js';
+import { createRoomMap, exteriorMapPosition } from './room-map.js';
 import { findRoute, snapToRoad } from './navigation.js';
 import { weaponSound } from './weapon-art.js';
 import { createMinigameView } from './minigame-view.js';
@@ -88,6 +98,9 @@ game.reduceMotion = settings.reduceMotion;
 game.audio.setVolume(settings.volume);
 game.cam.smooth = 0.18;
 const renderer = createWorldRenderer(game, WORLD, VEHICLE_SPECS);
+const metroRenderer = createRailRenderer(game, WORLD);
+const roomRenderer = createInteriorRenderer(game, VEHICLE_SPECS);
+const roomMap = createRoomMap();
 const mapBackground = createMapBackground(WORLD);
 const dialogs = [$('pause-dialog'), $('info-dialog'), $('map-dialog')];
 const touch = { x: 0, y: 0, id: null };
@@ -96,6 +109,8 @@ let mapCursor = null;
 let lastAttackSerial = 0;
 const combatEffectsSeen = new Set();
 const touchCombat = { crouch: false, aim: false, block: false };
+let displayedSceneId = null,
+  sceneMovementBlocked = false;
 const activityUI = createMinigameView({
   audio: game.audio,
   onSnapshot(session) {
@@ -198,6 +213,43 @@ function announce(text, error = false) {
   item.textContent = text;
   $('notifications').append(item);
   setTimeout(() => item.remove(), 5000);
+}
+function syncScene(force = false) {
+  const id = currentSceneId(state);
+  if (!force && id === displayedSceneId) return false;
+  displayedSceneId = id;
+  const axes = game.input.padAxes || [0, 0];
+  sceneMovementBlocked = Math.hypot(axes[0] || 0, axes[1] || 0) > (game.input.deadzone ?? 0.18);
+  game.input.clear();
+  if (touch.id !== null && $('joystick').hasPointerCapture?.(touch.id))
+    $('joystick').releasePointerCapture(touch.id);
+  touch.id = null;
+  touch.x = touch.y = 0;
+  $('joystick-knob').style.transform = '';
+  touchCombat.crouch = touchCombat.aim = touchCombat.block = false;
+  state.lastInput = {};
+  state.player.firing = false;
+  state.player.aimTarget = null;
+  game.particles.list.length = 0;
+  game.r.ghosts.length = 0;
+  game.cam.snap = true;
+  game.focus(state.player.x, state.player.y, state.player.z || 0);
+  game.lights.enabled = Boolean(id);
+  game.lights.ambient = id ? 0.4 : 0.15;
+  lastAttackSerial = state.player.attackSerial || 0;
+  lastHealth = state.player.health;
+  lastHud = state.time - 1;
+  return true;
+}
+
+function processInteraction(result) {
+  const changed = syncScene();
+  if (result?.type === 'save') storeProgress(true);
+  else if (result?.type === 'activity') openActivity(result.activity);
+  else if (result?.type === 'workshop') showWeaponShop();
+  else if (result?.type === 'journal') showJournal();
+  updateHud();
+  return changed || dialogs.some((dialog) => dialog.open);
 }
 function storeProgress(manual = false) {
   try {
@@ -309,6 +361,7 @@ function start(continuing = false) {
   combatEffectsSeen.clear();
   touchCombat.crouch = touchCombat.aim = touchCombat.block = false;
   noticeHistory.clear();
+  syncScene(true);
   if (continuing) for (const notice of state.notifications) noticeHistory.add(notice.id);
   $('notifications').replaceChildren();
   game.audio.music({
@@ -340,6 +393,7 @@ function title() {
   game.paused = false;
   game.cam.snap = true;
   game.cam.offset = null;
+  game.lights.enabled = false;
   game.input.clear();
   game.audio.music(null);
 }
@@ -465,19 +519,67 @@ function showPhone() {
     : 'Felix Voss';
   info(
     'One missed call.',
-    `<p class="credit-title">${escapeHTML(contact || 'VOSS DISPATCH')}</p><p>${escapeHTML(state.mission?.objective || 'The taxi rank has work if you need cash. Keep in touch with the people who helped you get here.')}</p><button id="phone-journal" class="primary-button">OPEN JOURNAL <span>↗</span></button><p>Voss Dispatch · Saira’s Garage · Southbank Clinic · Signal House</p>`,
+    `<p class="credit-title">${escapeHTML(contact || 'VOSS DISPATCH')}</p><p>${escapeHTML(state.mission?.objective || 'The taxi rank has work if you need cash. Keep in touch with the people who helped you get here.')}</p><button id="phone-journal" class="primary-button">OPEN JOURNAL <span>↗</span></button>${railPassenger(state) ? '<button id="phone-metro" class="primary-button">CHOOSE A METRO STOP</button>' : ''}<p>Voss Dispatch · Saira’s Garage · Southbank Clinic · Signal House</p>`,
     'LOWLIGHT / PHONE',
   );
   $('phone-journal').addEventListener('click', showJournal);
+  $('phone-metro')?.addEventListener('click', showMetroStops);
+}
+function showMetroStops() {
+  const rider = railPassenger(state);
+  if (!rider) return;
+  const train = state.transit.trains.find((train) => train.id === rider.trainId),
+    service = WORLD.transit.throughServices.find((service) => service.id === train.serviceId);
+  info(
+    service.name,
+    `<p>Choose a served stop. The train keeps its normal route; leave through open doors when you arrive. Current fare: $${quoteTransitFare(state.transit, rider.id)?.amount || 0}.</p><div class="action-shelf">${service.calls
+      .map((call) => {
+        const station = WORLD.transit.stations.find((station) => station.id === call.stationId);
+        const platform = station.platforms.find((platform) => platform.id === call.platformId);
+        const repeated = service.calls.some(
+          (other) => other !== call && other.stationId === call.stationId,
+        );
+        const level =
+          platform.role === 'upper'
+            ? 'Upper platform'
+            : platform.role === 'lower'
+              ? 'Lower platform'
+              : platform.z < 0
+                ? 'Subway platform'
+                : 'Elevated platform';
+        const name = repeated ? `${station.name} · ${level}` : station.name;
+        return `<button data-metro-stop="${call.stationId}" data-metro-platform="${call.platformId}">${escapeHTML(name)}</button>`;
+      })
+      .join('')}</div>`,
+    'HARBOR METRO',
+  );
+  for (const button of $('info-content').querySelectorAll('[data-metro-stop]'))
+    button.addEventListener('click', () => {
+      const result = selectMetroStop(state, button.dataset.metroStop, button.dataset.metroPlatform);
+      if (result.ok) {
+        closeAllDialogs();
+        announce('Metro stop selected.');
+      }
+    });
 }
 function showWeaponShop(message = '') {
-  const available = Object.entries(WEAPONS).filter(
-    ([id]) => !['unarmed', 'street-object'].includes(id),
-  );
+  updateHud();
+  const store = getEquipmentStore(state);
+  if (!store) {
+    info('No counter within reach.', '<p>Visit an equipment counter to buy supplies.</p>');
+    return;
+  }
+  const available = store.weaponIds.map((id) => [id, WEAPONS[id]]).filter(([, weapon]) => weapon);
   info(
     'Tools of the trade.',
-    `${message ? `<p role="status" class="shop-message">${escapeHTML(message)}</p>` : ''}<p>Available cash: $${state.player.money.toLocaleString()}. One weapon per class can be carried; owned equipment can be re-equipped here.</p><div class="weapon-catalogue">${available.map(([id, w]) => `<article class="weapon-card"><div><h3>${escapeHTML(w.name)}</h3><p>${escapeHTML(w.class.toUpperCase())} · ${w.mode === 'melee' ? (w.windup > 0.2 ? 'HEAVY SWING' : 'QUICK STRIKE') : `CAPACITY ${w.clipSize}`} · ${state.player.ownedWeapons.includes(id) ? 'OWNED' : `$${w.cost}`}</p></div><button data-buy-weapon="${id}">${state.player.ownedWeapons.includes(id) ? 'EQUIP' : 'BUY'}</button>${w.mode !== 'melee' && state.player.ownedWeapons.includes(id) ? `<button class="ammo-purchase" data-buy-ammo="${id}">AMMUNITION / $${w.ammoCost}</button>` : ''}</article>`).join('')}</div>`,
-    'ROOK’S SPORTING GOODS',
+    `${message ? `<p role="status" class="shop-message">${escapeHTML(message)}</p>` : ''}<p>Available cash: $${state.player.money.toLocaleString()}. One weapon per class can be carried; owned equipment can be re-equipped here.</p><div class="weapon-catalogue">${available
+      .map(([id, w]) => {
+        const repeat = store.repeatPurchase.includes(id),
+          owned = state.player.ownedWeapons.includes(id);
+        return `<article class="weapon-card"><div><h3>${escapeHTML(w.name)}</h3><p>${escapeHTML(w.class.toUpperCase())} · ${w.mode === 'melee' ? (w.windup > 0.2 ? 'HEAVY SWING' : 'QUICK STRIKE') : `CAPACITY ${w.clipSize}`} · ${owned && !repeat ? 'OWNED' : `$${equipmentPrice(state, id)}${repeat ? ' / EACH' : ''}`}</p></div><button data-buy-weapon="${id}">${owned && !repeat ? 'EQUIP' : 'BUY'}</button>${store.ammoIds.includes(id) && owned ? `<button class="ammo-purchase" data-buy-ammo="${id}">AMMUNITION / $${w.ammoCost}</button>` : ''}</article>`;
+      })
+      .join('')}</div>`,
+    store.name,
   );
   for (const button of $('info-content').querySelectorAll('[data-buy-weapon]'))
     button.addEventListener('click', () => {
@@ -559,14 +661,21 @@ function drawMap(canvas, full = false) {
   const g = canvas.getContext('2d'),
     width = canvas.width,
     height = canvas.height;
-  const projection = createMapProjection(WORLD, width, height, { full, center: state.player });
+  if (!full && currentSceneId(state)) {
+    roomMap.draw(g, state, { width, height });
+    return;
+  }
+  const origin = exteriorMapPosition(state);
+  const projection = createMapProjection(WORLD, width, height, { full, center: origin });
   const { scale, project: pt } = projection;
   mapBackground.draw(g, projection);
-  const destination = state.waypoint || state.mission?.target;
+  const destination = [state.waypoint, state.mission?.target].find(
+    (target) => target && inScene(target, null),
+  );
   if (destination) {
     const route = findRoute(
         WORLD,
-        { x: state.player.x, y: state.player.y, z: state.player.groundZ ?? state.player.z ?? 0 },
+        { x: origin.x, y: origin.y, z: origin.groundZ ?? origin.z ?? 0 },
         destination,
         {
           mode: state.player.vehicleId ? 'car' : 'foot',
@@ -592,27 +701,26 @@ function drawMap(canvas, full = false) {
     g.strokeStyle = '#d2876477';
     g.lineWidth = 1;
     g.beginPath();
-    g.arc(
-      ...pt(state.wanted.lastSeen.x, state.wanted.lastSeen.y),
-      state.wanted.searchRadius * scale,
-      0,
-      Math.PI * 2,
-    );
+    const searchPoint =
+      !inScene(state.wanted.lastSeen, null) && state.interior?.active
+        ? origin
+        : state.wanted.lastSeen;
+    g.arc(...pt(searchPoint.x, searchPoint.y), state.wanted.searchRadius * scale, 0, Math.PI * 2);
     g.stroke();
     for (const officer of state.police) {
-      if (officer.health <= 0 || officer.inVehicle) continue;
+      if (officer.health <= 0 || officer.inVehicle || !inScene(officer, null)) continue;
       const q = pt(officer.x, officer.y);
       g.fillStyle = '#ce8a70';
       g.fillRect(q[0] - 2, q[1] - 2, 4, 4);
     }
     for (const vehicle of state.vehicles) {
-      if (!vehicle.policeControlled || vehicle.health <= 0) continue;
+      if (!vehicle.policeControlled || vehicle.health <= 0 || !inScene(vehicle, null)) continue;
       const q = pt(vehicle.x, vehicle.y);
       g.fillStyle = '#91b7c4';
       g.fillRect(q[0] - 3, q[1] - 3, 6, 6);
     }
     for (const craft of state.policeAircraft || []) {
-      if (craft.health <= 0) continue;
+      if (craft.health <= 0 || !inScene(craft, null)) continue;
       const q = pt(craft.x, craft.y);
       g.strokeStyle = '#d4b88b';
       g.lineWidth = 1;
@@ -643,10 +751,10 @@ function drawMap(canvas, full = false) {
       g.stroke();
     }
   }
-  const p = pt(state.player.x, state.player.y);
+  const p = pt(origin.x, origin.y);
   g.save();
   g.translate(...p);
-  g.rotate(state.player.angle + Math.PI / 2);
+  g.rotate(origin.angle + Math.PI / 2);
   g.fillStyle = '#eaf0d0';
   g.strokeStyle = '#233c27';
   g.lineWidth = 2;
@@ -661,19 +769,25 @@ function drawMap(canvas, full = false) {
   g.restore();
 }
 function showMap() {
-  mapCursor = { ...(state.waypoint || state.mission?.target || state.player) };
+  mapCursor = {
+    ...([state.waypoint, state.mission?.target].find((target) => target && inScene(target, null)) ||
+      exteriorMapPosition(state)),
+  };
+  $('map-dialog').querySelector('.map-instruction').textContent =
+    `${currentSceneId(state) ? `You are inside ${interiorScene(state).room.name}. Routes begin at the entrance. ` : ''}${mapInstructions}`;
   openDialog($('map-dialog'));
   drawMap($('city-map'), true);
 }
 $('pause-map').addEventListener('click', showMap);
-$('map-dialog').querySelector('.map-instruction').textContent =
+const mapInstructions =
   'Select a street, or use arrow keys and Enter, to set a waypoint. Paths are green; rail is gray; elevated roads are pale gold; tunnels are dashed blue; closed crossings are dashed red.';
+$('map-dialog').querySelector('.map-instruction').textContent = mapInstructions;
 $('city-map').addEventListener('click', (event) => {
   const cv = event.currentTarget,
     rect = cv.getBoundingClientRect();
   const { x, y } = createMapProjection(WORLD, cv.width, cv.height, {
     full: true,
-    center: state.player,
+    center: exteriorMapPosition(state),
   }).unproject(
     ((event.clientX - rect.left) * cv.width) / rect.width,
     ((event.clientY - rect.top) * cv.height) / rect.height,
@@ -681,7 +795,7 @@ $('city-map').addEventListener('click', (event) => {
   if (x >= 0 && x <= WORLD.width && y >= 0 && y <= WORLD.height) {
     const snapped = snapToRoad(
       WORLD,
-      { x, y, z: state.player.groundZ ?? state.player.z ?? 0 },
+      { x, y, z: exteriorMapPosition(state).groundZ ?? exteriorMapPosition(state).z ?? 0 },
       { mode: state.player.vehicleId ? 'car' : 'foot', includeZ: true },
     );
     if (snapped)
@@ -710,12 +824,12 @@ $('city-map').addEventListener('keydown', (event) => {
     mapCursor.y = E.clamp(mapCursor.y + keys[event.key][1], 0, WORLD.height);
   } else if (event.key === 'Home') {
     event.preventDefault();
-    mapCursor = { x: state.player.x, y: state.player.y };
+    mapCursor = { x: exteriorMapPosition(state).x, y: exteriorMapPosition(state).y };
   } else if (event.key === 'Enter') {
     event.preventDefault();
     const snapped = snapToRoad(
       WORLD,
-      { ...mapCursor, z: state.player.groundZ ?? state.player.z ?? 0 },
+      { ...mapCursor, z: exteriorMapPosition(state).groundZ ?? exteriorMapPosition(state).z ?? 0 },
       { mode: state.player.vehicleId ? 'car' : 'foot', includeZ: true },
     );
     if (snapped)
@@ -797,7 +911,8 @@ addEventListener('resize', () => {
 function updateHud() {
   const p = state.player,
     ammo = p.ammo[p.weapon],
-    definition = WEAPONS[p.weapon];
+    definition = WEAPONS[p.weapon],
+    room = interiorScene(state)?.room;
   document.body.classList.toggle('in-conversation', !!state.dialogue);
   $('cash').textContent = `$${Math.round(p.money).toLocaleString('en-US')}`;
   $('health-bar').style.width = `${Math.max(0, p.health)}%`;
@@ -810,18 +925,23 @@ function updateHud() {
     'aria-label',
     `Armour ${Math.round(p.armour)} percent`,
   );
-  $('weapon-name').textContent = p.swimming
-    ? p.stamina < 30
-      ? 'SWIMMING / FLOAT TO REST'
-      : 'SWIMMING'
-    : p.vehicleId
-      ? VEHICLE_SPECS[currentVehicle(state)?.spec]?.name || 'VEHICLE'
-      : definition.name;
-  $('ammo').innerHTML = p.swimming
-    ? `${Math.max(0, Math.round(p.stamina))}% <small>STAMINA</small>`
-    : definition.mode === 'melee'
-      ? '<small>READY</small>'
-      : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
+  const metro = railPassenger(state);
+  $('weapon-name').textContent = metro
+    ? 'HARBOR METRO'
+    : p.swimming
+      ? p.stamina < 30
+        ? 'SWIMMING / FLOAT TO REST'
+        : 'SWIMMING'
+      : p.vehicleId
+        ? VEHICLE_SPECS[currentVehicle(state)?.spec]?.name || 'VEHICLE'
+        : definition.name;
+  $('ammo').innerHTML = metro
+    ? `$${quoteTransitFare(state.transit, metro.id)?.amount || 0} <small>FARE</small>`
+    : p.swimming
+      ? `${Math.max(0, Math.round(p.stamina))}% <small>STAMINA</small>`
+      : definition.mode === 'melee'
+        ? '<small>READY</small>'
+        : `${ammo.clip} <small>/ ${ammo.reserve}</small>`;
   $('ammo').style.whiteSpace = p.swimming ? 'nowrap' : '';
   $('wanted-stars').textContent = '★'.repeat(state.wanted.level);
   $('wanted-stars').style.color = ['search', 'cooling'].includes(state.wanted.status)
@@ -833,20 +953,41 @@ function updateHud() {
       ? `Wanted level ${state.wanted.level}: ${state.wanted.status}`
       : 'Not wanted',
   );
-  $('mission-name').textContent = state.mission?.title || 'The city is yours.';
+  $('mission-name').textContent = state.mission?.title || room?.name || 'The city is yours.';
   $('mission-objective').textContent =
-    state.mission?.objective || 'Find a job, take a fare, or explore Harbor City.';
+    state.mission?.objective ||
+    (room
+      ? 'Choose a service or open the door to leave.'
+      : 'Find a job, take a fare, or explore Harbor City.');
+  const missionLabel = $('mission-name').parentElement.querySelector('.mission-label');
+  const labelMode = room && !state.mission ? 'place' : 'job';
+  if (missionLabel.dataset.mode !== labelMode) {
+    for (const node of missionLabel.childNodes)
+      if (node.nodeType === Node.TEXT_NODE)
+        node.textContent = labelMode === 'place' ? ' CURRENT PLACE' : ' CURRENT JOB';
+    missionLabel.dataset.mode = labelMode;
+  }
   const target = state.waypoint || state.mission?.target;
+  const targetOrigin =
+    target && !inScene(target, currentSceneId(state)) ? exteriorMapPosition(state) : p;
   $('mission-distance').textContent = target
-    ? `${Math.round(Math.hypot(p.x - target.x, p.y - target.y))} m / ${target.name}`
+    ? `${Math.round(Math.hypot(targetOrigin.x - target.x, targetOrigin.y - target.y))} m / ${target.name}${currentSceneId(state) && targetOrigin !== p ? ' / FROM ENTRANCE' : ''}`
     : state.wanted.level
       ? state.wanted.status.toUpperCase()
       : '';
   const { areaName, districtName } = mapBackground.place(state);
-  const placeName = state.place?.name || areaName || districtName;
-  const travelMode = p.swimming ? 'SWIMMING' : p.vehicleId ? 'DRIVING' : 'ON FOOT';
+  const placeName = room?.name || state.place?.name || areaName || districtName;
+  const travelMode = metro
+    ? 'METRO'
+    : p.swimming
+      ? 'SWIMMING'
+      : p.vehicleId
+        ? 'DRIVING'
+        : 'ON FOOT';
   $('district-name').textContent = placeName.toUpperCase();
-  $('district-announcement').querySelector('span').textContent = districtName.toUpperCase();
+  $('district-announcement').querySelector('span').textContent = room
+    ? 'INDOORS'
+    : districtName.toUpperCase();
   $('street-name').textContent = `${placeName.toUpperCase()} / ${travelMode}`;
   Object.assign($('street-name').style, {
     minWidth: '0',
@@ -858,11 +999,21 @@ function updateHud() {
   const swimHint = p.swimming
     ? ` Stamina ${Math.round(p.stamina)} percent. Hold RUN to swim faster. Float without moving to rest and regain stamina.`
     : '';
-  $('street-name').title = `${placeName}, ${districtName} / ${travelMode}.${swimHint}`;
+  $('street-name').title =
+    `${placeName}, ${districtName} / ${travelMode}.${room ? ' The city map shows your entrance.' : ''}${swimHint}`;
   $('minimap').setAttribute(
     'aria-label',
-    `Local street map: ${placeName}, ${districtName}. ${travelMode}.${swimHint}`,
+    room
+      ? `Room plan: ${room.name}. Walls, furniture, doors, services and occupants.`
+      : `Local street map: ${placeName}, ${districtName}. ${travelMode}.${swimHint}`,
   );
+  const legend = $('minimap').parentElement.querySelector('.map-legend');
+  const legendMode = room ? 'room' : 'city';
+  if (legend.dataset.scene !== legendMode) {
+    for (const node of [...legend.childNodes]) if (node.nodeType === Node.TEXT_NODE) node.remove();
+    legend.append(document.createTextNode(room ? ' EXITS AND SERVICES' : ' YOUR DESTINATION'));
+    legend.dataset.scene = legendMode;
+  }
   const hour = Math.floor(state.clock),
     minute = Math.floor((state.clock - hour) * 60);
   $('game-clock').textContent =
@@ -980,6 +1131,10 @@ game.start({
       if (game.input.pressed('start') && !dialogs.some((d) => d.open)) confirmNewGame();
       return;
     }
+    if (syncScene()) {
+      updateHud();
+      return;
+    }
     const input = game.input;
     if (input.pressed('pause')) {
       pause();
@@ -1012,16 +1167,22 @@ game.start({
       }
       const result = interact(state);
       game.audio.sfx('select');
-      if (result?.type === 'save') storeProgress(true);
-      if (result?.type === 'activity') {
-        openActivity(result.activity);
-        return;
-      }
+      if (processInteraction(result)) return;
     }
-    const movement = touch.id !== null ? [touch.x, touch.y] : input.move();
+    const requestedMovement = touch.id !== null ? [touch.x, touch.y] : input.move();
+    if (sceneMovementBlocked && Math.hypot(...(input.padMove || [0, 0])) < 0.15)
+      sceneMovementBlocked = false;
+    const movement = sceneMovementBlocked ? [0, 0] : requestedMovement;
     const ground = game.view.screenDirToGround(...movement);
     let aimAngle, aimTarget;
-    const targetable = [...state.hostiles, ...state.police, ...(state.policeAircraft || [])].filter(
+    const sceneId = currentSceneId(state);
+    const people = scenePeople(state);
+    const targetable = [
+      ...people.filter(
+        (actor) => sceneId || state.hostiles.includes(actor) || state.police.includes(actor),
+      ),
+      ...(state.policeAircraft || []).filter((actor) => inScene(actor, sceneId)),
+    ].filter(
       (actor) =>
         actor.health > 0 && !actor.inVehicle && (actor.z || 0) < 0 === (state.player.z || 0) < 0,
     );
@@ -1050,11 +1211,20 @@ game.start({
           })
           .filter((target) => target.distance < 24)
           .sort((a, b) => a.distance - b.distance)[0];
-        if (hovered) aimTarget = { x: hovered.actor.x, y: hovered.actor.y, z: hovered.z };
+        if (hovered) {
+          aimAngle = Math.atan2(hovered.actor.y - state.player.y, hovered.actor.x - state.player.x);
+          aimTarget = { x: hovered.actor.x, y: hovered.actor.y, z: hovered.z };
+        }
       }
     } else if (input.down('fire') || input.pressed('fire')) {
       const enemies = targetable
-        .filter((e) => state.hostiles.includes(e) || state.wanted.level >= 2)
+        .filter(
+          (e) =>
+            e.kind === 'hostile' ||
+            state.hostiles.includes(e) ||
+            ((['police', 'air-search'].includes(e.kind) || e.role === 'air-search') &&
+              state.wanted.level >= 2),
+        )
         .sort(
           (a, b) =>
             Math.hypot(a.x - state.player.x, a.y - state.player.y) -
@@ -1097,6 +1267,10 @@ game.start({
       aimAngle,
       aimTarget,
     });
+    if (syncScene()) {
+      updateHud();
+      return;
+    }
     state.player.firing = input.down('fire') || input.pressed('fire');
     const zoom = state.player.scoped ? WEAPONS[state.player.weapon].scopeZoom || 1 : 1;
     if (game.zoom !== zoom) game.setZoom(zoom);
@@ -1107,7 +1281,7 @@ game.start({
       state.player.z || 0,
     );
     if (state.player.health < lastHealth) {
-      game.hitFx(state.player.x, state.player.y, 15, {
+      game.hitFx(state.player.x, state.player.y, (state.player.z || 0) + 15, {
         power: 0.3,
         color: '#d89172',
         sound: 'hurt',
@@ -1119,6 +1293,7 @@ game.start({
       state.vehicles.some(
         (car) =>
           car.policeControlled &&
+          inScene(car, currentSceneId(state)) &&
           car.health > 0 &&
           Math.hypot(car.x - state.player.x, car.y - state.player.y) < 220,
       )
@@ -1150,6 +1325,7 @@ game.start({
     for (const effect of state.combatEffects || []) {
       if (combatEffectsSeen.has(effect.id)) continue;
       combatEffectsSeen.add(effect.id);
+      if (!inScene(effect, currentSceneId(state))) continue;
       if (effect.type === 'explosion')
         game.particles.explosion(
           effect.x,
@@ -1173,6 +1349,7 @@ game.start({
     lastHealth = state.player.health;
     if (
       state.waypoint &&
+      inScene(state.waypoint, currentSceneId(state)) &&
       Math.hypot(state.player.x - state.waypoint.x, state.player.y - state.waypoint.y) < 18
     )
       state.waypoint = null;
@@ -1185,10 +1362,14 @@ game.start({
   draw(r) {
     updateControllerMenus();
     activityUI.tick();
-    renderer.draw(r, state, {
-      title: mode === 'title',
-      rain: settings.rain && !settings.reduceMotion,
-    });
+    if (mode === 'play' && currentSceneId(state)) roomRenderer.draw(r, state);
+    else {
+      renderer.draw(r, metroRenderer.renderPlayer(state), {
+        title: mode === 'title',
+        rain: settings.rain && !settings.reduceMotion,
+      });
+      metroRenderer.draw(r, state);
+    }
   },
 });
 game.focus(780, 700, 0);
@@ -1200,14 +1381,22 @@ if (new URLSearchParams(location.search).has('debug')) {
       return state;
     },
     start,
-    interact: () => interact(state),
+    interact: () => {
+      const result = interact(state);
+      processInteraction(result);
+      return result;
+    },
     update: (dt) => updateSimulation(state, dt),
     save: () => saveGame(state),
     restore: (value) => {
       state = restoreGame(value);
+      syncScene(true);
       updateHud();
     },
     refresh: updateHud,
     mapStats: () => mapBackground.stats(),
+    roomMapStats: () => roomMap.stats(),
+    roomRendererStats: () => ({ ...roomRenderer.stats }),
+    railRendererStats: () => ({ ...metroRenderer.stats }),
   };
 }

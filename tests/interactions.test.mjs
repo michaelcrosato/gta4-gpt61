@@ -6,7 +6,35 @@ import {
   interact,
   WORLD,
   WEAPONS,
+  MISSIONS,
 } from '../src/simulation.js';
+
+test('the assigned starter taxi wins when its entry radius overlaps the dispatch room door', () => {
+  const state = createSimulation();
+  while (state.dialogue) interact(state);
+  interact(state);
+  while (state.dialogue) interact(state);
+  assert.equal(state.mission.stageType, 'vehicle');
+  assert.equal(nearestInteractable(state).id, 'starter-taxi');
+  assert.equal(interact(state).type, 'vehicle');
+  assert.equal(state.player.vehicleId, 'starter-taxi');
+  assert.equal(state.interior.active, null);
+});
+
+test('driving near a foot-only room entrance still offers a real vehicle exit', () => {
+  const state = createSimulation();
+  state.mission = null;
+  state.dialogue = null;
+  state.progress.completed = MISSIONS.map((m) => m.id);
+  const car = state.vehicles.find((car) => car.id === 'starter-taxi');
+  const venue = WORLD.locations.find((location) => location.id === 'lantern-darts');
+  Object.assign(car, { x: venue.x, y: venue.y, speed: 0, occupied: true });
+  Object.assign(state.player, { x: venue.x, y: venue.y, vehicleId: car.id });
+  assert.equal(nearestInteractable(state).type, 'exit');
+  interact(state);
+  assert.equal(state.player.vehicleId, null);
+  assert.equal(state.interior.active, null);
+});
 
 function freeRoam() {
   const state = createSimulation(61);

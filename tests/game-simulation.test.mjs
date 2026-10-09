@@ -515,6 +515,10 @@ test('food, garage and weapon shops enforce costs and change durable state', () 
     WORLD.locations.find((location) => location.type === 'garage'),
   );
   const before = state.player.money;
+  assert.equal(interact(state).type, 'enter');
+  assert.equal(state.interior.active.roomId, 'saira-garage');
+  Object.assign(taxi, { x: 105, y: 168 });
+  Object.assign(state.player, { x: 105, y: 168 });
   interact(state);
   assert.equal(taxi.health, VEHICLE_SPECS.taxi.health);
   assert.equal(state.player.money, before - 120);

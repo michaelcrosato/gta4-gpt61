@@ -24,11 +24,20 @@ Shift to sprint/brake, mouse/click to aim/fire, R to reload, M for the city map,
 T for the phone, and Escape to pause. Touch controls and gamepads are supported.
 The menu includes full controls, audio/camera settings, and continue/save support.
 
-The 0.3 build expands the exterior world to 65 original neighborhoods and 194
+The exterior world contains 65 original neighborhoods and 194
 site addresses, with coastal landforms, graded bridges and road bores, swimming,
 regional traffic, and persistent populations. Ground/map tiles and visible
-building textures use bounded caches. Interiors, train operation, boats and
-other full-city content remain in development.
+building textures use bounded caches.
+
+The 0.4 work adds four real rooms: Voss Dispatch, Saira’s Garage, The Lantern and
+Blue Hour Lanes. They share the game’s combat, doors, destructible props,
+persistent occupants and saves; indoor witnesses report the exterior entrance.
+The garage has a paid tools counter and vehicle repair bay, the bar serves paid
+drinks, and the lanes offer paid bowling and food. Harbor Metro operates four
+services across 26 station complexes with 56 directional stop roles, phone
+destinations, boarding/alighting, fares, signals and saved journeys. Physical
+clearance, native rendering and frozen-snapshot browser checks pass; the broader
+city and transport inventory remain in development.
 
 The combat and activity foundation includes 17 weapon roles, physical explosives/fire, melee
 guard/counters/disarms, crouch/cover and vault/climb controls. Police escalate
@@ -36,6 +45,12 @@ through six levels with actual pursuits, roadblocks, arrest and airborne search.
 Blue Hour Lanes, The Lantern, Saltworks Billiards and Night Owl Arcade offer full
 bowling, 301 darts, eight-ball and STACKLIGHT matches. The complete campaign,
 city, side content and multiplayer remain in production.
+
+Twenty source-mapped campaign definitions and a deterministic director are
+authored but unintegrated; they earn no source completion credit. The existing
+four jobs remain additional onboarding. Input-only attempts have not yet
+completed all four naturally. See the [verification record](docs/verification.md)
+for the retained failures and fixture boundaries.
 
 ```sh
 npm run check
@@ -59,17 +74,24 @@ save/continue regression checks against the development server:
 ```sh
 python3 tests/browser-smoke.py --url http://localhost:5173/
 python3 tests/browser-activities.py --url http://localhost:5173/
+python3 tests/browser-interiors.py --url http://localhost:5173/
 python3 tests/browser-map.py --url http://localhost:5173/
 python3 tests/browser-city.py --url http://localhost:5173/
+python3 tests/browser-rail.py --url http://localhost:5173/
+python3 tests/browser-rail-ui.py --url http://localhost:5173/
 ```
 
-This runs Chromium, Firefox, and a WebKit iPhone profile. Reports and screenshots
+The scripts cover Chromium, Firefox and WebKit; smoke/activity checks include
+iPhone profiles, while the rail journey runs desktop profiles. Reports and screenshots
 go to `/tmp`, and the script exits with failure if a control or browser check
 fails. It verifies the opening and interface, not the complete campaign. See
 [verification boundaries and evidence](docs/verification.md).
-The activity and city/map scripts declare their venue, budget, late-game,
-and geography fixtures;
-its checks do not replace a natural playthrough from a clean save.
+The activity and city/map scripts declare their venue, budget, late-game and
+geography fixtures. Rail QA declares completed onboarding, a physical-platform
+relocation and a health/budget fixture, then uses real inputs and normal travel.
+These checks do not replace a natural playthrough from a clean save. Short
+automated frame samples do not establish sustained gameplay or real-device
+Safari performance; those remain release gates.
 
 ## Setup
 

@@ -114,6 +114,8 @@ export function buildGroundPrimitives(world) {
     for (const water of world.water || []) primitives.push(primitive(rectPoints(water), '#203e42'));
   }
   for (const road of world.roads || []) {
+    // Metro floors/walls come from their physical chamber union, without road paint.
+    if (road.kind === 'rail-bed') continue;
     if (
       (road.z1 ?? road.z ?? 0) > EPSILON ||
       (road.z2 ?? road.z ?? 0) > EPSILON ||
@@ -186,7 +188,8 @@ export function createCityGroundRenderer(world, { tileSize = 384, maxTiles = 48 
     throw new Error('Invalid city ground cache bounds.');
   const primitives = buildGroundPrimitives(world),
     elevated = (world.roads || []).filter(
-      (road) => Math.max(road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0) > 0,
+      (road) =>
+        road.kind !== 'rail-bed' && Math.max(road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0) > 0,
     );
   const tiles = new Map(),
     projections = new Map(),
@@ -408,7 +411,9 @@ export function createCityGroundRenderer(world, { tileSize = 384, maxTiles = 48 
     roadPieces(
       r,
       (world.roads || []).filter(
-        (road) => road.tunnel || Math.min(road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0) < 0,
+        (road) =>
+          road.kind !== 'rail-bed' &&
+          (road.tunnel || Math.min(road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0) < 0),
       ),
       true,
     );
