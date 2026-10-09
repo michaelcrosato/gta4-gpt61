@@ -1,0 +1,15 @@
+.git
+.vercel
+.githooks
+.github
+.env
+.env.*
+node_modules
+dist
+docs
+tests
+coverage
+playwright-report
+test-results
+*.log
+my-3d2dge-agent.js

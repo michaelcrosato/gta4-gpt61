@@ -868,3 +868,33 @@ outcome and seated projectile radius. The journal correction has separate normal
 Continue/pause/journal passes in Chromium, Firefox and WebKit; the two combat
 changes have actual-input regressions and the final full test suite. The final
 source snapshot retains those exact differences in its manifest.
+
+## Vercel inspection build
+
+The repository now defines an Other/static Vercel project: production-only npm
+install, the existing Node build command, and dist as the public output. The
+build copies independent public files concurrently, retains exact runtime bytes
+and licenses, removes obsolete output and excludes development payload. Three
+build tests verify the complete HTML/module/manifest dependency closure, the
+actual configured command with no installed dependencies, and source-directory
+protection. Browser cache entries revalidate; the CDN may retain static responses
+for one day and invalidate them with deployment. The engine/game module are
+preloaded without changing their execution order or game logic.
+
+A clean npm ci --ignore-scripts --omit=dev and build succeeded at
+/tmp/lowlight-vercel-install-ouzqdnef. Chromium and Firefox production smoke flows
+passed. Two WebKit touch-caption attempts exposed a pre-existing USE-button
+reflow when cinematic controls reappeared. The final CSS retains the grid slots
+of hidden actions, and the browser harness now checks the actual USE rectangle
+across that transition. The corrected WebKit flow passes through genuine touch
+captions, boarding, driving, save and Continue with identical (307,527,49,49)
+rectangles, no JavaScript/console errors, and retained original failures.
+Reports: /tmp/lowlight-vercel-browser-smoke and
+/tmp/lowlight-vercel-webkit-stable-touch. These remain bounded opening/control
+checks, not natural full-campaign/source completion evidence.
+
+The final built artifact at /tmp/lowlight-vercel-final-ve4mogt1/dist passes
+24 clean viewport captures at /tmp/lowlight-vercel-final-viewports; representative
+phone, landscape, tablet and desktop PNGs were inspected. Real iOS Safari and
+physical gamepads are not available here. Vercel's actual automatic import and
+production URL remain external to these local artifact checks.

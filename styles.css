@@ -719,11 +719,14 @@ kbd {
 body.story-scene .minimap-panel,
 body.story-scene .control-hints,
 body.story-scene .joystick,
-body.story-scene #touch-more,
+body.story-scene #touch-more {
+  display: none;
+}
 body.story-scene #touch-fire,
 body.story-scene #touch-sprint,
 body.story-scene #touch-reload {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 @media (pointer: coarse) {
   .story-caption-action {
