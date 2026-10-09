@@ -1,0 +1,233 @@
+{
+  "oracle": "Unmodified frozen candidate3 before city road-volume caching",
+  "baselineCommit": "cafad0022525b614990a517e1bd282199f000c81",
+  "baselineMerge": "dd7e38a7f5179d35a42b31b03c54c724a2769226",
+  "city": {
+    "sha256": "aadc07eae54667e816a968f65b344198f5a79739f87c5212d5912e417aae79e4",
+    "bytes": 919848
+  },
+  "world": {
+    "sha256": "f9ba9a70e047074cd9ad62d0e49b557a2211fff12165aeafe6b02fac75226baf",
+    "bytes": 20918659
+  },
+  "frames": 240,
+  "dt": 0.016666666666666666,
+  "seeds": [
+    {
+      "seed": 1,
+      "mode": "legacy",
+      "initial": {
+        "sha256": "75c6d34d5e295778fd131bf5ca4f3e402975e559efae55576e4cec2595b1b7ed",
+        "bytes": 43375
+      },
+      "afterSteps": {
+        "sha256": "6d7261b8976f3ca27ca1571bc136be239c6b1d25828d00399cca3c33b0c4cc18",
+        "bytes": 49712
+      },
+      "initialRng": 508085331,
+      "finalRng": 1949569022,
+      "rngTraceSha256": "2c584caebb87022d465bce48b53cfbb98cb7df36ebd5e8264ebd46fe54781a4f",
+      "effects": {
+        "movedAt120": 51.000000000001364,
+        "finalDistance": 148.06079832285462,
+        "roundsFired": 4,
+        "rngAdvancedDuringFiring": true,
+        "staminaSpent": 16.999999999999886
+      }
+    },
+    {
+      "seed": 1,
+      "mode": "story",
+      "initial": {
+        "sha256": "c0ba52b78bd02eaec9c6da2a6dca9bb1b6910af0e2d2f3236a41c34113e3964e",
+        "bytes": 94472
+      },
+      "afterSteps": {
+        "sha256": "288324995aa4860e93ca3010083e780652ecdbafc2ac21d69e372ce4dc5b6bd4",
+        "bytes": 99376
+      },
+      "initialRng": 508085331,
+      "finalRng": 508085331,
+      "rngTraceSha256": "3a59bf929e015d903d1be7b79393dedf04312058ab755318ac74ebebe58520ce",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 61,
+      "mode": "legacy",
+      "initial": {
+        "sha256": "46b57077de214094c669923026bcce986229a12a49be69f5f96d9bbe0922a63a",
+        "bytes": 43396
+      },
+      "afterSteps": {
+        "sha256": "a5e4b727a7b55b4e217a2f964f9481a3db0cd9d50db876e907c3597fdcfaf8ac",
+        "bytes": 49710
+      },
+      "initialRng": 1771614319,
+      "finalRng": 681763562,
+      "rngTraceSha256": "75e20363ff60af6b49fdfa242ca2ef4191d281fb63d60383a58a51a7645d3b77",
+      "effects": {
+        "movedAt120": 51.000000000001364,
+        "finalDistance": 148.06079832285462,
+        "roundsFired": 4,
+        "rngAdvancedDuringFiring": true,
+        "staminaSpent": 16.999999999999886
+      }
+    },
+    {
+      "seed": 61,
+      "mode": "story",
+      "initial": {
+        "sha256": "6194a3f5734f6e81ce6fd79978ec948437e7c8e2701461afacb7f8336261f649",
+        "bytes": 94515
+      },
+      "afterSteps": {
+        "sha256": "bfa5d74fda09b1c5bd58e1d0e50ac428f950776b0dcd4177ec138dca325c63fe",
+        "bytes": 99403
+      },
+      "initialRng": 1771614319,
+      "finalRng": 1771614319,
+      "rngTraceSha256": "f4b38bc2f3b52c620d2b5ed5ccb9882427522360cf5522e70bf33359614ccf57",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 12345,
+      "mode": "legacy",
+      "initial": {
+        "sha256": "81a43480829c40f1037be3cadf45c5d31c7bd2123f58b83b6364358b27e9e47c",
+        "bytes": 43357
+      },
+      "afterSteps": {
+        "sha256": "f0804422990f818da12e405d9540ebb77369c17645bcebe734695fdabd57f3a6",
+        "bytes": 49683
+      },
+      "initialRng": 469428811,
+      "finalRng": 3112730774,
+      "rngTraceSha256": "2362a4ac50fbe75e49444b5bf5a754911a0e99fef4ea354bd4c64f8b50fd4f29",
+      "effects": {
+        "movedAt120": 51.000000000001364,
+        "finalDistance": 148.06079832285462,
+        "roundsFired": 4,
+        "rngAdvancedDuringFiring": true,
+        "staminaSpent": 16.999999999999886
+      }
+    },
+    {
+      "seed": 12345,
+      "mode": "story",
+      "initial": {
+        "sha256": "f694c33dfffe9674a5643f9b486d0ba149d4b15886845242e404049707f732a2",
+        "bytes": 94440
+      },
+      "afterSteps": {
+        "sha256": "f5a8a5101b864bfc206bfcb99d7ef70120edbd02a22cd89600c3f315ccf440e2",
+        "bytes": 99343
+      },
+      "initialRng": 469428811,
+      "finalRng": 469428811,
+      "rngTraceSha256": "1a7dd7b90768cb2dac3a4f161c74c116a3b6ef23777460a7b124e12bbce4f25d",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 2147483647,
+      "mode": "legacy",
+      "initial": {
+        "sha256": "5779092b844de08cb79e80d780741f95a4de2d28069b39293f753b67571634a9",
+        "bytes": 43420
+      },
+      "afterSteps": {
+        "sha256": "b08ffeaabc7bfbe9fea88f602daddc29ae496a8b989775a0228235a91a851b75",
+        "bytes": 49730
+      },
+      "initialRng": 179636545,
+      "finalRng": 1991829204,
+      "rngTraceSha256": "2f5b9497e97a53be5a187c89bc627af1eb46e58997556fad294232b9c52e82cc",
+      "effects": {
+        "movedAt120": 51.000000000001364,
+        "finalDistance": 148.06079832285462,
+        "roundsFired": 4,
+        "rngAdvancedDuringFiring": true,
+        "staminaSpent": 16.999999999999886
+      }
+    },
+    {
+      "seed": 2147483647,
+      "mode": "story",
+      "initial": {
+        "sha256": "dd2e1b59cdf83684c2a0bbe6893bd27548c40f81ca3fe02a42ac3416c6ad9c24",
+        "bytes": 94571
+      },
+      "afterSteps": {
+        "sha256": "df1dd5d69875e2482f9ce735f608eb083197ea3bd58613ef3beb220bab13593d",
+        "bytes": 99452
+      },
+      "initialRng": 179636545,
+      "finalRng": 179636545,
+      "rngTraceSha256": "5777ba0afdbf3726cf9026403020e5717d2af5ab3c6a06bdf69df37cc4c77f33",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 4294967295,
+      "mode": "legacy",
+      "initial": {
+        "sha256": "b1da77e1b7c20a54138c2ad31a81a14ef16132e6278313208b3381c7acea8b62",
+        "bytes": 43424
+      },
+      "afterSteps": {
+        "sha256": "8b4f4214c4650df63b013fd9ea2522a470d2e3875068c06b8967e172b018dc16",
+        "bytes": 49743
+      },
+      "initialRng": 2327120193,
+      "finalRng": 4139312852,
+      "rngTraceSha256": "7d94caa7be0fc1e2dec4ceb7dbb085460474587922639937a1666a2dc18da623",
+      "effects": {
+        "movedAt120": 51.000000000001364,
+        "finalDistance": 148.06079832285462,
+        "roundsFired": 4,
+        "rngAdvancedDuringFiring": true,
+        "staminaSpent": 16.999999999999886
+      }
+    },
+    {
+      "seed": 4294967295,
+      "mode": "story",
+      "initial": {
+        "sha256": "17f90b2b21e3f6816345a0eae8be0795f710fbdd3182cc49ef0f6a5ba924e06c",
+        "bytes": 94579
+      },
+      "afterSteps": {
+        "sha256": "79a82e8b2984aad14033f1b25569ae603eaa8e1636a0383dacb28a3572eed489",
+        "bytes": 99471
+      },
+      "initialRng": 2327120193,
+      "finalRng": 2327120193,
+      "rngTraceSha256": "ec705f9d56b8ccb6bfa9c2dbbc48e2ed0b901731ffdb6c02f46f07dbd01876e7",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    }
+  ],
+  "sourceSha256": "66ea7763276b55de0856539577b83457e90e113736ab4f3da7c420f1e0308ed4",
+  "baselineCoreFingerprints": {
+    "src/city-blueprint.js": "66ea7763276b55de0856539577b83457e90e113736ab4f3da7c420f1e0308ed4",
+    "src/simulation.js": "83ba804260bf50d082ea8db3079570c12cb3aef01f6c78a87d7c14f5c4ce9767",
+    "src/world.js": "fff4fdcea10b4513cc541c780a5fe3b7a8be739ec6e15e0b0c4a8d9b2be73a11"
+  }
+}

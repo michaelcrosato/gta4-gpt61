@@ -29,6 +29,11 @@ site addresses, with coastal landforms, graded bridges and road bores, swimming,
 regional traffic, and persistent populations. Ground/map tiles and visible
 building textures use bounded caches.
 
+The 0.5.1 startup patch caches static road bounds during city generation.
+Paired desktop browser checks measured 10–22% faster readiness while preserving
+the complete generated world and initial game state. Sustained/mobile rendering
+performance remains a separate release gate.
+
 The 0.4.1 patch preserves indoor car momentum while exterior traffic and police
 continue updating, so vehicles can drive normally inside Saira’s Garage.
 
