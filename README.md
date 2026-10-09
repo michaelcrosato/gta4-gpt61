@@ -29,6 +29,9 @@ site addresses, with coastal landforms, graded bridges and road bores, swimming,
 regional traffic, and persistent populations. Ground/map tiles and visible
 building textures use bounded caches.
 
+The 0.4.1 patch preserves indoor car momentum while exterior traffic and police
+continue updating, so vehicles can drive normally inside Saira’s Garage.
+
 The 0.4 work adds four real rooms: Voss Dispatch, Saira’s Garage, The Lantern and
 Blue Hour Lanes. They share the game’s combat, doors, destructible props,
 persistent occupants and saves; indoor witnesses report the exterior entrance.

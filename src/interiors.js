@@ -837,6 +837,7 @@ export function withExteriorContext(state, fn, { includeEnteredVehicle = false }
           z: vehicle.z,
           groundZ: vehicle.groundZ,
           angle: vehicle.angle,
+          speed: vehicle.speed,
           scene: vehicle.scene,
         }
       : null;

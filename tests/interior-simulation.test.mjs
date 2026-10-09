@@ -286,3 +286,19 @@ test('a scene-tagged hostile uses shared indoor firing while exterior enemies re
   bad.state.hostiles[0].sceneId = 'constructor';
   assert.throws(() => restoreGame(bad), /scene/);
 });
+
+test('repeated exterior updates do not pin an indoor garage car to a one-frame acceleration pulse', () => {
+  const s = free(),
+    car = s.vehicles.find((v) => v.id === 'starter-taxi');
+  car.occupied = true;
+  s.player.vehicleId = car.id;
+  enter(s, 'saira-garage');
+  const start = car.y;
+  tick(s, 0.6, { up: true });
+  assert.ok(
+    Math.abs(car.speed) > 20,
+    'the car must retain acceleration across actual simulation steps',
+  );
+  assert.ok(start - car.y > 8, 'real indoor driving must reach beyond the doorway spawn');
+  assert.equal(s.interior.active.roomId, 'saira-garage');
+});
