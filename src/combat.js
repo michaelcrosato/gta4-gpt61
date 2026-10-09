@@ -373,9 +373,49 @@ function effect(state, ctx, type, point, details = {}) {
   state.combatEffects = state.combatEffects.slice(-50);
 }
 
+/** Notify observers only after real resolved harm, using immutable physical facts. */
+export function notifyCommittedDamage(
+  state,
+  target,
+  healthBefore,
+  armourBefore,
+  owner,
+  ctx,
+  kind,
+  entityType = 'actor',
+) {
+  if (typeof ctx?.onDamage !== 'function') return;
+  const armourAfter = target.armour ?? 0;
+  if (!(target.health < healthBefore || armourAfter < armourBefore)) return;
+  ctx.onDamage(
+    Object.freeze({
+      entityType,
+      targetId: target === state.player ? 'player' : target.id,
+      targetKind:
+        target.kind === 'police' || target.policeControlled || target.spec === 'police'
+          ? 'police'
+          : target.kind || entityType,
+      owner: typeof owner === 'string' ? owner : 'world',
+      kind,
+      healthBefore,
+      healthAfter: target.health,
+      armourBefore,
+      armourAfter,
+      x: target.x,
+      y: target.y,
+      z: target.z ?? 0,
+      sceneId:
+        target.sceneId ??
+        (target.scene?.kind === 'interior' ? target.scene.id : (ctx.sceneId ?? null)),
+      at: state.time,
+    }),
+  );
+}
+
 export function hitCombatant(state, victim, damage, owner, ctx, kind = 'bullet') {
   if (victim.health <= 0) return;
-  const before = victim.health;
+  const before = victim.health,
+    armourBefore = victim.armour ?? 0;
   if (
     owner === 'player' &&
     ctx.reportCrime &&
@@ -424,12 +464,13 @@ export function hitCombatant(state, victim, damage, owner, ctx, kind = 'bullet')
     effect(state, ctx, 'impact', victim, { kind });
     victim.nextHitEffect = state.time + 0.15;
   }
+  notifyCommittedDamage(state, victim, before, armourBefore, owner, ctx, kind);
 }
 
 function hostileList(state, ctx) {
   return ctx?.combatants?.() ?? [...state.hostiles, ...state.police, ...state.pedestrians];
 }
-function recordAttack(state, player, weapon, kind) {
+function recordAttack(state, player, weapon, kind, ctx) {
   player.attackSerial++;
   player.lastAttack = {
     serial: player.attackSerial,
@@ -438,6 +479,21 @@ function recordAttack(state, player, weapon, kind) {
     time: state.time,
     angle: player.angle,
   };
+  if (typeof ctx?.onAttack === 'function')
+    ctx.onAttack(
+      Object.freeze({
+        owner: 'player',
+        kind,
+        weapon,
+        angle: player.angle,
+        x: player.x,
+        y: player.y,
+        z: player.z ?? 0,
+        sceneId: player.sceneId ?? ctx.sceneId ?? null,
+        at: state.time,
+        serial: player.attackSerial,
+      }),
+    );
 }
 export function startActorMelee(
   state,
@@ -467,7 +523,7 @@ export function startActorMelee(
     sweep: weapon.sweep || 1,
   };
   actor.fireCooldown = actor.meleeAction.duration;
-  if (isPlayer) recordAttack(state, actor, id, kind);
+  if (isPlayer) recordAttack(state, actor, id, kind, ctx);
   return true;
 }
 
@@ -518,7 +574,7 @@ export function updateMelee(state, dt, ctx) {
             distance(actor, vehicle) < action.reach &&
             Math.abs(angleDifference(angleTo(actor, vehicle), actor.angle)) < action.arc
           )
-            ctx.damageVehicle(vehicle, action.damage * 0.45);
+            ctx.damageVehicle(vehicle, action.damage * 0.45, 'player', action.kind);
       } else if (
         distance(actor, state.player) <= action.reach &&
         ctx.hasLineOfSight(actor, state.player)
@@ -611,25 +667,26 @@ export function fireCombatWeapon(state, ctx, input = {}) {
     player.recoil * 0.16;
   const angle = player.angle + (ctx.random() - 0.5) * spread * 2;
   player.recoil = Math.min(0.65, player.recoil + weapon.recoil);
-  recordAttack(state, player, player.weapon, weapon.mode);
+  recordAttack(state, player, player.weapon, weapon.mode, ctx);
   if (weapon.mode === 'ballistic') {
-    const horizontalDistance = player.aimTarget
-      ? Math.max(1, distance(player, player.aimTarget))
-      : 1;
-    const heightDelta = player.aimTarget
-      ? player.aimTarget.z - ((player.z || 0) + (player.crouching ? 8 : 13))
-      : 0;
-    const trajectoryLength = Math.hypot(horizontalDistance, heightDelta),
-      horizontalSpeed = (weapon.bulletSpeed * horizontalDistance) / trajectoryLength;
     for (let pellet = 0; pellet < weapon.pellets; pellet++) {
-      const pelletAngle = pellet === 0 ? angle : player.angle + (ctx.random() - 0.5) * spread * 2;
+      const pelletAngle = pellet === 0 ? angle : player.angle + (ctx.random() - 0.5) * spread * 2,
+        muzzle = {
+          x: player.x + Math.cos(pelletAngle) * 10,
+          y: player.y + Math.sin(pelletAngle) * 10,
+          z: (player.z || 0) + (player.crouching ? 8 : 13),
+        },
+        horizontalDistance = player.aimTarget ? Math.max(1, distance(muzzle, player.aimTarget)) : 1,
+        heightDelta = player.aimTarget ? player.aimTarget.z - muzzle.z : 0,
+        trajectoryLength = Math.hypot(horizontalDistance, heightDelta),
+        horizontalSpeed = (weapon.bulletSpeed * horizontalDistance) / trajectoryLength;
       state.bullets.push({
         id: ctx.id('bullet'),
-        x: player.x + Math.cos(pelletAngle) * 10,
-        y: player.y + Math.sin(pelletAngle) * 10,
+        x: muzzle.x,
+        y: muzzle.y,
         prevX: player.x,
         prevY: player.y,
-        z: (player.z || 0) + (player.crouching ? 8 : 13),
+        z: muzzle.z,
         angle: pelletAngle,
         vx: Math.cos(pelletAngle) * horizontalSpeed,
         vy: Math.sin(pelletAngle) * horizontalSpeed,
@@ -763,6 +820,8 @@ function explode(state, projectile, ctx) {
       ctx.damageVehicle(
         vehicle,
         projectile.damage * 1.8 * Math.max(0.1, 1 - range / (projectile.radius + 8)),
+        projectile.owner,
+        'blast',
       );
   }
   civilians(state, ctx).forEach((person) => {
@@ -979,6 +1038,7 @@ export function updateOrdnance(state, dt, ctx) {
     if (!sameScene(fire, ctx)) continue;
     fire.remaining -= dt * (1 + (state.weather?.rain || 0) * 0.2);
     fire.radius = Math.min(fire.maxRadius, fire.radius + dt * 2);
+    ctx.damageProps?.(fire, fire.radius, fire.damage * dt);
     for (const victim of hostileList(state, ctx))
       if (
         victim.health > 0 &&
@@ -999,7 +1059,7 @@ export function updateOrdnance(state, dt, ctx) {
         distance(vehicle, fire) < fire.radius &&
         ctx.hasLineOfSight(fire, vehicle)
       )
-        ctx.damageVehicle(vehicle, fire.damage * dt * 0.8);
+        ctx.damageVehicle(vehicle, fire.damage * dt * 0.8, fire.owner, 'fire');
   }
   state.fires = state.fires.filter((fire) => fire.remaining > 0);
   for (const item of state.combatEffects) if (sameScene(item, ctx)) item.remaining -= dt;

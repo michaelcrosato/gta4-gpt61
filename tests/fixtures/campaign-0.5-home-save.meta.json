@@ -1,0 +1,14 @@
+{
+  "origin": "0.5 production-simulation input journey before home services; explicit caption/choice orchestration, not a natural browser playthrough",
+  "approvedRevision": "cafad0022525b614990a517e1bd282199f000c81",
+  "candidateSourceDifferences": [
+    "src/game.js: later exterior pointer-targeting correction; fixture generation imports simulation, not the frontend"
+  ],
+  "sha256": "5301b139a7120735b64e1c52831d323dbd9899eda4129f2ce9af995c0c39f1d1",
+  "uncompressedBytes": 278311,
+  "format": "lowlight-save",
+  "version": 1,
+  "missionId": "LL-ST-001",
+  "stageId": "rest",
+  "contentFingerprint": "cbf05190"
+}

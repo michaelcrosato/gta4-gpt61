@@ -5,6 +5,12 @@ import { createCityGroundRenderer } from './city-ground.js';
 import { createSpatialIndex } from './spatial-index.js';
 import { createTerrain } from './terrain.js';
 import { outfitAppearance } from './wardrobe.js';
+import {
+  LATE_METER_APPEARANCES,
+  drawLateMeterClothingMarks,
+  drawLateMeterClipboard,
+  lateMeterPropDescriptors,
+} from './campaign/late-meter-scenes.js';
 const E = globalThis.My3D2dge;
 const hash = (value) => {
   let h = 2166136261;
@@ -24,7 +30,12 @@ export function createWorldRenderer(game, world, specs, options = {}) {
     if (!Number.isInteger(limits[key]) || limits[key] < 1)
       throw new Error('Invalid renderer cache bounds.');
   const cityGround = world.landforms?.length ? createCityGroundRenderer(world) : null;
-  const terrain = cityGround ? createTerrain(world) : null;
+  const terrain = createTerrain(world);
+  const clueRoof = Math.max(
+    32,
+    ...(world.buildings || []).map((b) => (b.z || 0) + (b.height || 70)),
+    ...(world.obstacles || []).map((b) => (b.z || 0) + (b.height || 0)),
+  );
   const buildingViews = new Map();
   const stats = {
     visibleBuildings: 0,
@@ -43,6 +54,40 @@ export function createWorldRenderer(game, world, specs, options = {}) {
     return underground
       ? z < 0
       : z >= -1 && (!terrain || terrain.overheadDeck(actor.x, actor.y, 18, z) === null);
+  }
+  function authoredAppearance(person) {
+    return Object.values(LATE_METER_APPEARANCES).find(
+      (appearance) =>
+        person.appearance?.id === appearance.id &&
+        person.appearance?.version === appearance.version,
+    );
+  }
+  // Test the exact camera ray through the drawn clue, rather than the much
+  // larger actor culling margin. Raw points have no body eye-height offset.
+  function clueVisible(r, point) {
+    const screen = r.w(point.x, point.y, point.z);
+    if (screen[0] < 1 || screen[0] >= r.bw - 1 || screen[1] < 1 || screen[1] >= r.bh - 1)
+      return false;
+    const dx = r.view.dx,
+      dy = r.view.dy,
+      dz = r.view.dz / (r.view.zBoost || 1);
+    if (![dx, dy, dz].every(Number.isFinite)) return false;
+    let length =
+      dz > 0.000001
+        ? Math.max(1, (clueRoof + 32 - point.z) / dz)
+        : Math.max(world.width, world.height);
+    for (const [position, direction, limit] of [
+      [point.x, dx, world.width],
+      [point.y, dy, world.height],
+    ]) {
+      if (direction > 0) length = Math.min(length, Math.max(0, (limit - position) / direction));
+      else if (direction < 0) length = Math.min(length, Math.max(0, -position / direction));
+    }
+    return terrain.hasLineOfSight(point, {
+      x: point.x + dx * length,
+      y: point.y + dy * length,
+      z: point.z + dz * length,
+    });
   }
   function releaseTexture(texture) {
     texture.cv.width = 0;
@@ -513,8 +558,16 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           const skin =
             person.id === 'mara-voss'
               ? outfitAppearance(state).colors.skin
-              : person.colors?.skin || (hash(person.id) > 0.5 ? '#c69b7c' : '#916f58');
-          windowPixels(head[0] - 1, head[1] + 1, 3, 2, '#344b50');
+              : authoredAppearance(person)?.colors.skin ||
+                person.colors?.skin ||
+                (hash(person.id) > 0.5 ? '#c69b7c' : '#916f58');
+          windowPixels(
+            head[0] - 1,
+            head[1] + 1,
+            3,
+            2,
+            authoredAppearance(person)?.colors.cloth || '#344b50',
+          );
           windowPixels(head[0] - 1, head[1] - 1, 3, 2, skin);
           windowPixels(head[0] - 1, head[1] - 2, 3, 1, '#35312a');
         }
@@ -549,23 +602,26 @@ export function createWorldRenderer(game, world, specs, options = {}) {
   }
 
   function rigFor(person, type) {
-    if (rigs.has(person.id)) {
+    const appearance = authoredAppearance(person),
+      appearanceKey = appearance?.id || type;
+    if (rigs.get(person.id)?.appearanceKey === appearanceKey) {
       const entry = rigs.get(person.id);
       entry.lastFrame = frame;
       rigs.delete(person.id);
       rigs.set(person.id, entry);
       return entry.rig;
     }
+    rigs.delete(person.id);
     while (rigs.size >= limits.maxRigs) rigs.delete(rigs.keys().next().value);
     const palette = ['#4b6059', '#71634d', '#556573', '#8a6c55', '#514d4b'];
     const rig = new E.Humanoid({
-      build: 'heroic',
-      size: 0.78,
+      build: appearance?.build || 'heroic',
+      size: appearance?.size || 0.78,
       weapon: null,
-      outfit: type === 'pedestrian' ? 'coat' : 'shirt',
-      sleeves: 'long',
-      hat: type === 'police' ? 'cap' : null,
-      colors: {
+      outfit: appearance?.outfit || (type === 'pedestrian' ? 'coat' : 'shirt'),
+      sleeves: appearance?.sleeves || 'long',
+      hat: appearance ? appearance.hat : type === 'police' ? 'cap' : null,
+      colors: appearance?.colors || {
         skin: hash(person.id) > 0.5 ? '#c69b7c' : '#916f58',
         cloth:
           type === 'police' ? '#34474d' : palette[Math.floor(hash(person.id) * palette.length)],
@@ -575,16 +631,19 @@ export function createWorldRenderer(game, world, specs, options = {}) {
         hair: '#35312a',
       },
     });
-    rigs.set(person.id, { rig, lastFrame: frame });
+    rigs.set(person.id, { rig, lastFrame: frame, appearanceKey });
     stats.rigs = rigs.size;
     return rig;
   }
 
-  function drawPerson(r, person, type, dt) {
+  function drawPerson(r, person, type, dt, state, prop = null) {
     if ((person.inVehicle || person.vehicleId) && person.companionPhase !== 'exiting') return;
     if (!shouldDrawActor(person) || !r.visible(person.x, person.y, person.z || 0, 35, 50, 50))
       return;
     const rig = rigFor(person, type);
+    const reading = Boolean(
+      prop && person.sceneAction === 'read-clipboard' && person.health > 0 && !person.meleeAction,
+    );
     rig.update(dt, {
       x: person.x,
       y: person.y,
@@ -599,10 +658,12 @@ export function createWorldRenderer(game, world, specs, options = {}) {
             ? 'crouch'
             : undefined,
       point:
-        type !== 'pedestrian' &&
-        person.health > 0 &&
-        WEAPONS[person.weapon]?.mode !== 'melee' &&
-        !person.meleeAction,
+        reading ||
+        (type !== 'pedestrian' &&
+          person.health > 0 &&
+          WEAPONS[person.weapon]?.mode !== 'melee' &&
+          !person.meleeAction),
+      aim: reading ? -0.7 : 0,
       attack: meleeAnimation(person.meleeAction),
       stance:
         person.weapon === 'unarmed' && (person.defending || person.meleeAction)
@@ -610,6 +671,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           : undefined,
     });
     if (!person.z) r.shadow(person.x, person.y, 7, 0.3, '#14231e');
+    let reported = false;
     r.actor(
       person.x,
       person.y,
@@ -618,6 +680,27 @@ export function createWorldRenderer(game, world, specs, options = {}) {
         rig.draw(g, ox, oy, r.view);
         if (person.health > 0 && type !== 'pedestrian')
           drawActorEquipment(g, ox, oy, rig, r.view, person.weapon || 'pistol');
+        const marks = authoredAppearance(person)
+          ? drawLateMeterClothingMarks(r, g, person, { origin: [ox, oy] })
+          : 0;
+        const clipboard =
+          prop && drawLateMeterClipboard(r, g, prop, prop, { actor: person, origin: [ox, oy] });
+        if (
+          !reported &&
+          g === r.ctx &&
+          marks > 0 &&
+          clipboard &&
+          typeof options.onRenderedClues === 'function' &&
+          clueVisible(r, { x: person.x, y: person.y, z: (person.z || 0) + 16 }) &&
+          clueVisible(r, { x: prop.x, y: prop.y, z: prop.z + prop.height * 0.45 })
+        ) {
+          reported = true;
+          options.onRenderedClues(
+            state,
+            person,
+            Object.freeze(['grey-tow-jacket', 'co-op-repossession-clipboard']),
+          );
+        }
       },
       {
         outline: false,
@@ -967,10 +1050,23 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       else if (!underground) streetFurniture(r, state);
       options.afterScenery?.(r, state);
       retireRigs();
+      const sceneId = state.interior?.active?.roomId ?? null;
+      const props = lateMeterPropDescriptors(state).filter(
+        (prop) => (prop.sceneId ?? null) === sceneId && !(prop.health <= 0),
+      );
+      const carried = new Map(
+        props.filter((prop) => prop.state === 'carried').map((prop) => [prop.ownerActorId, prop]),
+      );
       for (const car of state.vehicles) drawVehicle(r, car, state);
-      for (const person of state.pedestrians) drawPerson(r, person, 'pedestrian', 1 / 60);
-      for (const person of state.police) drawPerson(r, person, 'police', 1 / 60);
-      for (const person of state.hostiles) drawPerson(r, person, 'hostile', 1 / 60);
+      const drawnActors = new Set();
+      const drawNamed = (person, type) => {
+        if (drawnActors.has(person.id)) return;
+        drawnActors.add(person.id);
+        drawPerson(r, person, type, 1 / 60, state, carried.get(person.id));
+      };
+      for (const person of state.pedestrians) drawNamed(person, 'pedestrian');
+      for (const person of state.police) drawNamed(person, 'police');
+      for (const person of state.hostiles) drawNamed(person, 'hostile');
       const renderedIds = new Set(
         [...state.pedestrians, ...state.police, ...state.hostiles].map((person) => person.id),
       );
@@ -979,7 +1075,14 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           !renderedIds.has(person.id) &&
           (person.sceneId ?? null) === (state.interior?.active?.roomId ?? null)
         )
-          drawPerson(r, person, 'pedestrian', 1 / 60);
+          drawNamed(person, 'pedestrian');
+      for (const prop of props)
+        if (
+          prop.state === 'dropped' &&
+          shouldDrawActor(prop) &&
+          r.visible(prop.x, prop.y, prop.z || 0, 12, 12, 12)
+        )
+          r.queue(prop.x, prop.y, prop.z || 0, (g) => drawLateMeterClipboard(r, g, prop, prop));
       for (const craft of state.policeAircraft || []) drawPoliceAircraft(r, craft);
       if (state.mission?.stageType === 'interact' && state.mission.target) {
         const t = state.mission.target;

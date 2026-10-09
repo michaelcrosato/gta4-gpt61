@@ -82,6 +82,15 @@ function recordFor(state, id) {
 function vehicleFor(state, id) {
   return state.vehicles?.find((vehicle) => vehicle.id === id) ?? null;
 }
+function playerAlias(state, actor) {
+  return (
+    actor === state.player ||
+    actor.id === 'player' ||
+    actor.id === 'LL-CHAR-001' ||
+    actor.castId === 'mara-voss' ||
+    (typeof state.player?.id === 'string' && actor.id === state.player.id)
+  );
+}
 function emit(state, kind, actorId, data = {}, context = {}) {
   const model = initializeCompanions(state),
     event = { id: ++model.sequence, time: model.time, kind, actorId, data: clone(data) };
@@ -197,6 +206,7 @@ export function ensureNamedActor(state, definition, context = {}) {
     abandonDistance: 180,
     abandonmentCount: 0,
     failure: health ? null : { kind: 'dead', at: model.time },
+    driver: null,
     lastVehicleHealth: null,
     lastVehiclePose: null,
     pursuitLevel: 0,
@@ -246,12 +256,28 @@ export function companionSeatPose(vehicle, seat, context) {
     collisionHeight: 8,
   };
 }
-function doorPose(vehicle, seat, context, otherSide = false) {
+/** Explicit NPC-driver geometry; ordinary passenger seat geometry rejects zero. */
+export function driverSeatPose(vehicle, context) {
+  const spec = specFor(vehicle, context);
+  return {
+    ...transform(vehicle, spec.length * 0.12, -spec.width * 0.22, 5),
+    eyeHeight: 6,
+    collisionHeight: 8,
+  };
+}
+function seatPose(vehicle, seat, record, context) {
+  if (seat !== 0) return companionSeatPose(vehicle, seat, context);
+  if (record?.driver?.vehicleId !== vehicle.id) invalid('unregistered driver seat');
+  return driverSeatPose(vehicle, context);
+}
+function doorPose(vehicle, seat, context, otherSide = false, driver = false) {
   const spec = specFor(vehicle, context),
     row = seat === 1 ? 0 : 1 + Math.floor((seat - 2) / 2),
     side = (seat === 1 ? 1 : seat % 2 === 0 ? -1 : 1) * (otherSide ? -1 : 1),
     x =
       spec.length * 0.12 - (row ? (row * spec.length * 0.33) / Math.ceil((spec.seats - 2) / 2) : 0);
+  if (!Number.isSafeInteger(seat) || seat < 0 || seat >= spec.seats || (seat === 0 && !driver))
+    invalid('unregistered driver door');
   return {
     ...transform(vehicle, x, side * (spec.width / 2 + 9), 0),
     eyeHeight: 14,
@@ -265,6 +291,9 @@ export function getSeat(state, id) {
     !actor?.vehicleId ||
     !vehicle ||
     actor.seat === null ||
+    (actor.seat === 0 &&
+      (recordFor(state, id)?.driver?.vehicleId !== vehicle?.id ||
+        !Number.isSafeInteger(recordFor(state, id)?.driver?.boardEvent))) ||
     recordFor(state, id)?.phase === 'exiting' ||
     scene(actor) !== scene(vehicle)
   )
@@ -304,7 +333,7 @@ function syncSeats(state) {
 function sameIntent(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
-function setOrder(state, record, order, context, { preserveFailure = false } = {}) {
+function setOrder(state, record, order, context, { preserveFailure = false, silent = false } = {}) {
   if (sameIntent(record.order, order)) return false;
   record.order = clone(order);
   record.route = [];
@@ -314,12 +343,214 @@ function setOrder(state, record, order, context, { preserveFailure = false } = {
   record.blockedSeconds = 0;
   record.separationSeconds = 0;
   if (!preserveFailure) record.failure = null;
-  emit(state, 'ordered', record.id, { kind: order.kind }, context);
+  if (!silent) emit(state, 'ordered', record.id, { kind: order.kind }, context);
   return true;
 }
 function releaseReservation(record) {
   record.reservedVehicleId = null;
   record.reservedSeat = null;
+}
+function zeroOwners(state, vehicleId) {
+  return (state.companions?.records ?? []).filter((record) => {
+    const actor = getActor(state, record.id);
+    return (
+      (actor?.vehicleId === vehicleId && actor.seat === 0) ||
+      (record.reservedVehicleId === vehicleId && record.reservedSeat === 0)
+    );
+  });
+}
+function driverConflict(state, vehicle, actorId, context) {
+  if (state.player?.vehicleId === vehicle.id) return true;
+  if (
+    (context.externalSeatOwners?.(vehicle, state) ?? []).some(
+      (owner) => owner.seat === 0 && owner.actorId !== actorId,
+    )
+  )
+    return true;
+  return zeroOwners(state, vehicle.id).some((record) => record.id !== actorId);
+}
+/** Reserving seat zero is a deliberate request, never a passenger fallback. */
+export function requestDriver(state, id, vehicleId, context = {}) {
+  const model = initializeCompanions(state),
+    actor = getActor(state, id),
+    record = recordFor(state, id),
+    vehicle = vehicleFor(state, vehicleId);
+  if (!actor || !record) return { ok: false, reason: 'missing-actor' };
+  if (playerAlias(state, actor)) return { ok: false, reason: 'player-is-not-npc-driver' };
+  if (actor.health <= 0) return { ok: false, reason: 'dead' };
+  if (!vehicle || vehicle.health <= 0) return { ok: false, reason: 'vehicle-unavailable' };
+  if (vehicle.policeControlled) return { ok: false, reason: 'police-owned' };
+  if (record.failure) return { ok: false, reason: 'driver-rejoin-required' };
+  if (driverConflict(state, vehicle, id, context))
+    return { ok: false, reason: 'driver-seat-owned' };
+  const owns = zeroOwners(state, vehicle.id).some((owner) => owner.id === id);
+  if (vehicle.occupied && !owns) return { ok: false, reason: 'driver-seat-occupied' };
+  if (record.order.kind === 'exit' || ['waiting-exit', 'exiting'].includes(record.phase))
+    return { ok: false, reason: 'driver-exit-in-progress' };
+  if (actor.vehicleId) {
+    if (
+      actor.vehicleId === vehicle.id &&
+      actor.seat === 0 &&
+      record.driver?.vehicleId === vehicle.id
+    )
+      return { ok: true, seated: Boolean(getSeat(state, id)), seat: 0 };
+    return { ok: false, reason: 'already-seated' };
+  }
+  if (record.transition) return { ok: false, reason: 'boarding-in-progress' };
+  if (
+    record.reservedVehicleId === vehicle.id &&
+    record.reservedSeat === 0 &&
+    record.order.kind === 'drive'
+  )
+    return { ok: true, seated: false, seat: 0 };
+  specFor(vehicle, context);
+  releaseReservation(record);
+  record.reservedVehicleId = vehicle.id;
+  record.reservedSeat = 0;
+  record.phase = 'approaching';
+  setOrder(state, record, { kind: 'drive', vehicleId: vehicle.id }, context, { silent: true });
+  record.driver = {
+    vehicleId: vehicle.id,
+    requestEvent: model.sequence + 1,
+    requestedAt: model.time,
+    boardEvent: null,
+  };
+  syncSeats(state);
+  emit(state, 'driver-requested', actor.id, { vehicleId: vehicle.id, seat: 0 }, context);
+  return { ok: true, seated: false, seat: 0 };
+}
+/** Read actual seat ownership/body state; reserved and exiting bodies cannot drive. */
+export function driverObservation(state, vehicleId, context = {}) {
+  const vehicle = vehicleFor(state, vehicleId),
+    owners = zeroOwners(state, vehicleId);
+  if (!vehicle || !owners.length) return null;
+  if (owners.length !== 1) return { unmet: 'driver-seat-conflict' };
+  const record = owners[0],
+    actor = getActor(state, record.id);
+  if (!actor || record.driver?.vehicleId !== vehicle.id)
+    return { unmet: 'driver-owner-unregistered' };
+  if (driverConflict(state, vehicle, actor.id, context)) return { unmet: 'driver-seat-conflict' };
+  if (actor.vehicleId === vehicle.id && scene(actor) !== scene(vehicle))
+    return { unmet: 'driver-scene-transition-denied' };
+  const seated = Boolean(getSeat(state, actor.id));
+  if (seated) {
+    const pose = driverSeatPose(vehicle, context);
+    if (
+      distance(actor, pose) > EPS ||
+      Math.abs(actor.z - pose.z) > EPS ||
+      actor.radius !== 3 ||
+      actor.collisionHeight !== 8 ||
+      actor.eyeHeight !== 6 ||
+      !actor.inVehicle ||
+      Math.abs(actor.groundZ - pose.groundZ) > EPS ||
+      Math.abs(Math.atan2(Math.sin(actor.angle - pose.angle), Math.cos(actor.angle - pose.angle))) >
+        EPS
+    )
+      return { unmet: 'driver-body-not-coupled' };
+  }
+  return {
+    actorId: actor.id,
+    vehicleId: vehicle.id,
+    seat: 0,
+    owned: true,
+    seated,
+    alive: actor.health > 0,
+    vehicleAlive: vehicle.health > 0,
+    reserved: record.reservedVehicleId === vehicle.id,
+    phase: record.phase,
+    controllable:
+      seated &&
+      actor.health > 0 &&
+      vehicle.health > 0 &&
+      record.phase === 'seated' &&
+      record.order.kind === 'drive' &&
+      !record.failure,
+    pose: { ...point(actor), groundZ: actor.groundZ, angle: actor.angle },
+    failure: clone(record.failure),
+    eye: { x: actor.x, y: actor.y, z: actor.z + actor.eyeHeight, sceneId: scene(actor) },
+  };
+}
+/** Named-driver lease only; root still owns ordinary traffic/carjacking policy. */
+export function playerDriverAdmission(state, vehicleId) {
+  const vehicle = vehicleFor(state, vehicleId),
+    owners = zeroOwners(state, vehicleId);
+  if (!vehicle || vehicle.health <= 0)
+    return {
+      allowed: false,
+      canPreempt: false,
+      requiresPhysicalExit: false,
+      lease: null,
+      reason: 'vehicle-unavailable',
+    };
+  if (!owners.length)
+    return { allowed: true, canPreempt: false, requiresPhysicalExit: false, lease: null };
+  if (owners.length !== 1)
+    return {
+      allowed: false,
+      canPreempt: false,
+      requiresPhysicalExit: true,
+      lease: null,
+      reason: 'driver-seat-conflict',
+    };
+  const record = owners[0],
+    actor = getActor(state, record.id);
+  const registered = actor && record.driver?.vehicleId === vehicle.id;
+  const canPreempt = Boolean(
+    registered &&
+    actor.health > 0 &&
+    actor.vehicleId === null &&
+    record.reservedSeat === 0 &&
+    record.phase === 'approaching' &&
+    record.order.kind === 'drive' &&
+    !record.transition,
+  );
+  return {
+    allowed: false,
+    canPreempt,
+    requiresPhysicalExit: !canPreempt,
+    lease: actor
+      ? {
+          actorId: actor.id,
+          vehicleId: vehicle.id,
+          seat: 0,
+          phase: record.phase,
+          alive: actor.health > 0,
+          seated: Boolean(getSeat(state, actor.id)),
+          reserved: record.reservedVehicleId === vehicle.id,
+        }
+      : null,
+    reason: registered ? 'named-driver-lease' : 'driver-owner-unregistered',
+  };
+}
+/** Cancel only an unseated approach. Boarding/occupied/egress must exit physically. */
+export function preemptDriverReservation(state, vehicleId, context = {}) {
+  const admission = playerDriverAdmission(state, vehicleId);
+  if (admission.allowed) return { ok: true, preempted: false, vehicleId };
+  if (!admission.canPreempt)
+    return {
+      ok: false,
+      reason:
+        admission.reason === 'vehicle-unavailable'
+          ? admission.reason
+          : 'driver-must-exit-physically',
+    };
+  const actor = getActor(state, admission.lease.actorId),
+    record = recordFor(state, actor.id);
+  releaseReservation(record);
+  record.driver = null;
+  record.transition = null;
+  record.phase = 'idle';
+  actor.speed = 0;
+  setOrder(state, record, { kind: 'idle' }, context, { preserveFailure: true, silent: true });
+  syncSeats(state);
+  const event = emit(
+    state,
+    'driver-preempted',
+    actor.id,
+    { vehicleId, seat: 0, reason: 'player-admission' },
+    context,
+  );
+  return { ok: true, preempted: true, actorId: actor.id, vehicleId, eventId: event.id };
 }
 export function requestBoard(state, id, vehicleId, context = {}) {
   initializeCompanions(state);
@@ -330,7 +561,10 @@ export function requestBoard(state, id, vehicleId, context = {}) {
   if (actor.health <= 0) return { ok: false, reason: 'dead' };
   if (!vehicle || vehicle.health <= 0) return { ok: false, reason: 'vehicle-unavailable' };
   if (vehicle.policeControlled) return { ok: false, reason: 'police-owned' };
-  if (actor.vehicleId === vehicleId) return { ok: true, seated: true, seat: actor.seat };
+  if (actor.vehicleId === vehicleId)
+    return actor.seat === 0
+      ? { ok: false, reason: 'driver-must-exit-before-passenger' }
+      : { ok: true, seated: true, seat: actor.seat };
   if (actor.vehicleId) return { ok: false, reason: 'already-seated' };
   if (record.transition) return { ok: false, reason: 'boarding-in-progress' };
   if (record.reservedVehicleId === vehicleId && record.order.kind === 'board')
@@ -343,6 +577,7 @@ export function requestBoard(state, id, vehicleId, context = {}) {
     owned.add(external.seat);
   const seat = Array.from({ length: spec.seats - 1 }, (_, i) => i + 1).find((i) => !owned.has(i));
   if (!seat) return { ok: false, reason: 'full' };
+  record.driver = null;
   releaseReservation(record);
   record.reservedVehicleId = vehicleId;
   record.reservedSeat = seat;
@@ -369,6 +604,7 @@ export function requestExit(state, id, context = {}) {
     releaseReservation(record);
     record.transition = null;
     record.phase = 'idle';
+    record.driver = null;
     setOrder(state, record, { kind: 'idle' }, context);
     syncSeats(state);
     return { ok: true, seated: false };
@@ -396,6 +632,7 @@ export function requestEscort(state, id, target, context = {}) {
     return { ok: true, seated: true };
   }
   releaseReservation(record);
+  record.driver = null;
   record.transition = null;
   if (setOrder(state, record, order, context)) record.phase = 'following';
   syncSeats(state);
@@ -413,6 +650,7 @@ export function followCompanion(state, id, targetId = 'player', context = {}) {
     return { ok: true, seated: true };
   }
   releaseReservation(record);
+  record.driver = null;
   record.transition = null;
   if (setOrder(state, record, order, context)) record.phase = 'following';
   syncSeats(state);
@@ -433,6 +671,44 @@ export function rejoinCompanion(state, id, context = {}) {
   )
     return { ok: false, reason: 'leader-out-of-reach' };
   const order = clone(record.order);
+  if (record.driver || order.kind === 'drive') {
+    if (
+      !record.driver ||
+      order.kind !== 'drive' ||
+      record.transition ||
+      ['waiting-exit', 'exiting'].includes(record.phase)
+    )
+      return { ok: false, reason: 'driver-transition-in-progress' };
+    if (actor.vehicleId) {
+      const observed = driverObservation(state, actor.vehicleId, context);
+      if (!observed?.seated || observed.unmet)
+        return { ok: false, reason: 'driver-body-not-coupled' };
+      record.failure = null;
+      record.blockedSeconds = record.separationSeconds = 0;
+      record.route = [];
+      record.routeIndex = 0;
+      record.routeRefresh = 0;
+      record.routeTarget = null;
+      record.phase = 'seated';
+      syncSeats(state);
+      emit(state, 'rejoined', id, {}, context);
+      return { ok: true, seated: true, seat: 0 };
+    }
+    releaseReservation(record);
+    record.driver = null;
+    record.failure = null;
+    record.blockedSeconds = record.separationSeconds = 0;
+    record.route = [];
+    record.routeIndex = 0;
+    record.routeRefresh = 0;
+    record.routeTarget = null;
+    record.phase = 'idle';
+    record.order = { kind: 'idle' };
+    syncSeats(state);
+    const requested = requestDriver(state, id, order.vehicleId, context);
+    if (requested.ok) emit(state, 'rejoined', id, {}, context);
+    return requested;
+  }
   record.failure = null;
   record.blockedSeconds = 0;
   record.separationSeconds = 0;
@@ -602,7 +878,7 @@ function routeTo(
   };
 }
 function seatedSync(state, actor, record, vehicle, context) {
-  const pose = companionSeatPose(vehicle, actor.seat, context);
+  const pose = seatPose(vehicle, actor.seat, record, context);
   if (
     scene(actor) !== pose.sceneId &&
     context.canRideSceneTransition?.(actor, vehicle, record.lastVehiclePose, state) !== true
@@ -622,7 +898,7 @@ function seatedSync(state, actor, record, vehicle, context) {
 }
 function transition(state, actor, record, vehicle, context, dt, exiting) {
   const seat = actor.seat ?? record.reservedSeat,
-    target = exiting ? record.transition.to : companionSeatPose(vehicle, seat, context);
+    target = exiting ? record.transition.to : seatPose(vehicle, seat, record, context);
   if (Math.abs(vehicle.speed ?? 0) > 8) {
     record.blockedSeconds += dt;
     return false;
@@ -670,6 +946,7 @@ function transition(state, actor, record, vehicle, context, dt, exiting) {
   record.transition = null;
   record.blockedSeconds = 0;
   if (exiting) {
+    const wasDriver = seat === 0;
     actor.vehicleId = null;
     actor.seat = null;
     actor.radius = 7;
@@ -681,19 +958,32 @@ function transition(state, actor, record, vehicle, context, dt, exiting) {
     record.phase = 'idle';
     record.lastVehicleHealth = null;
     record.lastVehiclePose = null;
+    record.driver = null;
     releaseReservation(record);
-    emit(state, 'exited', actor.id, { vehicleId: vehicle.id, seat }, context);
     const after = record.afterExit;
     record.afterExit = null;
-    setOrder(state, record, after ?? { kind: 'idle' }, context, { preserveFailure: true });
+    if (wasDriver) {
+      setOrder(state, record, after ?? { kind: 'idle' }, context, {
+        preserveFailure: true,
+        silent: true,
+      });
+      if (after) record.phase = 'following';
+      syncSeats(state);
+      emit(state, 'exited', actor.id, { vehicleId: vehicle.id, seat }, context);
+    } else {
+      emit(state, 'exited', actor.id, { vehicleId: vehicle.id, seat }, context);
+      setOrder(state, record, after ?? { kind: 'idle' }, context, { preserveFailure: true });
+    }
     if (after) record.phase = 'following';
   } else {
     actor.vehicleId = vehicle.id;
     actor.seat = record.reservedSeat;
+    if (actor.seat === 0) record.driver.boardEvent = state.companions.sequence + 1;
     releaseReservation(record);
     record.phase = 'seated';
     record.lastVehicleHealth = vehicle.health;
     if (record.phase !== 'exiting') seatedSync(state, actor, record, vehicle, context);
+    if (actor.seat === 0) syncSeats(state);
     emit(state, 'boarded', actor.id, { vehicleId: vehicle.id, seat: actor.seat }, context);
   }
   syncSeats(state);
@@ -761,6 +1051,16 @@ export function applyVehicleImpact(state, vehicleId, amount, context = {}, cause
 }
 function tickActor(state, actor, record, dt, context) {
   bindProxies(state, actor);
+  const ownedDriverVehicle =
+    actor.seat === 0
+      ? vehicleFor(state, actor.vehicleId)
+      : record.reservedSeat === 0
+        ? vehicleFor(state, record.reservedVehicleId)
+        : null;
+  if (ownedDriverVehicle && driverConflict(state, ownedDriverVehicle, actor.id, context)) {
+    if (actor.health > 0) fail(state, record, 'driver-seat-conflict', context);
+    return;
+  }
   if (actor.health <= 0) {
     if (record.phase !== 'dead') {
       record.phase = 'dead';
@@ -822,7 +1122,13 @@ function tickActor(state, actor, record, dt, context) {
     }
     let door = null;
     for (const otherSide of [false, true]) {
-      const candidate = doorPose(vehicle, actor.seat, context, otherSide);
+      const candidate = doorPose(
+        vehicle,
+        actor.seat,
+        context,
+        otherSide,
+        record.driver?.vehicleId === vehicle.id,
+      );
       const floor = context.surfaceHeight(
         candidate.x,
         candidate.y,
@@ -874,7 +1180,13 @@ function tickActor(state, actor, record, dt, context) {
     }
     let door = null;
     for (const otherSide of [false, true]) {
-      const candidate = doorPose(vehicle, record.reservedSeat, context, otherSide),
+      const candidate = doorPose(
+          vehicle,
+          record.reservedSeat,
+          context,
+          otherSide,
+          record.driver?.vehicleId === vehicle.id,
+        ),
         floor = context.surfaceHeight(
           candidate.x,
           candidate.y,
@@ -910,13 +1222,19 @@ function tickActor(state, actor, record, dt, context) {
   let target,
     vehicle = null,
     radius = 8;
-  if (record.order.kind === 'board') {
+  if (record.order.kind === 'board' || record.order.kind === 'drive') {
     vehicle = vehicleFor(state, record.order.vehicleId);
     if (!vehicle || vehicle.health <= 0) {
       record.blockedSeconds += dt;
       return;
     }
-    target = doorPose(vehicle, record.reservedSeat, context);
+    target = doorPose(
+      vehicle,
+      record.reservedSeat,
+      context,
+      false,
+      record.driver?.vehicleId === vehicle.id,
+    );
     radius = 1;
     if (record.transition) {
       transition(state, actor, record, vehicle, context, dt, false);
@@ -957,7 +1275,7 @@ function tickActor(state, actor, record, dt, context) {
         record.blockedSeconds += dt;
         return;
       }
-      const to = companionSeatPose(vehicle, record.reservedSeat, context);
+      const to = seatPose(vehicle, record.reservedSeat, record, context);
       if (!clear(context, actor, to, vehicle.id)) {
         record.blockedSeconds += dt;
         return;
@@ -1050,11 +1368,11 @@ function validateOrder(order, context, after = false) {
   if (
     !order ||
     typeof order !== 'object' ||
-    !['idle', 'board', 'exit', 'follow', 'escort'].includes(order.kind)
+    !['idle', 'board', 'drive', 'exit', 'follow', 'escort'].includes(order.kind)
   )
     invalid('order');
   if (after && !['idle', 'follow', 'escort'].includes(order.kind)) invalid('exit continuation');
-  if (order.kind === 'board') text(order.vehicleId, 'boarding vehicle');
+  if (order.kind === 'board' || order.kind === 'drive') text(order.vehicleId, 'boarding vehicle');
   if (order.kind === 'follow') text(order.targetId, 'follow target');
   if (order.kind === 'escort') {
     point(order.target, 'escort target');
@@ -1144,6 +1462,85 @@ export function validateCompanions(state, context = {}) {
       ].includes(record.phase)
     )
       invalid('phase');
+    const driver = record.driver ?? null,
+      ownsZero =
+        (actor.vehicleId !== null && actor.seat === 0) ||
+        (record.reservedVehicleId !== null && record.reservedSeat === 0);
+    if (driver !== null) {
+      if (playerAlias(state, actor)) invalid('player actor in NPC driver ownership');
+      if (
+        !driver ||
+        typeof driver !== 'object' ||
+        Array.isArray(driver) ||
+        Object.keys(driver).length !== 4 ||
+        !['vehicleId', 'requestEvent', 'requestedAt', 'boardEvent'].every((key) =>
+          Object.hasOwn(driver, key),
+        )
+      )
+        invalid('driver request proof');
+      text(driver.vehicleId, 'driver vehicle');
+      number(driver.requestEvent, 'driver request event', 1, model.sequence);
+      if (!Number.isSafeInteger(driver.requestEvent)) invalid('driver request event');
+      number(driver.requestedAt, 'driver request time', 0, model.time);
+      if (!Array.isArray(model.events)) invalid('driver request events');
+      if (driver.requestEvent >= (model.events[0]?.id ?? 1)) {
+        const proof = model.events.find((event) => event.id === driver.requestEvent);
+        if (
+          !proof ||
+          proof.kind !== 'driver-requested' ||
+          proof.actorId !== actor.id ||
+          proof.data?.vehicleId !== driver.vehicleId ||
+          proof.data?.seat !== 0 ||
+          Math.abs(proof.time - driver.requestedAt) > EPS
+        )
+          invalid('driver request event ownership');
+      }
+      if (driver.boardEvent !== null) {
+        number(driver.boardEvent, 'driver board event', driver.requestEvent + 1, model.sequence);
+        if (!Number.isSafeInteger(driver.boardEvent)) invalid('driver board event');
+        if (driver.boardEvent >= (model.events[0]?.id ?? 1)) {
+          const proof = model.events.find((event) => event.id === driver.boardEvent);
+          if (
+            !proof ||
+            proof.kind !== 'boarded' ||
+            proof.actorId !== actor.id ||
+            proof.data?.vehicleId !== driver.vehicleId ||
+            proof.data?.seat !== 0
+          )
+            invalid('driver board event ownership');
+        }
+      }
+      if (actor.vehicleId !== null && actor.seat === 0 && driver.boardEvent === null)
+        invalid('unboarded driver occupancy');
+      if (record.reservedSeat === 0 && driver.boardEvent !== null)
+        invalid('boarded driver reservation');
+      if (ownsZero) {
+        if (
+          driver.vehicleId !== (actor.vehicleId ?? record.reservedVehicleId) ||
+          !['drive', 'exit'].includes(record.order.kind)
+        )
+          invalid('driver seat ownership');
+        if (
+          model.events.some(
+            (event) =>
+              event.id > driver.requestEvent &&
+              event.actorId === actor.id &&
+              ['exited', 'driver-preempted'].includes(event.kind) &&
+              event.data?.vehicleId === driver.vehicleId &&
+              event.data?.seat === 0,
+          )
+        )
+          invalid('released driver lease');
+      } else if (!['dead', 'abandoned'].includes(record.phase) || record.order.kind !== 'drive')
+        invalid('driver intent without seat ownership');
+      if (record.order.kind === 'drive' && record.order.vehicleId !== driver.vehicleId)
+        invalid('driver order vehicle');
+      if (
+        (actor.vehicleId !== null && actor.seat !== 0) ||
+        (record.reservedVehicleId !== null && record.reservedSeat !== 0)
+      )
+        invalid('driver intent in passenger seat');
+    } else if (ownsZero || record.order.kind === 'drive') invalid('unregistered driver ownership');
     validateOrder(record.order, context);
     if (record.afterExit !== null) validateOrder(record.afterExit, context, true);
     if (actor.companionPhase !== record.phase) invalid('body phase');
@@ -1164,6 +1561,7 @@ export function validateCompanions(state, context = {}) {
           'vehicle-missing',
           'vehicle-destroyed',
           'scene-transition-denied',
+          'driver-seat-conflict',
         ].includes(record.failure.kind)
       )
         invalid('failure kind');
@@ -1196,7 +1594,7 @@ export function validateCompanions(state, context = {}) {
     if (actor.vehicleId) {
       const vehicle = vehicleFor(state, actor.vehicleId);
       if (!vehicle) invalid('missing occupied vehicle');
-      const pose = companionSeatPose(vehicle, actor.seat, context);
+      const pose = seatPose(vehicle, actor.seat, record, context);
       const key = `${vehicle.id}:${actor.seat}`;
       if (owners.has(key)) invalid('duplicate seat');
       owners.add(key);
@@ -1223,16 +1621,16 @@ export function validateCompanions(state, context = {}) {
       number(record.lastVehicleHealth, 'vehicle health reference', 0, 1e6);
       point(record.lastVehiclePose, 'last vehicle pose');
       number(record.lastVehiclePose.angle, 'last vehicle heading', -Math.PI * 4, Math.PI * 4);
-      if (record.order.kind === 'board' && record.order.vehicleId !== vehicle.id)
+      if (['board', 'drive'].includes(record.order.kind) && record.order.vehicleId !== vehicle.id)
         invalid('occupied order');
     } else if (actor.seat !== null || actor.inVehicle) invalid('seat without vehicle');
     if (record.reservedVehicleId !== null) {
       const vehicle = vehicleFor(state, record.reservedVehicleId);
-      if (!vehicle || actor.vehicleId || !['board', 'exit'].includes(record.order.kind))
+      if (!vehicle || actor.vehicleId || !['board', 'drive', 'exit'].includes(record.order.kind))
         invalid('reservation');
-      if (record.order.kind === 'board' && record.order.vehicleId !== vehicle.id)
+      if (['board', 'drive'].includes(record.order.kind) && record.order.vehicleId !== vehicle.id)
         invalid('reserved order');
-      companionSeatPose(vehicle, record.reservedSeat, context);
+      seatPose(vehicle, record.reservedSeat, record, context);
       const key = `${vehicle.id}:${record.reservedSeat}`;
       if (owners.has(key)) invalid('duplicate reserved seat');
       owners.add(key);
@@ -1275,18 +1673,39 @@ export function validateCompanions(state, context = {}) {
       )
         invalid('transition distance');
       const snapshot = { ...vehicle, ...transition.vehiclePose },
-        seatPose = companionSeatPose(snapshot, transition.seat, context);
+        occupiedPose = seatPose(snapshot, transition.seat, record, context);
       if (record.phase === 'boarding') {
-        const door = doorPose(snapshot, transition.seat, context);
+        const door = doorPose(
+          snapshot,
+          transition.seat,
+          context,
+          false,
+          record.driver?.vehicleId === vehicle.id,
+        );
         if (distance(transition.from, door) > 1 + EPS || Math.abs(transition.from.z - door.z) > 3)
           invalid('boarding origin');
-        if (distance(transition.to, seatPose) > 8 || Math.abs(transition.to.z - seatPose.z) > 6)
+        if (
+          distance(transition.to, occupiedPose) > 8 ||
+          Math.abs(transition.to.z - occupiedPose.z) > 6
+        )
           invalid('boarding destination');
       } else {
-        if (distance(transition.from, seatPose) > 40) invalid('exit origin');
+        if (distance(transition.from, occupiedPose) > 40) invalid('exit origin');
         const doors = [
-          doorPose(snapshot, transition.seat, context),
-          doorPose(snapshot, transition.seat, context, true),
+          doorPose(
+            snapshot,
+            transition.seat,
+            context,
+            false,
+            record.driver?.vehicleId === vehicle.id,
+          ),
+          doorPose(
+            snapshot,
+            transition.seat,
+            context,
+            true,
+            record.driver?.vehicleId === vehicle.id,
+          ),
         ];
         if (
           !doors.some(
@@ -1314,6 +1733,8 @@ export function validateCompanions(state, context = {}) {
     }
   }
   for (const vehicle of state.vehicles ?? []) {
+    if (state.player?.vehicleId === vehicle.id && owners.has(`${vehicle.id}:0`))
+      invalid('player driver seat collision');
     const expected = model.records
       .flatMap((record) => {
         const actor = getActor(state, record.id);
@@ -1338,7 +1759,16 @@ export function validateCompanions(state, context = {}) {
     )
       invalid('vehicle seat ownership');
     for (const external of context.externalSeatOwners?.(vehicle, state) ?? [])
-      if (owners.has(`${vehicle.id}:${external.seat}`)) invalid('external seat collision');
+      if (owners.has(`${vehicle.id}:${external.seat}`)) {
+        const named =
+          external.seat === 0
+            ? zeroOwners(state, vehicle.id).find(
+                (record) =>
+                  record.id === external.actorId && record.driver?.vehicleId === vehicle.id,
+              )
+            : null;
+        if (!named) invalid('external seat collision');
+      }
   }
   if (!Array.isArray(model.events) || model.events.length > 128) invalid('events');
   let last = 0;

@@ -34,12 +34,16 @@ import {
   FIRST_ARC_CAPABILITY_AUDIT,
   FIRST_ARC_MANIFEST,
 } from './first-arc.js';
+import { FIRST_ARC_05_CONTENT, FIRST_ARC_05_FINGERPRINT } from './history/first-arc-0.5.js';
 
 export const CAMPAIGN_CONTENT = Object.freeze({
   missions: FIRST_ARC_MISSIONS,
   scenes: FIRST_ARC_SCENES,
   capabilities: FIRST_ARC_CAPABILITY_AUDIT,
   manifest: FIRST_ARC_MANIFEST,
+});
+export const CAMPAIGN_CONTENT_HISTORY = Object.freeze({
+  [FIRST_ARC_05_FINGERPRINT]: FIRST_ARC_05_CONTENT,
 });
 const VERSION = 1;
 const MAX_JSON_BYTES = 32 * 1024 * 1024;
@@ -62,6 +66,7 @@ const receiptKinds = new Set([
   'observed-facts',
 ]);
 const fingerprints = new WeakMap();
+const immutableContents = new WeakSet([CAMPAIGN_CONTENT, FIRST_ARC_05_CONTENT]);
 
 function invalid(reason) {
   throw new Error(`Invalid campaign state: ${reason}.`);
@@ -111,11 +116,26 @@ function contentOf(adapters = {}) {
   return content;
 }
 function fingerprint(content) {
-  // Recompute mutable fixture/custom packs; the shipped pack is deeply frozen.
-  if (content === CAMPAIGN_CONTENT && fingerprints.has(content)) return fingerprints.get(content);
+  // Recompute mutable fixture/custom packs; approved shipped/history data is frozen.
+  if (immutableContents.has(content) && fingerprints.has(content)) return fingerprints.get(content);
   const result = hash(clone(content));
-  if (content === CAMPAIGN_CONTENT) fingerprints.set(content, result);
+  if (immutableContents.has(content)) fingerprints.set(content, result);
   return result;
+}
+export function campaignContentFingerprint(adapters = {}) {
+  return fingerprint(contentOf(adapters));
+}
+export function campaignReceiptNamespace(state) {
+  return own(state, 'receiptNamespace') ? state.receiptNamespace : state.contentFingerprint;
+}
+function historicalContent(namespace, adapters) {
+  const history = adapters.contentHistory ?? CAMPAIGN_CONTENT_HISTORY;
+  if (!object(history)) invalid('content history');
+  const descriptor = Object.getOwnPropertyDescriptor(history, namespace);
+  if (!descriptor || !own(descriptor, 'value')) invalid('unknown campaign content version');
+  const content = contentOf({ content: descriptor.value });
+  if (fingerprint(content) !== namespace) invalid('historical content fingerprint');
+  return content;
 }
 function missionFor(content, missionId) {
   return content.missions.find((mission) => mission.id === missionId);
@@ -247,7 +267,7 @@ function pushHistory(state, event, details = {}) {
   state.history.push({ sequence: state.sequence, event, ...clone(details) });
 }
 function receipt(state, suffix) {
-  return `campaign:${state.contentFingerprint}:${suffix}`;
+  return `campaign:${campaignReceiptNamespace(state)}:${suffix}`;
 }
 function commit(state, draft) {
   for (const key of Object.keys(state)) delete state[key];
@@ -286,9 +306,21 @@ function prerequisites(state, mission) {
   return (mission.dependencies?.all || []).filter((missionId) => !completed(state, missionId));
 }
 function capabilityGates(mission, adapters) {
+  if (typeof adapters.supportsMission === 'function') {
+    const supported = call(adapters, 'supportsMission', [mission.id, frozen(clone(mission))]);
+    if (supported.unmet || supported.value !== true)
+      return [supported.unmet || `unregistered-mission-handler:${mission.id}`];
+  }
+  const scoped =
+    typeof adapters.capabilitiesForMission === 'function'
+      ? call(adapters, 'capabilitiesForMission', [mission.id])
+      : { value: adapters.capabilities };
+  if (scoped.unmet) return [scoped.unmet];
+  if (typeof adapters.capabilitiesForMission === 'function' && !object(scoped.value))
+    return [`unresolved-mission-capabilities:${mission.id}`];
   return (mission.requiredCapabilities || []).flatMap(({ id: capability }) => {
     if (capability === 'director') return [];
-    const entry = adapters.capabilities?.[capability];
+    const entry = scoped.value?.[capability];
     return entry === true || (object(entry) && entry.ready === true)
       ? []
       : [`unintegrated-capability:${capability}`];
@@ -1111,6 +1143,13 @@ export function retryCampaignMission(state, adapters = {}, options = {}) {
     return gate([options.missionId ? 'mission-not-retained-for-retry' : 'no-active-mission']);
   const mission = missionFor(contentOf(adapters), run.missionId);
   if (
+    typeof adapters.supportsMission === 'function' ||
+    typeof adapters.capabilitiesForMission === 'function'
+  ) {
+    const missing = capabilityGates(mission, adapters);
+    if (missing.length) return gate(missing);
+  }
+  if (
     options.checkpoint &&
     options.checkpoint !== 'start' &&
     !mission.checkpoints.some((checkpoint) => checkpoint.id === options.checkpoint)
@@ -1378,7 +1417,7 @@ function validateLines(lines) {
 function validReceipt(token, entry, state) {
   return (
     id(token) &&
-    token.startsWith(`campaign:${state.contentFingerprint}:`) &&
+    token.startsWith(`campaign:${campaignReceiptNamespace(state)}:`) &&
     object(entry) &&
     receiptKinds.has(entry.kind)
   );
@@ -1656,6 +1695,12 @@ export function validateCampaignDirector(state, adapters = {}) {
   )
     invalid('version/content fingerprint');
   if (!integer(state.seed, 0xffffffff) || !integer(state.sequence)) invalid('seed/sequence');
+  if (own(state, 'receiptNamespace')) {
+    if (typeof state.receiptNamespace !== 'string' || !/^[0-9a-f]{8}$/.test(state.receiptNamespace))
+      invalid('receipt namespace');
+    const origin = historicalContent(state.receiptNamespace, adapters);
+    if (origin.manifest.id !== content.manifest.id) invalid('receipt namespace content owner');
+  }
   const keys = [
     'schemaVersion',
     'contentId',
@@ -1678,7 +1723,7 @@ export function validateCampaignDirector(state, adapters = {}) {
     'history',
   ];
   if (
-    Object.keys(state).length !== keys.length ||
+    Object.keys(state).length !== keys.length + (own(state, 'receiptNamespace') ? 1 : 0) ||
     !keys.every((key) => own(state, key)) ||
     (state.active !== null && !object(state.active))
   )
@@ -1792,6 +1837,62 @@ export function validateCampaignDirector(state, adapters = {}) {
   runs.forEach((run) => validateRun(run, content, state));
   return true;
 }
+/**
+ * Rebase content identity only when every previously owned mission is unchanged.
+ * Original transaction IDs remain exact: their namespace is saved separately
+ * from the current pack fingerprint. No world restore, rewards or actions occur.
+ */
+export function migrateCampaignDirectorContent(saved, adapters = {}) {
+  if (!object(saved)) invalid('content migration state');
+  const state = clone(saved),
+    target = contentOf(adapters),
+    nextFingerprint = fingerprint(target);
+  if (state.contentFingerprint === nextFingerprint) {
+    validateCampaignDirector(state, adapters);
+    return state;
+  }
+  const previous = historicalContent(state.contentFingerprint, adapters);
+  if (previous.manifest.id !== target.manifest.id) invalid('content migration owner');
+  validateCampaignDirector(state, { ...adapters, content: previous });
+  const owned = new Set([
+    ...Object.keys(state.attempts),
+    ...Object.keys(state.completed),
+    ...state.suspended.map((run) => run.missionId),
+    ...(state.active ? [state.active.missionId] : []),
+  ]);
+  for (const entry of state.history)
+    if (
+      typeof entry.missionId === 'string' &&
+      /^LL-ST-\d{3}$/.test(entry.missionId) &&
+      !own(state.externalCompleted, entry.missionId) &&
+      !own(state.onboardingCompleted, entry.missionId)
+    )
+      owned.add(entry.missionId);
+  const prefix = `campaign:${campaignReceiptNamespace(state)}:`;
+  for (const token of Object.keys(state.receipts)) {
+    const match = /^(LL-ST-\d{3}):/.exec(token.slice(prefix.length));
+    if (match) owned.add(match[1]);
+  }
+  for (const missionId of owned) {
+    const from = missionFor(previous, missionId),
+      to = missionFor(target, missionId);
+    if (!from || !to || JSON.stringify(from) !== JSON.stringify(to))
+      invalid(`owned mission requires an explicit content migration: ${missionId}`);
+  }
+  for (const run of [...state.suspended, ...(state.active ? [state.active] : [])])
+    for (const checkpoint of run.checkpoints) {
+      const valid = call(adapters, 'validateWorld', [
+        frozen(clone(checkpoint.world)),
+        context(state, { reason: 'content-migration-checkpoint-validation' }),
+      ]);
+      if (valid.unmet || valid.value !== true) invalid('content migration checkpoint world');
+    }
+  state.receiptNamespace = campaignReceiptNamespace(state);
+  state.contentFingerprint = nextFingerprint;
+  validateCampaignDirector(state, adapters);
+  return state;
+}
+
 export function saveCampaignDirector(state, adapters = {}) {
   validateCampaignDirector(state, adapters);
   const saved = capture(state, adapters, 'whole-state-save');
@@ -1821,8 +1922,12 @@ export function restoreCampaignDirector(saved, adapters = {}) {
     !own(envelope, 'world')
   )
     invalid('save envelope');
-  validateCampaignDirector(envelope.director, adapters);
-  const state = clone(envelope.director);
+  if (!object(envelope.director)) invalid('state fields');
+  const state =
+    envelope.director.contentFingerprint === campaignContentFingerprint(adapters)
+      ? clone(envelope.director)
+      : migrateCampaignDirectorContent(envelope.director, adapters);
+  validateCampaignDirector(state, adapters);
   // Validate every stored checkpoint with the same physical schema as the live
   // world before touching the parent. Structural director validation is not a
   // substitute for actor/vehicle/scene/physics/economy snapshot validation.

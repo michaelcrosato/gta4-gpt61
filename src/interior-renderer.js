@@ -461,6 +461,7 @@ function drawScenery(r, state, room, game, stats) {
     'lantern-bar': 'THE LANTERN',
     'blue-hour-lanes': 'BLUE HOUR LANES',
     'dockside-rooms': 'DOCKSIDE ROOMS',
+    'impound-annex': 'IMPOUND RELEASES',
   }[room.id];
   const signX = room.width / 2,
     signY = 11,
@@ -617,13 +618,14 @@ function drawScenery(r, state, room, game, stats) {
       (g) => {
         const point = r.w(hook.x, hook.y, room.floorZ + 20);
         const symbol =
-          ({
+          {
             'shelter-food': 'F',
             'shelter-save': 'S',
             'shelter-rest': 'R',
             wardrobe: 'W',
             evidence: 'E',
-          }[hook.type] ?? hook.type === 'activity')
+          }[hook.type] ??
+          (hook.type === 'activity'
             ? hook.activity === 'bowling'
               ? 'B'
               : 'D'
@@ -631,7 +633,7 @@ function drawScenery(r, state, room, game, stats) {
               ? 'H'
               : hook.type === 'job'
                 ? 'T'
-                : 'S';
+                : 'S');
         E.px.poly(
           g,
           [
@@ -684,7 +686,8 @@ export function createInteriorRenderer(game, specs, options = {}) {
     if (!Number.isInteger(limits[key]) || limits[key] < 1)
       throw new Error('Invalid interior renderer cache bounds.');
   const rooms = new Map(),
-    floors = new Map();
+    floors = new Map(),
+    renderSources = new WeakMap();
   let disposed = false;
   const stats = {
     frames: 0,
@@ -821,6 +824,10 @@ export function createInteriorRenderer(game, specs, options = {}) {
       maxBuildingPixels: 1,
       drawGround: (r) => drawGround(r, room),
       drawScenery: (r, state) => drawScenery(r, state, room, game, stats),
+      afterScenery: (r, state) =>
+        options.drawRoomDetails?.(r, renderSources.get(state) ?? state, room),
+      onRenderedClues: (state, actor, clues) =>
+        options.onRenderedClues?.(renderSources.get(state) ?? state, actor, clues),
     });
     rooms.set(room.id, renderer);
     stats.cachedRooms = rooms.size;
@@ -833,6 +840,7 @@ export function createInteriorRenderer(game, specs, options = {}) {
       if (disposed) throw new Error('The interior renderer has been disposed.');
       const filtered = sceneRenderState(state);
       if (!filtered) return false;
+      renderSources.set(filtered, state);
       const room = INTERIOR_LAYOUTS[state.interior.active.roomId];
       stats.roomId = room.id;
       stats.frames++;

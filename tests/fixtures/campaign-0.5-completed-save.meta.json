@@ -1,0 +1,15 @@
+{
+  "origin": "0.5 production-simulation input Night Crossing completion; explicit caption/choice orchestration and real filesystem save, not a natural browser playthrough",
+  "approvedRevision": "cafad0022525b614990a517e1bd282199f000c81",
+  "candidateSourceDifferences": [
+    "src/game.js: later exterior pointer-targeting correction; fixture generation imports simulation, not the frontend"
+  ],
+  "sha256": "ae553219f9eebde855de9611fb85ecbafb059ed5437b0c82864cbac04a868219",
+  "uncompressedBytes": 94714,
+  "format": "lowlight-save",
+  "version": 1,
+  "completedMissionIds": [
+    "LL-ST-001"
+  ],
+  "contentFingerprint": "cbf05190"
+}

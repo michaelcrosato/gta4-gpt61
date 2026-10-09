@@ -1,0 +1,113 @@
+{
+  "oracle": "Intentional Late Meter world addition and composed campaign/phone initial state; original0.5 city/legacy oracle retained separately",
+  "baseCommit": "4e7e362e7e43e918ba2b9b40f3b7aadb4cb93c5d",
+  "contentFingerprint": "38b480d9",
+  "world": {
+    "sha256": "3439f3db13acafd85ec84cf3771d4f31a5f920ae138676300379d8fad39d0063",
+    "bytes": 20937677
+  },
+  "frames": 240,
+  "dt": 0.016666666666666666,
+  "seeds": [
+    {
+      "seed": 1,
+      "mode": "story",
+      "initial": {
+        "sha256": "da50f9cc68d46540b8a48839e920478659541e084b5b6a7b294162d65bf4af43",
+        "bytes": 97394
+      },
+      "afterSteps": {
+        "sha256": "ba37ce6e068ab1569b266764ef5cbcf92f169869f0d71049877b0c67fd6163e7",
+        "bytes": 102315
+      },
+      "initialRng": 508085331,
+      "finalRng": 508085331,
+      "rngTraceSha256": "3a59bf929e015d903d1be7b79393dedf04312058ab755318ac74ebebe58520ce",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 61,
+      "mode": "story",
+      "initial": {
+        "sha256": "665dd5a33fd5d9c053bf341682ba56cc12d6d1810d55c2f443b6a9762c600bc9",
+        "bytes": 97437
+      },
+      "afterSteps": {
+        "sha256": "ed455f81131bbccb832ab041d8e3ce4b4cabcb15dd0b3c4f7ff9a5f7451bf80d",
+        "bytes": 102342
+      },
+      "initialRng": 1771614319,
+      "finalRng": 1771614319,
+      "rngTraceSha256": "f4b38bc2f3b52c620d2b5ed5ccb9882427522360cf5522e70bf33359614ccf57",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 12345,
+      "mode": "story",
+      "initial": {
+        "sha256": "5ab9c1bb7383c32893cb9b259b0166663587d16e8bf6d4f5d44c812fd9b5d896",
+        "bytes": 97362
+      },
+      "afterSteps": {
+        "sha256": "7e4a495c52a4a69430a639a75aa27017836bddcbd43b0cc70a527e348bc26cd7",
+        "bytes": 102282
+      },
+      "initialRng": 469428811,
+      "finalRng": 469428811,
+      "rngTraceSha256": "1a7dd7b90768cb2dac3a4f161c74c116a3b6ef23777460a7b124e12bbce4f25d",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 2147483647,
+      "mode": "story",
+      "initial": {
+        "sha256": "049bf1139ac16585a71d59a27aeb56613d8a61528a9076de16217a1e9ce18186",
+        "bytes": 97493
+      },
+      "afterSteps": {
+        "sha256": "429671c31ceafa0688fe5f2aef96a4934be844c61db0a078cb6a6720c2414217",
+        "bytes": 102391
+      },
+      "initialRng": 179636545,
+      "finalRng": 179636545,
+      "rngTraceSha256": "5777ba0afdbf3726cf9026403020e5717d2af5ab3c6a06bdf69df37cc4c77f33",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    },
+    {
+      "seed": 4294967295,
+      "mode": "story",
+      "initial": {
+        "sha256": "7a7468af2a24e598f4d651495d36336bb0509707c07ae26d6c1d7cdaed38e996",
+        "bytes": 97501
+      },
+      "afterSteps": {
+        "sha256": "0f225048302ed0d6e54a06dcac6d75d6957cf7918cbf3cd8d8a94e3f03931d1e",
+        "bytes": 102410
+      },
+      "initialRng": 2327120193,
+      "finalRng": 2327120193,
+      "rngTraceSha256": "ec705f9d56b8ccb6bfa9c2dbbc48e2ed0b901731ffdb6c02f46f07dbd01876e7",
+      "effects": {
+        "cinematicId": "night-crossing-berth",
+        "controlsMatchIdlePlayer": true,
+        "controlsMatchIdleCinematic": true
+      }
+    }
+  ]
+}

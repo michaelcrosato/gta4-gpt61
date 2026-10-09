@@ -3,6 +3,7 @@ import { CITY_BLUEPRINT } from './city-blueprint.js';
 import { createRailWorld } from './rail-geometry.js';
 import { createRailClearanceWorld } from './rail-clearance.js';
 import { createNightCrossingWorld } from './campaign/scenes.js';
+import { createLateMeterWorld } from './campaign/late-meter-scenes.js';
 const arrivalCity = createNightCrossingWorld(CITY_BLUEPRINT);
 export const NIGHT_CROSSING_BINDINGS = arrivalCity.bindings;
 export const NIGHT_CROSSING_SCENE_REPORT = arrivalCity.report;
@@ -21,7 +22,7 @@ export const RAIL_CLEARANCE_REPORT = {
     'Shared terrain and native rail rendering construct these chambers. Full source acceptance and gameplay release remain unverified.',
 };
 export { ROAD_XS, ROAD_YS } from './prologue-world.js';
-export const WORLD = Object.freeze({
+const BASE_WORLD = Object.freeze({
   ...physicalRail.world,
   transit: {
     ...physicalRail.world.transit,
@@ -47,3 +48,10 @@ export const WORLD = Object.freeze({
     transit: 'operating-core',
   },
 });
+
+const impoundCity = createLateMeterWorld(BASE_WORLD);
+export const LATE_METER_BINDINGS = impoundCity.bindings;
+export const LATE_METER_SCENE_REPORT = impoundCity.report;
+if (!impoundCity.report.ready)
+  throw new Error('The impound annex has unresolved physical staging.');
+export const WORLD = Object.freeze(impoundCity.world);
