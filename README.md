@@ -24,6 +24,13 @@ Shift to sprint/brake, mouse/click to aim/fire, R to reload, M for the city map,
 T for the phone, and Escape to pause. Touch controls and gamepads are supported.
 The menu includes full controls, audio/camera settings, and continue/save support.
 
+The current core build adds 17 weapon roles, physical explosives/fire, melee
+guard/counters/disarms, crouch/cover and vault/climb controls. Police escalate
+through six levels with actual pursuits, roadblocks, arrest and airborne search.
+Blue Hour Lanes, The Lantern, Saltworks Billiards and Night Owl Arcade offer full
+bowling, 301 darts, eight-ball and STACKLIGHT matches. The complete campaign,
+city, side content and multiplayer remain in production.
+
 ```sh
 npm run check
 npm run format:check
@@ -45,12 +52,15 @@ save/continue regression checks against the development server:
 
 ```sh
 python3 tests/browser-smoke.py --url http://localhost:5173/
+python3 tests/browser-activities.py --url http://localhost:5173/
 ```
 
 This runs Chromium, Firefox, and a WebKit iPhone profile. Reports and screenshots
 go to `/tmp`, and the script exits with failure if a control or browser check
 fails. It verifies the opening and interface, not the complete campaign. See
 [verification boundaries and evidence](docs/verification.md).
+The activity script declares venue, budget, and late-game scenario fixtures;
+its checks do not replace a natural playthrough from a clean save.
 
 ## Setup
 

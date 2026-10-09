@@ -6,7 +6,12 @@ opening assignments with 25 stages. Those assignments are independent onboarding
 content; they do not implement or certify the 90 source-mapped story mission
 requirements. The systems catalogue contains 869 requirements, all currently
 `planned`, with 17 explicit research gaps. The story map also retains eight open
-research items and 51 planned notable-character records.
+research items and 51 planned notable-character records. The separate
+[city catalogue](research/city-scope.md) adds 425 planned requirements and 12
+open research gates, including 65 area identities and 26 operating station
+complexes. City catalogue records are requirements and research candidates;
+their presence does not establish produced buildings, working transit or
+source-wide city coverage.
 
 ## Repeatable local checks
 
@@ -21,9 +26,10 @@ node scripts/scope-status.mjs --require-verified
 git diff --check
 ```
 
-The current complete JavaScript test run passed **47 tests**: 21 simulation
-checks, 10 road-routing checks, 10 engine pixel-clipping checks, and six static
-floor-cache checks. The repository
+The current complete JavaScript test run passed **165 tests**: 21 simulation,
+23 combat, 31 police, 36 minigame, 25 activity-save, three interaction,
+10 road-routing, 10 engine pixel-clipping, and six static floor-cache checks.
+The repository
 publication suite passed **16 Python tests**. Simulation tests exercise movement,
 vehicle entry/driving/collision, finite ammunition, reloads, blocked gunfire,
 police search/escape, damage/death/recovery, mission prerequisites and staged
@@ -43,18 +49,39 @@ checks; their existence in this command list is not a recorded passing result.
 
 ## Scope-status tool
 
-The tool reads the actual story and systems JSON files and imports `MISSIONS`
+The tool reads the actual story, systems and
+[city source-map JSON](research/city-source-map.json), then imports `MISSIONS`
 from [simulation.js](../src/simulation.js). It reports planned, implemented and
-verified claims separately for missions, systems and notable characters. It also
-reports runtime mission IDs, titles, stage counts and stage types separately. It
-never infers source coverage from runtime counts or similar titles.
+verified claims separately for 90 story missions, 869 systems requirements,
+425 city requirements and 51 notable characters. City subinventory counts
+include 65 areas, 26 operating station complexes, eight rail service labels,
+four directional through-services and 194 selected place/service roles. These
+are separate audit collections, with several roles sharing physical places;
+they are not a summed unique-building count.
+
+Runtime mission IDs, titles, stage counts and stage types remain separate. New
+combat, minigame or city code does not automatically implement or verify a full
+source-map row. The tool never infers source coverage from counts, code presence
+or similar titles.
 
 It checks unique IDs and story titles, declared inventory counts, source/contact
 references, acceptance profiles, known statuses and runtime stage metadata.
+City checks also resolve neighbourhood/endpoint links, station calls, route
+segments, service handoffs and links to existing systems records.
 Counts are checked against the files' own declarations; shrinking below the
-initial 90-story/869-system baseline requires explicit scope reconciliation.
+90-story/869-system/425-city baseline requires explicit scope reconciliation.
+The initial city area, station and service inventories also have lower bounds
+so a different category cannot quietly replace missing transport/geography.
 Inventory growth is reported for review. SHA-256 fingerprints identify the input
-maps and simulation module used for each report.
+maps, including the city file, and the simulation module used for each report.
+
+Metadata-only fixtures reject city count mismatches, global ID collisions,
+unresolved source/profile/neighbourhood/station references, regional count
+contradictions, silent inventory shrinkage and unsupported verification claims.
+Separate fixtures demonstrate that unverified city records and open city
+research gates each independently keep source coverage unfinished. The tests use
+in-memory copies; no source-map statuses are changed and no gameplay acceptance
+is inferred from those fixtures.
 
 Future `implemented` records need `implementation_refs`, containing existing
 repository-relative paths or objects with a `path` field. Future `verified`
@@ -70,12 +97,18 @@ Exit codes have limited meaning:
 - `1`: files are malformed, references/counts are inconsistent, statuses are
   unknown or an implementation/verification claim lacks required references.
 - `2` with `--require-verified`: source records or research gaps remain
-  unfinished. This is the expected result for the current build.
+  unfinished, including the city requirements and its 12 open research gates.
+  This is the expected result for the current build.
 
 No exit code certifies a finished game. A report in which every record claims
 verification still requires the full release audit in the production plan.
 Branch variants, source inventory gaps, quality, authored breadth, accessibility,
 platform behaviour and genuine playthrough evidence remain necessary.
+The [city research gates](research/city-scope.md#production-and-remaining-research)
+retain unresolved interior instances, portals, site/access classifications,
+placement inventories and physical scene reconciliation. They remain part of
+the completion pipeline even when a runtime city preview or isolated minigame
+passes its own checks.
 
 ## Browser and viewport evidence
 
@@ -188,6 +221,50 @@ multiplayer remain unfinished or unverified. The current basic phone does not
 establish the required calling, relationship, email, web or multiplayer systems.
 
 The user's goal cannot be cleared by these tests, screenshots, catalogue counts
-or the opening foundation. The full [source maps](research/systems-scope.md),
-story branches, individual acceptance criteria and final production gates must
-be satisfied and inspected against actual completed gameplay.
+or the opening foundation. The full [systems source map](research/systems-scope.md),
+[story source map](research/story-scope.md),
+[city source map and research gates](research/city-scope.md), story branches,
+individual acceptance criteria and final production gates must be satisfied and
+inspected against actual completed gameplay.
+
+## Core-system expansion checks
+
+The 0.2 core build adds 17 weapon roles, physical ordnance and fire, timed melee
+defense/counter/disarm, crouch/cover/jump/vault/climb, and six police response
+levels. Tests exercise witness reports, physical arrest/confiscation, road
+navigation/interception, armor, vertical gunfire, genuine airborne destruction
+and falling cleanup, and saved search state. The complete fleet, interiors,
+campaign and city remain unfinished.
+
+Bowling uses full ten-frame scoring and physical pinfall; darts uses 301 and
+double checkout; pool uses physical balls and legal eight-ball rules; STACKLIGHT
+uses falling pairs, clusters, charges, powers, palette progression and losses.
+Activity saves preserve actual intermediate, abandoned and finished states,
+including valid negative coordinates and airborne/off-table balls.
+
+[browser-activities.py](../tests/browser-activities.py) passed 18 scenarios
+across Chromium, Firefox and WebKit. Its report declares venue relocation,
+a cleared intro assignment, budgets, and late-state scoring fixtures. Actions
+after setup use real DOM, keyboard, pointer/touch inputs. It verifies fees,
+immediate money feedback, controls, physics/scoring, abort accounting, pool
+payout, mid-physics Continue without a duplicate fee, purchasing/equipping, and
+movement controls. This does not prove normal campaign access to every venue.
+Reports and inspected images are under
+[/tmp/lowlight-activities-qa/release](/tmp/lowlight-activities-qa/release).
+
+Equipment fixtures granted/resupplied each weapon, then issued genuine attack
+inputs. All 17 attacks recorded in Chromium and WebKit without engine/browser
+errors; equipment images were inspected. Other fixtures forced each wanted
+level and observed real response populations, vehicles and aircraft without
+render errors in both engines. These are bounded visual/interface checks, not
+clean-save acquisition or campaign proof. Artifacts are
+[/tmp/lowlight-weapons-qa](/tmp/lowlight-weapons-qa) and
+[/tmp/lowlight-police-visuals](/tmp/lowlight-police-visuals).
+
+The 0.2 core gameplay matrix additionally captured 24 device/engine combinations
+across the same 14 viewport sizes, with no overflow, browser errors or failed
+requests. Current report: [/tmp/lowlight-core-matrix/report.json](/tmp/lowlight-core-matrix/report.json).
+The activity Continue cases were rerun after strict save validation was wired
+in; all three engines resumed real mid-roll snapshots without another fee.
+Those reports are under
+[/tmp/lowlight-activities-qa/validation-save-only](/tmp/lowlight-activities-qa/validation-save-only).

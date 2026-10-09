@@ -229,6 +229,8 @@ test('assaulting civilians creates police pursuit and leaving the search clears 
   });
   fireWeapon(state);
   tick(state, 0.1);
+  assert.equal(state.wanted.level, 0, 'civilian reports take physical time to reach dispatch');
+  tick(state, 3.1);
   assert.equal(state.wanted.level, 2);
   assert.equal(state.wanted.status, 'pursuit');
   state.police = [];

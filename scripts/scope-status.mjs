@@ -8,8 +8,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STORY_FILE = 'docs/research/story-source-map.json';
 const SYSTEMS_FILE = 'docs/research/systems-source-map.json';
+const CITY_FILE = 'docs/research/city-source-map.json';
 const RUNTIME_FILE = 'src/simulation.js';
-const BASELINE = { story: 90, systems: 869, runtimeMissions: 4, runtimeStages: 25 };
+const BASELINE = {
+  story: 90,
+  systems: 869,
+  city: 425,
+  cityInventories: { neighbourhoods: 65, stations: 26, route_segments: 8, through_services: 4 },
+  runtimeMissions: 4,
+  runtimeStages: 25,
+};
 const STATUSES = ['planned', 'implemented', 'verified'];
 
 export function collectRequirementRecords(value, records = []) {
@@ -118,15 +126,22 @@ async function inspectStatusEvidence(root, record, status, issues) {
 }
 
 /** Accept injected data for audits/tests while normal CLI use reads the real repository. */
-export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMissions } = {}) {
+export async function auditScope({
+  root = ROOT,
+  storyMap,
+  systemsMap,
+  cityMap,
+  runtimeMissions,
+} = {}) {
   const files = await Promise.all(
-    [STORY_FILE, SYSTEMS_FILE, RUNTIME_FILE].map(async (path) => ({
+    [STORY_FILE, SYSTEMS_FILE, CITY_FILE, RUNTIME_FILE].map(async (path) => ({
       path,
       text: await readFile(resolve(root, path), 'utf8'),
     })),
   );
   const story = storyMap ?? JSON.parse(files[0].text);
   const systems = systemsMap ?? JSON.parse(files[1].text);
+  const city = cityMap ?? JSON.parse(files[2].text);
   const missions =
     runtimeMissions ?? (await import(pathToFileURL(resolve(root, RUNTIME_FILE)).href)).MISSIONS;
   const issues = [];
@@ -137,15 +152,25 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     !Array.isArray(story.characters) ||
     !Array.isArray(systems.systems) ||
     !systems.inventories ||
-    typeof systems.inventories !== 'object'
+    typeof systems.inventories !== 'object' ||
+    !city.inventories ||
+    typeof city.inventories !== 'object' ||
+    !Array.isArray(city.known_gaps)
   ) {
     throw new Error(
       'Source maps are missing required mission, character, system or inventory collections.',
     );
   }
   const systemRecords = [...systems.systems, ...collectRequirementRecords(systems.inventories)];
+  const cityRecords = collectRequirementRecords(city.inventories);
   const inventories = Object.fromEntries(
     Object.entries(systems.inventories).map(([name, value]) => [
+      name,
+      statusCounts(collectRequirementRecords(value)),
+    ]),
+  );
+  const cityInventories = Object.fromEntries(
+    Object.entries(city.inventories).map(([name, value]) => [
       name,
       statusCounts(collectRequirementRecords(value)),
     ]),
@@ -173,6 +198,53 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     if (!Object.hasOwn(inventories, name))
       issues.push(`Declared system inventory ${name} is absent.`);
   }
+  for (const [name, counts] of Object.entries(cityInventories)) {
+    checkCount(`City inventory ${name}`, counts.total, city.inventory_summary?.[name]);
+  }
+  for (const name of Object.keys(city.inventory_summary || {})) {
+    if (!Object.hasOwn(cityInventories, name))
+      issues.push(`Declared city inventory ${name} is absent.`);
+  }
+  for (const [name, minimum] of Object.entries(BASELINE.cityInventories)) {
+    if ((cityInventories[name]?.total || 0) < minimum)
+      issues.push(
+        `City inventory ${name} shrank below the ${minimum}-record baseline; reconcile source scope before removing requirements.`,
+      );
+  }
+  checkCount(
+    'Declared city neighbourhood baseline',
+    cityInventories.neighbourhoods?.total || 0,
+    city.counting?.neighbourhood_baseline?.total,
+  );
+  const observedCityRegions = {};
+  for (const record of city.inventories.neighbourhoods || [])
+    observedCityRegions[record.source_borough] =
+      (observedCityRegions[record.source_borough] || 0) + 1;
+  const declaredCityRegions = city.counting?.neighbourhood_baseline?.by_source_region || {};
+  for (const name of new Set([
+    ...Object.keys(observedCityRegions),
+    ...Object.keys(declaredCityRegions),
+  ]))
+    checkCount(
+      `Declared city areas in ${name}`,
+      observedCityRegions[name] || 0,
+      declaredCityRegions[name],
+    );
+  checkCount(
+    'Declared operating city station complexes',
+    cityInventories.stations?.total || 0,
+    city.transport_reconciliation?.enumerated_operating_station_complexes,
+  );
+  checkCount(
+    'Declared city rail service labels',
+    cityInventories.route_segments?.total || 0,
+    city.transport_reconciliation?.service_labels,
+  );
+  checkCount(
+    'Declared city directional through-services',
+    cityInventories.through_services?.total || 0,
+    city.transport_reconciliation?.directional_through_services,
+  );
   if (story.missions.length < BASELINE.story)
     issues.push(
       'Story inventory shrank below the 90-title baseline; reconcile the full brief before removing requirements.',
@@ -181,21 +253,32 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     issues.push(
       'System inventory shrank below the 869-record baseline; reconcile the full brief before removing requirements.',
     );
-  if (story.missions.length !== BASELINE.story || systemRecords.length !== BASELINE.systems) {
+  if (cityRecords.length < BASELINE.city)
+    issues.push(
+      'City inventory shrank below the 425-record baseline; reconcile the full brief before removing requirements.',
+    );
+  if (
+    story.missions.length !== BASELINE.story ||
+    systemRecords.length !== BASELINE.systems ||
+    cityRecords.length !== BASELINE.city
+  ) {
     notes.push(
-      'The inventory differs from the initial 90/869 baseline; review added/reconciled requirements and their acceptance coverage.',
+      'The inventory differs from the 90-story/869-system/425-city baseline; review added/reconciled requirements and their acceptance coverage.',
     );
   }
   requireUnique(story.missions, 'source_title', 'Story missions', issues);
   requireUnique(
-    [...story.missions, ...story.characters, ...systemRecords],
+    [...story.missions, ...story.characters, ...systemRecords, ...cityRecords],
     'id',
     'Source records',
     issues,
   );
   requireUnique(story.sources || [], 'id', 'Story references', issues);
   requireUnique(systems.sources || [], 'id', 'System references', issues);
+  requireUnique(city.sources || [], 'id', 'City references', issues);
+  requireUnique(city.known_gaps, 'id', 'City research gaps', issues);
   const sourceIds = new Set((systems.sources || []).map((source) => source.id));
+  const citySourceIds = new Set((city.sources || []).map((source) => source.id));
   const characterIds = new Set(story.characters.map((character) => character.id));
   for (const record of systemRecords) {
     if (!record.source_item || !record.original_counterpart)
@@ -209,6 +292,70 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     const profile = systems.acceptance_profiles?.[record.acceptance_profile];
     if (!Array.isArray(profile) || profile.length === 0)
       issues.push(`${record.id}: acceptance profile is absent or empty.`);
+  }
+  const neighbourhoodIds = new Set(
+    (city.inventories.neighbourhoods || []).map((record) => record.id),
+  );
+  const stationIds = new Set((city.inventories.stations || []).map((record) => record.id));
+  const routeIds = new Set((city.inventories.route_segments || []).map((record) => record.id));
+  const routeLabels = new Set(
+    (city.inventories.route_segments || []).map((record) =>
+      record.source_item?.replace(/^Route /, ''),
+    ),
+  );
+  const systemIds = new Set(systemRecords.map((record) => record.id));
+  const checkCityReference = (record, reference, targets, field) => {
+    if (typeof reference !== 'string' || !targets.has(reference))
+      issues.push(
+        `${record.id}: city ${field} reference is absent or unresolved (${String(reference)}).`,
+      );
+  };
+  for (const record of cityRecords) {
+    if (!record.source_item || !record.original_counterpart)
+      issues.push(`${record.id}: city source identity or original counterpart is absent.`);
+    if (
+      !Array.isArray(record.sources) ||
+      record.sources.length === 0 ||
+      record.sources.some((id) => !citySourceIds.has(id))
+    )
+      issues.push(`${record.id}: city source reference is absent or unresolved.`);
+    const profile = city.acceptance_profiles?.[record.acceptance_profile];
+    if (!Array.isArray(profile) || profile.length === 0)
+      issues.push(`${record.id}: city acceptance profile is absent or empty.`);
+    if (Object.hasOwn(record, 'original_neighbourhood_id'))
+      checkCityReference(
+        record,
+        record.original_neighbourhood_id,
+        neighbourhoodIds,
+        'neighbourhood',
+      );
+    for (const reference of record.original_endpoint_neighbourhood_ids || [])
+      checkCityReference(record, reference, neighbourhoodIds, 'endpoint neighbourhood');
+    for (const reference of record.segment_ids || [])
+      checkCityReference(record, reference, routeIds, 'route segment');
+    for (const reference of record.source_loop_station_ids || [])
+      checkCityReference(record, reference, stationIds, 'station');
+    for (const call of [
+      ...(record.source_ordered_calls || []),
+      ...(record.source_loop_calls || []),
+    ])
+      checkCityReference(record, call?.station_id, stationIds, 'station call');
+    if (record.source_handoff) {
+      checkCityReference(
+        record,
+        record.source_handoff.boundary_station_id,
+        stationIds,
+        'handoff station',
+      );
+      checkCityReference(record, record.source_handoff.next_label, routeLabels, 'handoff route');
+    }
+    if (record.existing_system_record_id != null)
+      checkCityReference(
+        record,
+        record.existing_system_record_id,
+        systemIds,
+        'existing system record',
+      );
   }
   for (const record of story.missions) {
     if (
@@ -259,10 +406,14 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     ...systemRecords.map((record) =>
       inspectStatusEvidence(root, record, recordStatus(record), issues),
     ),
+    ...cityRecords.map((record) =>
+      inspectStatusEvidence(root, record, recordStatus(record), issues),
+    ),
   ]);
   const groups = {
     story_missions: statusCounts(story.missions, true),
     system_requirements: statusCounts(systemRecords),
+    city_requirements: statusCounts(cityRecords),
     notable_story_characters: statusCounts(story.characters),
   };
   const claimedStoryImplementation =
@@ -303,7 +454,11 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     systems: (systems.known_gaps || [])
       .filter((item) => item.blocks_research_complete !== false)
       .map((item) => item.id),
+    city: (city.known_gaps || [])
+      .filter((item) => item.blocks_research_complete !== false)
+      .map((item) => item.id),
     systems_research_complete_claim: systems.research_complete === true,
+    city_research_complete_claim: city.research_complete === true,
   };
   const unverified = Object.values(groups).reduce(
     (sum, group) => sum + group.total - group.verified,
@@ -313,7 +468,9 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     unverified > 0 ||
     gaps.story.length > 0 ||
     gaps.systems.length > 0 ||
-    !gaps.systems_research_complete_claim;
+    gaps.city.length > 0 ||
+    !gaps.systems_research_complete_claim ||
+    !gaps.city_research_complete_claim;
   notes.push(
     'Runtime mission counts are independent opening content; no source requirement becomes implemented or verified because a count or title matches.',
   );
@@ -330,7 +487,12 @@ export async function auditScope({ root = ROOT, storyMap, systemsMap, runtimeMis
     source_claim_counts: groups,
     combined_story_and_system_requirement_count:
       groups.story_missions.total + groups.system_requirements.total,
+    combined_story_system_and_city_requirement_count:
+      groups.story_missions.total +
+      groups.system_requirements.total +
+      groups.city_requirements.total,
     system_inventory_claim_counts: inventories,
+    city_inventory_claim_counts: cityInventories,
     runtime_opening: {
       module: RUNTIME_FILE,
       mission_count: missions.length,
@@ -363,7 +525,7 @@ function printHuman(report) {
   for (const mission of report.runtime_opening.missions)
     console.log(`  ${mission.id}: ${mission.stages} stages — ${mission.title}`);
   console.log(
-    `Open research gaps: ${report.research_gaps.story.length} story / ${report.research_gaps.systems.length} systems.`,
+    `Open research gaps: ${report.research_gaps.story.length} story / ${report.research_gaps.systems.length} systems / ${report.research_gaps.city.length} city.`,
   );
   console.log(
     `Catalogue integrity issues: ${report.integrity.issues.length}. Count checks concern inventory metadata only.`,
