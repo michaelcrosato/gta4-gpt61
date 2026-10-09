@@ -58,8 +58,8 @@ export function findScenePerson(state, id) {
   return null;
 }
 
-export function createSceneContext(world, terrain = createTerrain(world)) {
-  const outsideMovement = createSurfaceMovement(terrain);
+export function createSceneContext(world, terrain = createTerrain(world), { canMoveBody } = {}) {
+  const outsideMovement = createSurfaceMovement(terrain, { canMoveBody });
   function queries(state, id = currentSceneId(state)) {
     if (!id) return terrain;
     const room = INTERIOR_LAYOUTS[id];
@@ -150,21 +150,38 @@ export function createSceneContext(world, terrain = createTerrain(world)) {
   }
   function moveBody(state, body, dx, dy, radius, options = {}) {
     const id = body === state.player ? currentSceneId(state) : actorSceneId(body);
-    if (!id) return outsideMovement.moveBody(body, dx, dy, radius, options);
+    if (!id) return outsideMovement.moveBody(body, dx, dy, radius, { ...options, state });
     const geometry = queries(state, id),
       steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (radius * 0.6)));
     let collided = false;
+    const step = (x, y) => {
+      if (geometry.isBlocked(x, y, radius, body.z || 0)) return false;
+      if (
+        canMoveBody &&
+        canMoveBody({
+          body,
+          from: { x: body.x, y: body.y, z: body.z || 0 },
+          to: { x, y, z: body.z || 0 },
+          radius,
+          allowWater: false,
+          mode: body.spec ? 'car' : 'foot',
+          sceneId: id,
+          state,
+          geometry,
+        }) !== true
+      )
+        return false;
+      body.x = x;
+      body.y = y;
+      return true;
+    };
     for (let i = 0; i < steps; i++) {
       const x = body.x + dx / steps,
         y = body.y + dy / steps;
-      if (!geometry.isBlocked(x, y, radius, body.z || 0)) {
-        body.x = x;
-        body.y = y;
-        continue;
-      }
+      if (step(x, y)) continue;
       collided = true;
-      if (!geometry.isBlocked(x, body.y, radius, body.z || 0)) body.x = x;
-      if (!geometry.isBlocked(body.x, y, radius, body.z || 0)) body.y = y;
+      step(x, body.y);
+      step(body.x, y);
     }
     body.groundZ = INTERIOR_LAYOUTS[id].floorZ;
     body.z ??= body.groundZ;

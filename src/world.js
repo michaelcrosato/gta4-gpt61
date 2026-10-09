@@ -4,6 +4,9 @@ import { createRailWorld } from './rail-geometry.js';
 import { createRailClearanceWorld } from './rail-clearance.js';
 import { createNightCrossingWorld } from './campaign/scenes.js';
 import { createLateMeterWorld } from './campaign/late-meter-scenes.js';
+import { createDispatchStandingWorld } from './dispatch-standing-world.js';
+import { createTwoSeatsRegisteredWorld } from './campaign/two-seats-registration.js';
+import { proveTwoSeatsGeometry } from './campaign/two-seats-geometry-checks.js';
 const arrivalCity = createNightCrossingWorld(CITY_BLUEPRINT);
 export const NIGHT_CROSSING_BINDINGS = arrivalCity.bindings;
 export const NIGHT_CROSSING_SCENE_REPORT = arrivalCity.report;
@@ -54,4 +57,20 @@ export const LATE_METER_BINDINGS = impoundCity.bindings;
 export const LATE_METER_SCENE_REPORT = impoundCity.report;
 if (!impoundCity.report.ready)
   throw new Error('The impound annex has unresolved physical staging.');
-export const WORLD = Object.freeze(impoundCity.world);
+export const LEGACY_WORLD = Object.freeze(impoundCity.world);
+const standingCity = createDispatchStandingWorld(LEGACY_WORLD);
+export const DISPATCH_STANDING_REPORT = standingCity.report;
+const registeredTwoSeats = createTwoSeatsRegisteredWorld(standingCity.world, {
+  verifyGeometry: proveTwoSeatsGeometry,
+});
+export const TWO_SEATS_GEOMETRY_REPORT = registeredTwoSeats.report;
+// The composed app includes native wrist attachments, the canonical held blade,
+// exact actor appearances, and the public renderer dressing callback. This
+// enables that specific integration gate; gameplay/source acceptance is separate.
+export const WORLD = Object.freeze({
+  ...registeredTwoSeats.world,
+  campaignSceneReports: {
+    ...registeredTwoSeats.world.campaignSceneReports,
+    'LL-ST-003': { ...registeredTwoSeats.report, injuryArt: true },
+  },
+});

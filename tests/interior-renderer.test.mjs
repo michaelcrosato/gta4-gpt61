@@ -28,6 +28,8 @@ const world = {
     { id: 'blue-hour-lanes', x: 411, y: 654 },
     { id: 'dockside-rooms', x: 129, y: 308 },
     { id: 'impound-annex', x: 293, y: 389 },
+    { id: 'tess-flat', x: 729, y: 308 },
+    { id: 'pier-goods', x: 231, y: 308 },
   ],
 };
 function exterior() {
@@ -269,20 +271,38 @@ test('an exterior draw allocates no room renderer and does not alter the frame',
 test('all authored rooms produce distinct native floor and furniture pixels with no outdoor weather overlays', () =>
   withCanvas(() => {
     const signatures = [];
-    for (const roomId of Object.keys(INTERIOR_LAYOUTS)) {
-      const draw = createInteriorRenderer(game(), specs),
-        r = renderer();
-      draw.draw(r, state(roomId), { rain: true });
-      r.flush();
-      signatures.push(fingerprint(r.ctx.canvas.pixels));
-      assert.equal(r.overlays.length, 0);
-      assert.ok(draw.stats.props >= 5);
-      assert.ok(draw.stats.wallPieces >= 20);
-      assert.ok(r.boxes.length >= draw.stats.props + draw.stats.wallPieces);
-      assert.ok(r.glows.length > 0);
-      draw.dispose();
+    const text = E.font.text;
+    let labels;
+    E.font.text = (g, value, ...args) => {
+      labels.push(value);
+      return text.call(E.font, g, value, ...args);
+    };
+    try {
+      for (const roomId of Object.keys(INTERIOR_LAYOUTS)) {
+        labels = [];
+        const draw = createInteriorRenderer(game(), specs),
+          r = renderer();
+        draw.draw(r, state(roomId), { rain: true });
+        r.flush();
+        assert.ok(labels.length > 0, `${roomId}: actual native labels were drawn`);
+        assert.ok(
+          labels.every((value) => typeof value === 'string' && value.trim()),
+          `${roomId}: native labels must contain readable text`,
+        );
+        const expected = { 'tess-flat': "TESS'S FLAT", 'pier-goods': 'PIER GOODS' }[roomId];
+        if (expected) assert.ok(labels.includes(expected), `${roomId}: authored plaque missing`);
+        signatures.push(fingerprint(r.ctx.canvas.pixels));
+        assert.equal(r.overlays.length, 0);
+        assert.ok(draw.stats.props >= 5);
+        assert.ok(draw.stats.wallPieces >= 20);
+        assert.ok(r.boxes.length >= draw.stats.props + draw.stats.wallPieces);
+        assert.ok(r.glows.length > 0);
+        draw.dispose();
+      }
+      assert.equal(new Set(signatures).size, Object.keys(INTERIOR_LAYOUTS).length);
+    } finally {
+      E.font.text = text;
     }
-    assert.equal(new Set(signatures).size, Object.keys(INTERIOR_LAYOUTS).length);
   }));
 
 test('room floor atlases exactly match live pixels across both projections and camera crops', () =>

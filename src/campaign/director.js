@@ -35,6 +35,7 @@ import {
   FIRST_ARC_MANIFEST,
 } from './first-arc.js';
 import { FIRST_ARC_05_CONTENT, FIRST_ARC_05_FINGERPRINT } from './history/first-arc-0.5.js';
+import { FIRST_ARC_06_CONTENT, FIRST_ARC_06_FINGERPRINT } from './history/first-arc-0.6.js';
 
 export const CAMPAIGN_CONTENT = Object.freeze({
   missions: FIRST_ARC_MISSIONS,
@@ -44,6 +45,7 @@ export const CAMPAIGN_CONTENT = Object.freeze({
 });
 export const CAMPAIGN_CONTENT_HISTORY = Object.freeze({
   [FIRST_ARC_05_FINGERPRINT]: FIRST_ARC_05_CONTENT,
+  [FIRST_ARC_06_FINGERPRINT]: FIRST_ARC_06_CONTENT,
 });
 const VERSION = 1;
 const MAX_JSON_BYTES = 32 * 1024 * 1024;
@@ -66,7 +68,11 @@ const receiptKinds = new Set([
   'observed-facts',
 ]);
 const fingerprints = new WeakMap();
-const immutableContents = new WeakSet([CAMPAIGN_CONTENT, FIRST_ARC_05_CONTENT]);
+const immutableContents = new WeakSet([
+  CAMPAIGN_CONTENT,
+  FIRST_ARC_05_CONTENT,
+  FIRST_ARC_06_CONTENT,
+]);
 
 function invalid(reason) {
   throw new Error(`Invalid campaign state: ${reason}.`);

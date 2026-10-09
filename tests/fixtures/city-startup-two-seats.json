@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "feature": "Two Seats Open and native standing geometry V2",
+  "baseCommit": "6b62c676aed6cb70636eea11eacfd3aea3add8ee",
+  "boundary": "Reviewed current-version serialization baseline. Historical0.5/0.6 oracles remain separate; normal controls, RNG traces and cinematic locks retain independent assertions.",
+  "frames": 240,
+  "dt": 0.016666666666666666,
+  "world": {
+    "bytes": 21178616,
+    "sha256": "5364618cbe4c007d00e987bc1a290b83414fe0841e838a90a144ac92b7a8e302"
+  },
+  "sourceHashes": {
+    "src/world.js": "53e087d1a43e1291bda5b95d21ee7405011f02b0f4eafe7994c361d24161c691",
+    "src/simulation.js": "a9e689e9f9b4edf8fa21ed759e8a4283dced805af2b307e078999e870cf2e700",
+    "src/campaign/first-arc.js": "23b98d4cf9d1e2ea516e12b665bdff7e81fc0c8c04b22cb3ec455c78b6622cf6",
+    "src/campaign/director.js": "21ef00f1db74648a753331bd25dcf9bc62a3c350a178e1dfbaf4b6a12da9aa42",
+    "src/campaign/two-seats-runtime.js": "3d6faf3de8caec62245c934031e70070900648f3309410cba6f9d477c5140cb6"
+  },
+  "seeds": [
+    {
+      "mode": "legacy",
+      "seed": 1,
+      "initial": {
+        "bytes": 43497,
+        "sha256": "fc8e6c5f6b8f932f0f785a65f56543bc288b5a2c7c61bc4a5afccd71eac0bbd0"
+      },
+      "initialRng": 508085331,
+      "afterSteps": {
+        "bytes": 50718,
+        "sha256": "5a425df4f20671844297bfc01250247f3de5858b7fd3338faa90536baabb421c"
+      },
+      "finalRng": 1949569022,
+      "rngTraceSha256": "2c584caebb87022d465bce48b53cfbb98cb7df36ebd5e8264ebd46fe54781a4f"
+    },
+    {
+      "mode": "legacy",
+      "seed": 61,
+      "initial": {
+        "bytes": 43518,
+        "sha256": "9589b256e8066466b6ed32aab4fbb3f55c713e9d08be383614515d4e0f1a8a5a"
+      },
+      "initialRng": 1771614319,
+      "afterSteps": {
+        "bytes": 50716,
+        "sha256": "e1f42a797290b46eba52230e038e652d50108d3ca08111b557be1e4c4897052f"
+      },
+      "finalRng": 681763562,
+      "rngTraceSha256": "75e20363ff60af6b49fdfa242ca2ef4191d281fb63d60383a58a51a7645d3b77"
+    },
+    {
+      "mode": "legacy",
+      "seed": 12345,
+      "initial": {
+        "bytes": 43479,
+        "sha256": "516787610ec3e0875bf503943c4c64326c64b244a0448804e7afaade94826658"
+      },
+      "initialRng": 469428811,
+      "afterSteps": {
+        "bytes": 50689,
+        "sha256": "f2d05b8083f90a5d5e40cd7c7a313186e3413bfad473f0b9e4a7faac9e8064a6"
+      },
+      "finalRng": 3112730774,
+      "rngTraceSha256": "2362a4ac50fbe75e49444b5bf5a754911a0e99fef4ea354bd4c64f8b50fd4f29"
+    },
+    {
+      "mode": "legacy",
+      "seed": 2147483647,
+      "initial": {
+        "bytes": 43542,
+        "sha256": "2cc062cd49be15f458f30be1631a5f2cab9d52b9920ac57f4c48f5c8fcf9157d"
+      },
+      "initialRng": 179636545,
+      "afterSteps": {
+        "bytes": 50736,
+        "sha256": "1387c1734c5a44d734c0349664150cc419cab986ecb9ff50fba0e32fc8dbe63f"
+      },
+      "finalRng": 1991829204,
+      "rngTraceSha256": "2f5b9497e97a53be5a187c89bc627af1eb46e58997556fad294232b9c52e82cc"
+    },
+    {
+      "mode": "legacy",
+      "seed": 4294967295,
+      "initial": {
+        "bytes": 43546,
+        "sha256": "1be2218c4ba50fe393b310d693ba1483d324acb56355a0304ab0478f191ed845"
+      },
+      "initialRng": 2327120193,
+      "afterSteps": {
+        "bytes": 50749,
+        "sha256": "f761af392cbf1dc7c3ff6894a73019919ca6f5195e0a399b13394f9e3526f084"
+      },
+      "finalRng": 4139312852,
+      "rngTraceSha256": "7d94caa7be0fc1e2dec4ceb7dbb085460474587922639937a1666a2dc18da623"
+    },
+    {
+      "mode": "story",
+      "seed": 1,
+      "initial": {
+        "bytes": 99308,
+        "sha256": "222337e03717e14b5f1a17ddba104bf39111d0eafea97ce0c1abac73eba95cd0"
+      },
+      "initialRng": 508085331,
+      "afterSteps": {
+        "bytes": 105130,
+        "sha256": "34ce976c961d40c60d645584405183fee680c0e5a54cdb0a0527874853f386da"
+      },
+      "finalRng": 508085331,
+      "rngTraceSha256": "3a59bf929e015d903d1be7b79393dedf04312058ab755318ac74ebebe58520ce"
+    },
+    {
+      "mode": "story",
+      "seed": 61,
+      "initial": {
+        "bytes": 99351,
+        "sha256": "ad9e6d3dd660406cb733a0b2479455d2b8982bb93cd39935f52e5be45300d7ae"
+      },
+      "initialRng": 1771614319,
+      "afterSteps": {
+        "bytes": 105157,
+        "sha256": "802d6924cfd2973a78d242ef7a0c010ac0aab91fb7d111b060d607ea5a35f7fc"
+      },
+      "finalRng": 1771614319,
+      "rngTraceSha256": "f4b38bc2f3b52c620d2b5ed5ccb9882427522360cf5522e70bf33359614ccf57"
+    },
+    {
+      "mode": "story",
+      "seed": 12345,
+      "initial": {
+        "bytes": 99276,
+        "sha256": "05a372c0c3955803597bea3ad7bad42854ec836b2e4db2e284f98e8930a2b0d2"
+      },
+      "initialRng": 469428811,
+      "afterSteps": {
+        "bytes": 105097,
+        "sha256": "7ecb626d2fc83524f554a0f80430e0ec871e94c4c095d2da6fcc28fa9f475107"
+      },
+      "finalRng": 469428811,
+      "rngTraceSha256": "1a7dd7b90768cb2dac3a4f161c74c116a3b6ef23777460a7b124e12bbce4f25d"
+    },
+    {
+      "mode": "story",
+      "seed": 2147483647,
+      "initial": {
+        "bytes": 99407,
+        "sha256": "f3c123d29ec098e3531628ef6695bb09d003bf3af6b106658cd1acdb3604192c"
+      },
+      "initialRng": 179636545,
+      "afterSteps": {
+        "bytes": 105206,
+        "sha256": "4b620f3f1f67e0e90e48413edddc9cf28a40d623786e1419c8b4f6297a37c0bc"
+      },
+      "finalRng": 179636545,
+      "rngTraceSha256": "5777ba0afdbf3726cf9026403020e5717d2af5ab3c6a06bdf69df37cc4c77f33"
+    },
+    {
+      "mode": "story",
+      "seed": 4294967295,
+      "initial": {
+        "bytes": 99415,
+        "sha256": "c122570fd2e2d2dde79c5b082b609b52770d05a805993eccfa2c970b08d49f18"
+      },
+      "initialRng": 2327120193,
+      "afterSteps": {
+        "bytes": 105225,
+        "sha256": "c752f627cb7770480acf545dc11b055e0e5365a733e252683e05403b7c2dee91"
+      },
+      "finalRng": 2327120193,
+      "rngTraceSha256": "ec705f9d56b8ccb6bfa9c2dbbc48e2ed0b901731ffdb6c02f46f07dbd01876e7"
+    }
+  ]
+}

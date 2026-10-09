@@ -223,6 +223,8 @@ export function createCampaignAdapterRouter({ content, registrations = [], paren
         object(mission) &&
         mission.id === id &&
         signature === entry.signature &&
+        (typeof entry.adapter.supportsMission !== 'function' ||
+          invoke(entry.adapter, 'supportsMission', [id, entry.mission]) === true) &&
         [...entry.stages.values()].every(({ stage }) => supportsStage(stage.type, stage)),
       );
     },
@@ -236,7 +238,9 @@ export function createCampaignAdapterRouter({ content, registrations = [], paren
         Object.fromEntries(
           (entry.mission.requiredCapabilities || []).map(({ id: key }) => [
             key,
-            key === 'director' || flag(flags, key),
+            key === 'director' && typeof entry.adapter.supportsMission !== 'function'
+              ? true
+              : flag(flags, key),
           ]),
         ),
       );

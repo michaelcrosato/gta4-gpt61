@@ -552,7 +552,7 @@ export function preemptDriverReservation(state, vehicleId, context = {}) {
   );
   return { ok: true, preempted: true, actorId: actor.id, vehicleId, eventId: event.id };
 }
-export function requestBoard(state, id, vehicleId, context = {}) {
+export function requestBoard(state, id, vehicleId, context = {}, { seat: preferredSeat } = {}) {
   initializeCompanions(state);
   const actor = getActor(state, id),
     record = recordFor(state, id),
@@ -561,21 +561,43 @@ export function requestBoard(state, id, vehicleId, context = {}) {
   if (actor.health <= 0) return { ok: false, reason: 'dead' };
   if (!vehicle || vehicle.health <= 0) return { ok: false, reason: 'vehicle-unavailable' };
   if (vehicle.policeControlled) return { ok: false, reason: 'police-owned' };
+  const spec = specFor(vehicle, context);
+  if (
+    preferredSeat !== undefined &&
+    (!Number.isInteger(preferredSeat) || preferredSeat < 1 || preferredSeat >= spec.seats)
+  )
+    return { ok: false, reason: 'invalid-passenger-seat' };
+  if (
+    preferredSeat !== undefined &&
+    ((actor.vehicleId === vehicleId && actor.seat !== preferredSeat) ||
+      (record.reservedVehicleId === vehicleId && record.reservedSeat !== preferredSeat))
+  )
+    return { ok: false, reason: 'physical-exit-required-to-change-seat' };
   if (actor.vehicleId === vehicleId)
     return actor.seat === 0
       ? { ok: false, reason: 'driver-must-exit-before-passenger' }
       : { ok: true, seated: true, seat: actor.seat };
   if (actor.vehicleId) return { ok: false, reason: 'already-seated' };
-  if (record.transition) return { ok: false, reason: 'boarding-in-progress' };
+  if (record.transition)
+    return preferredSeat !== undefined &&
+      record.reservedVehicleId === vehicleId &&
+      record.reservedSeat === preferredSeat &&
+      record.order.kind === 'board'
+      ? { ok: true, seated: false, seat: preferredSeat }
+      : { ok: false, reason: 'boarding-in-progress' };
   if (record.reservedVehicleId === vehicleId && record.order.kind === 'board')
     return { ok: true, seated: false, seat: record.reservedSeat };
-  const spec = specFor(vehicle, context),
-    owned = new Set(
-      (vehicle.companionSeats ?? []).filter((s) => s.actorId !== id).map((s) => s.seat),
-    );
+  const owned = new Set(
+    (vehicle.companionSeats ?? []).filter((s) => s.actorId !== id).map((s) => s.seat),
+  );
   for (const external of context.externalSeatOwners?.(vehicle, state) ?? [])
     owned.add(external.seat);
-  const seat = Array.from({ length: spec.seats - 1 }, (_, i) => i + 1).find((i) => !owned.has(i));
+  const seat =
+    preferredSeat === undefined
+      ? Array.from({ length: spec.seats - 1 }, (_, i) => i + 1).find((i) => !owned.has(i))
+      : owned.has(preferredSeat)
+        ? undefined
+        : preferredSeat;
   if (!seat) return { ok: false, reason: 'full' };
   record.driver = null;
   releaseReservation(record);
@@ -586,6 +608,10 @@ export function requestBoard(state, id, vehicleId, context = {}) {
   setOrder(state, record, { kind: 'board', vehicleId }, context);
   syncSeats(state);
   return { ok: true, seated: false, seat };
+}
+/** Named trip choreography may request a free passenger slot; actual boarding stays shared. */
+export function requestBoardSlot(state, id, vehicleId, seat, context = {}) {
+  return requestBoard(state, id, vehicleId, context, { seat });
 }
 export function requestExit(state, id, context = {}) {
   const actor = getActor(state, id),

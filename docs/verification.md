@@ -971,3 +971,156 @@ The final repository suite passes 865 JavaScript tests and 16 publication tests.
 Syntax, formatting, scope-integrity and static-build checks pass. The retained
 final suite output is /tmp/lowlight-061-final-tests.tap; browser reports and
 screenshots are outside the repository.
+
+
+## Two Seats Open integration (0.7)
+
+The four authored stages retain all eighteen lines (4/4/5/5). Dax and Pel use
+canonical living bodies in the shared AI/combat loop. A real guarded blade
+attack opens the disarm window and drops one physical knife. The authored
+follow-up requests eight damage without an HP cap; a fatal outcome fails the
+assignment. The saved right-wrist impairment lasts 48 world hours, including
+actual rest: affected-hand damage is halved and post-hit recovery is multiplied
+by 1.5. The other hand remains unchanged. Expiry neither heals HP nor removes the
+saved bandage. Native parts attach to the actual projected wrist and retain the
+engine's normal part-depth occlusion; the unchanged path matches twenty
+published undressed pixel cases.
+
+Felix occupies seat 2 throughout the trip, Nadia seat 1 and Tess seat 3. Boarding
+uses real reservations, approach paths and interpolation. Tess is requested only
+after living Nadia actually occupies her same-car seat. The completed wait
+preparation hands control to pickup rather than reissuing an escort every frame.
+Both new passengers leave the actual car and reach their room-local targets in
+order before Tess's contact is added. The workwear voucher is issued only from
+that owned delivery/contact history. A real stock transaction consumes it once,
+charges zero cash, changes the actual equipped outfit and precedes the final
+two local lines with living Bea and Felix. Plain LOS query points receive the
+explicit shop scene; actual actor scene ownership stays strict.
+
+The runtime, parent and router validate their own typed records, the complete
+physical save and every retained checkpoint. Known 0.6 content is reconstructed
+and fingerprint-checked as 38b480d9; the new pack is ab738181. M1/M2 definitions
+are unchanged, their original receipt namespace remains, and unknown packs or
+changed already-owned M3 definitions reject. Running/failed abandonment requires
+exact owned activation/lifecycle/failure identities. Returning to the city keeps
+actual deaths, injury, costs and time, while explicit retry/restart uses the
+retained real checkpoint. The fatal-failure fixture declares Dax's initial four
+HP; normal native guard/disarm then applies four of the requested eight and
+kills him. It is a component fixture, not a natural fatal playthrough.
+
+Native body calibration requires a conservative standing envelope of 30 units;
+ordinary crouch cannot fit an 18-high rail floor. The rebuilt Dispatch and Tess
+spans have real 6% grades to 38, original planar corridors and baseline-height
+endcaps. Native support columns participate in the actual static rail predicate.
+The published e508a6f5/5f85a86e transit/signals migrate to 20092e8a/5e39032e with
+marker lowlight-06-standing-2. All active/suspended checkpoint worlds convert;
+planar progress, IDs, visits, phases, passengers, fares, clocks and wait order
+are preserved while geometry-dependent kinematics/support Z are mapped. Current
+markers with old topology or missing physical models reject. Genuine unmarked
+pre-Metro shape migration remains separate. Eighteen browser migration cases
+across Chromium/WebKit/Firefox return byte-identically to Node. Both sustained
+four-service runs complete at least five further circuits with exact native
+piers, independent body checks and strict saves.
+
+The same body sweep drives M3 movement, local routing, portal/vehicle exits,
+ceiling clipping and traversal admission. Route planning supplies the exact
+segment predicate so an adaptively refined point path cannot slip past a
+conservative movement sweep at a desk corner. An actual input prefix from the
+genuine completed M1/M2 save enters Dispatch, exits normally and jumps beneath
+its native ceiling: roof 34.99008116138303, maximum observed feet Z
+4.806747828049699, unchanged XY/HP/cash, and no M3 completion. This is selected
+route proof. Other 18-high viaducts, 14-high road bridges and underground chambers
+remain in the active public-world headroom rebuild; the temporary body scope is
+not global standing acceptance. The pre-existing generic reverse-leg platform
+release limitation also remains outside the shipped directional services.
+
+The complete fresh production-input M3 run is retained at
+/tmp/lowlight-two-seats-native-complete-run-whn_kj7h. It begins with the genuine
+completed M1/M2 raw save SHA33a43bee0004122071aa0ef702afedea8dc5de919ef47c61d820b6e1a25a7f01,
+then uses ordinary movement/steering/braking and public caption/choice APIs.
+Actual Save/Continue replaces the live state at the wrist and four-seat
+boundaries. All four stages/eighteen lines, ordered deliveries/contact and the
+one voucher transaction complete; money is 360, Mara HP100 and Dax HP92. The
+completed save SHA is a81ad78b955a5257a1308d8461410a49a33ff8b4eaa09dd1e00a79f53884c9bd.
+All 221 scenario app hashes and the driver stay unchanged. The scenario uses
+the surviving arrival taxi. It certifies neither alternate-car completion nor
+a natural browser New Game playthrough, full source parity or the full game.
+
+Five prior failures are retained: wait preparation/boarding ownership conflict;
+input-driver obstruction recovery; unnecessary re-parking after valid delivery
+causing real passenger harm; wrong driver heading at the explicitly east-facing
+Dispatch rank; and a genuine plain-query-point LOS adapter rejection at the
+shop. Actual ownership and LOS bugs are repaired; driver corrections use real
+legal inputs. No collision weakening, position/health/clock assignments or
+manufactured receipts resolve those failures.
+
+Historical startup fixtures remain byte-identical. Their city/world assertions
+use the exact historical LEGACY_WORLD; reviewed current serialization has a
+separate Two Seats oracle. All ten historical initial/final RNG values and trace
+hashes, real movement/firing/stamina assertions and cinematic locks still pass.
+
+The frozen browser baseline at /tmp/lowlight-two-seats-browser-review verifies
+actual earned-save Continue, four visible threat captions, UI guard/disarm,
+exact eight damage/one drop, both living physical retreats, and actual UI
+Save/reload/Continue in all three engines over six profiles. Twenty-four viewport
+captures were inspected. Normal visibility autosaves are compared against the
+actual loaded bytes, not an earlier manual save timestamp. Final footer/aim,
+shop/retained-failure checks are recorded separately below. Real iOS Safari
+and physical gamepads are not available.
+
+The final combat/aim/footer candidate is retained at
+/tmp/lowlight-m3-final-browser: all six threat/control/Save/Continue profiles pass,
+the real touch auto-aim case damages the canonical named hostile, and all
+24 viewport captures have no overflow or console errors. Small phones,
+landscape, tablets and wide screens were inspected. Three actual interrupted
+journeys preserve damage, injuries, money and time through Return, UI
+Save/Continue and explicit checkpoint retry in Chromium, WebKit and Firefox.
+
+The first real shop browser replay exposed a native renderer exception: both
+new layouts lacked floorRegions. The shared layout factory now declares a
+bounded timber/linoleum floor, and the existing all-registered-room native draw
+regression includes their actual exterior aliases. The corrected immutable
+candidate at /tmp/lowlight-m3-floor-browser-0lx5hm7x passes three distinct outfit
+purchases, two final captions and actual UI Save/Continue. Each consumes exactly
+one earned voucher, charges zero cash, equips the chosen outfit and passes all
+six physical/runtime validators with no engine errors. The original failing
+report remains at /tmp/lowlight-m3-final-browser/services-attempt-1; the corrected
+report is services-floor-candidate/report.json in the same directory.
+
+A setup-only named-hostility component also exposed an observation of a missing
+physical M3 activation. Observations now require the exact owned activation,
+and the physical completion gate requires its matching running stage; stale
+run facts cannot complete a mission or fabricate a new activation. Focused
+regressions retain the independent native AI behavior and actual disarm injury.
+
+The durable tests/campaign-two-seats-journey.test.mjs repeats the complete
+successful production-input controller from a declared genuine M1/M2 save.
+It derives its source directory from import.meta.url and writes uniquely named
+artifacts outside the repository. Its assertions cover every authored stage,
+all eighteen lines, both real Continue boundaries, four seats, ordered living
+drop-offs/contact, exact wrist damage, retained cash/health and one purchase.
+This is parent-orchestrated native evidence, not a natural browser playthrough.
+
+The complete immutable repository candidate at
+/tmp/lowlight-m3-release-candidate-9jm5i7_9 passes all 1,040 JavaScript tests,
+including the fresh full M3 journey, and all sixteen publication tests. Syntax,
+formatting, scope-integrity, static build, both engine files and shell checks
+pass. The runner at /tmp/lowlight-m3-release-checks-pwf4l9wr records terminal
+success and no changed source hashes. This snapshot includes the research
+catalogues and hook files; omissions in the earlier app-only snapshot were
+validation setup errors, not application fixes.
+
+The final presentation delta adds the two authored native wall plaques,
+TESS'S FLAT and PIER GOODS. All fourteen renderer checks pass on the final
+source, including every registered room's real queued/flush font calls; removing
+the two labels makes that regression fail on an actual undefined plaque. This
+changes no movement, mission, save or transaction behavior.
+
+The final built dist artifact at http://localhost:5192 passes all three purchase
+and UI Save/Continue branches in Chromium, WebKit and Firefox. Native plaques
+and the equipped outfits were inspected, all six validators pass without engine
+errors, and all 268 frozen source hashes remain unchanged. Eight critical served
+HTTP files match the source manifest byte-for-byte. Evidence is retained at
+/tmp/lowlight-m3-final-browser/services-built-artifact/report.json and
+built-http-hashes.json in the same report directory. Browser replay inputs and
+fixture boundaries remain the same as the earlier purchase check.

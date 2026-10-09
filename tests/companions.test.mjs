@@ -16,6 +16,7 @@ import {
   playerDriverAdmission,
   preemptDriverReservation,
   requestBoard,
+  requestBoardSlot,
   requestExit,
   requestEscort,
   followCompanion,
@@ -1454,4 +1455,127 @@ test('a throwing portal callback rolls back only position and scene, preserving 
   assert.equal(actor.sceneId, before.sceneId);
   assert.equal(actor.health, 80);
   roundTrip(state, context);
+});
+
+test('explicit free passenger slots retain real approach/boarding and all three trip occupants', () => {
+  const { state, context } = fixture();
+  state.player.vehicleId = 'arc-arrival-taxi';
+  const identities = [
+    ['LL-CHAR-002', 2],
+    ['LL-CHAR-008', 1],
+    ['LL-CHAR-025', 3],
+  ];
+  for (const [id, seat] of identities) {
+    const actor = add(state, id, { y: 20 + seat * 20 });
+    const before = clone(actor);
+    const r = requestBoardSlot(state, id, 'arc-arrival-taxi', seat, context);
+    assert.equal(r.seat, seat);
+    assert.equal(r.seated, false);
+    assert.deepEqual(
+      {
+        x: actor.x,
+        y: actor.y,
+        z: actor.z,
+        health: actor.health,
+        vehicleId: actor.vehicleId,
+        seat: actor.seat,
+      },
+      {
+        x: before.x,
+        y: before.y,
+        z: before.z,
+        health: before.health,
+        vehicleId: before.vehicleId,
+        seat: before.seat,
+      },
+    );
+  }
+  until(state, context, () => identities.every(([id, seat]) => getSeat(state, id)?.seat === seat));
+  assert.deepEqual(
+    vehicleOccupants(state, 'arc-arrival-taxi').map((x) => x.seat),
+    [1, 2, 3],
+  );
+  validateCompanions(state, context);
+  const restored = clone(state);
+  restored.companions = restoreCompanions(JSON.stringify(state.companions), restored, context);
+  validateCompanions(restored, context);
+  for (const [id, seat] of identities) assert.equal(getSeat(restored, id).seat, seat);
+});
+test('invalid passenger slots never acquire driver seat zero or exceed actual capacity', () => {
+  const { state, context } = fixture();
+  add(state);
+  for (const slot of [0, -1, 4, 1.2, NaN, '2', null]) {
+    const before = clone(state);
+    assert.equal(
+      requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', slot, context).ok,
+      false,
+    );
+    assert.deepEqual(state, before);
+  }
+});
+test('reserved or occupied passenger slots fail without shifting another canonical body', () => {
+  const { state, context } = fixture();
+  add(state);
+  add(state, 'LL-CHAR-008');
+  assert(requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context).ok);
+  let before = clone(state);
+  assert.equal(requestBoardSlot(state, 'LL-CHAR-008', 'arc-arrival-taxi', 2, context).ok, false);
+  assert.deepEqual(state, before);
+  until(state, context, () => getSeat(state, 'LL-CHAR-002')?.seat === 2);
+  before = clone(state);
+  assert.equal(requestBoardSlot(state, 'LL-CHAR-008', 'arc-arrival-taxi', 2, context).ok, false);
+  assert.deepEqual(state, before);
+});
+test('a selected slot cannot be changed while approaching, boarding or already seated', () => {
+  const { state, context } = fixture();
+  add(state);
+  requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context);
+  for (const phase of ['approaching', 'boarding', 'seated']) {
+    if (phase !== 'approaching')
+      until(state, context, () => state.companions.records[0].phase === phase);
+    const before = clone(state),
+      r = requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 3, context);
+    assert.equal(r.reason, 'physical-exit-required-to-change-seat');
+    assert.deepEqual(state, before);
+  }
+});
+test('same selected passenger slot replays its existing lease without restarting the transition', () => {
+  const { state, context } = fixture();
+  add(state);
+  requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context);
+  until(state, context, () => state.companions.records[0].phase === 'boarding');
+  const before = clone(state),
+    r = requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context);
+  assert(r.ok);
+  assert.deepEqual(state, before);
+  until(state, context, () => getSeat(state, 'LL-CHAR-002')?.seat === 2);
+  const seated = clone(state);
+  assert(requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context).seated);
+  assert.deepEqual(state, seated);
+});
+test('external ownership and a dead occupied passenger continue to block explicit admission', () => {
+  const { state, context } = fixture();
+  add(state);
+  add(state, 'LL-CHAR-008');
+  context.externalSeatOwners = () => [{ seat: 2, actorId: 'external' }];
+  const before = clone(state);
+  assert.equal(requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context).ok, false);
+  assert.deepEqual(state, before);
+  context.externalSeatOwners = () => [];
+  requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context);
+  until(state, context, () => getSeat(state, 'LL-CHAR-002')?.seat === 2);
+  damageCompanion(state, 'LL-CHAR-002', 100, context);
+  tick(state, context);
+  const corpse = clone(state);
+  assert.equal(requestBoardSlot(state, 'LL-CHAR-008', 'arc-arrival-taxi', 2, context).ok, false);
+  assert.deepEqual(state, corpse);
+});
+test('default passenger admission keeps its lowest-free policy alongside chosen slots', () => {
+  const { state, context } = fixture();
+  add(state);
+  add(state, 'LL-CHAR-008');
+  add(state, 'LL-CHAR-025');
+  assert.equal(requestBoardSlot(state, 'LL-CHAR-002', 'arc-arrival-taxi', 2, context).seat, 2);
+  assert.equal(requestBoard(state, 'LL-CHAR-008', 'arc-arrival-taxi', context).seat, 1);
+  assert.equal(requestBoard(state, 'LL-CHAR-025', 'arc-arrival-taxi', context).seat, 3);
 });

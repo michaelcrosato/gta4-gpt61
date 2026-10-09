@@ -34,6 +34,33 @@ export const OUTFITS = freeze({
     sleeves: 'long',
     colors: { ...base, coat: '#8b5f4c', cloth: '#a47157', pants: '#3b484c', trim: '#bda87c' },
   },
+  'slate-work-jacket': {
+    id: 'slate-work-jacket',
+    name: 'Slate work jacket',
+    description: 'A short slate jacket with reinforced shoulders and charcoal work trousers.',
+    price: 80,
+    style: 'tunic',
+    sleeves: 'long',
+    colors: { ...base, coat: '#596972', cloth: '#71838a', pants: '#343f43', trim: '#c0ae81' },
+  },
+  'ochre-rain-shell': {
+    id: 'ochre-rain-shell',
+    name: 'Ochre rain shell',
+    description: 'A long ochre shell over dark waterproof trousers.',
+    price: 90,
+    style: 'coat',
+    sleeves: 'long',
+    colors: { ...base, coat: '#ad8541', cloth: '#c69b50', pants: '#364a4b', trim: '#e0c58c' },
+  },
+  'navy-coveralls': {
+    id: 'navy-coveralls',
+    name: 'Navy coveralls',
+    description: 'Matching navy work clothes with a pale undershirt and heavy boots.',
+    price: 75,
+    style: 'shirt',
+    sleeves: 'long',
+    colors: { ...base, coat: '#314d60', cloth: '#35576c', pants: '#35576c', trim: '#b6c4bf' },
+  },
 });
 const own = (v, k) => Object.hasOwn(v, k);
 const receiptId = (value) =>

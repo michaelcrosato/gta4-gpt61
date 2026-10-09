@@ -1,0 +1,12 @@
+{
+  "boundary": "Genuine deterministic Late Meter input journey warn snapshot; report /tmp/lowlight-late-meter-regression-kyVYto/report.json, sourceFP38b480d9.",
+  "sha256": "17604ec773ee7d8c45a5e6b2b487d8e167357eb6e3cd56cd66bd51f5ec8dd925",
+  "contentFingerprint": "38b480d9",
+  "receiptNamespace": "cbf05190",
+  "active": "LL-ST-002",
+  "stage": "warn",
+  "checkpoints": [
+    "start",
+    "annex"
+  ]
+}

@@ -5,6 +5,9 @@ import { createCityGroundRenderer } from './city-ground.js';
 import { createSpatialIndex } from './spatial-index.js';
 import { createTerrain } from './terrain.js';
 import { outfitAppearance } from './wardrobe.js';
+import { actorDressing, drawActorWithDressing } from './actor-dressings.js';
+import { twoSeatsAppearance, enqueueTwoSeatsMarks } from './campaign/two-seats-art.js';
+import { createTwoSeatsFrontageArt } from './campaign/two-seats-frontages.js';
 import {
   LATE_METER_APPEARANCES,
   drawLateMeterClothingMarks,
@@ -19,6 +22,8 @@ const hash = (value) => {
 };
 
 export function createWorldRenderer(game, world, specs, options = {}) {
+  if (options.getActorDressing !== undefined && typeof options.getActorDressing !== 'function')
+    throw new Error('Actor dressing requires a synchronous view callback.');
   const limits = {
     maxBuildingTextures: 96,
     maxBuildingPixels: 6_000_000,
@@ -30,6 +35,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
     if (!Number.isInteger(limits[key]) || limits[key] < 1)
       throw new Error('Invalid renderer cache bounds.');
   const cityGround = world.landforms?.length ? createCityGroundRenderer(world) : null;
+  const twoSeatsFrontages = createTwoSeatsFrontageArt(world);
   const terrain = createTerrain(world);
   const clueRoof = Math.max(
     32,
@@ -56,10 +62,13 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       : z >= -1 && (!terrain || terrain.overheadDeck(actor.x, actor.y, 18, z) === null);
   }
   function authoredAppearance(person) {
-    return Object.values(LATE_METER_APPEARANCES).find(
-      (appearance) =>
-        person.appearance?.id === appearance.id &&
-        person.appearance?.version === appearance.version,
+    return (
+      twoSeatsAppearance(person) ||
+      Object.values(LATE_METER_APPEARANCES).find(
+        (appearance) =>
+          person.appearance?.id === appearance.id &&
+          person.appearance?.version === appearance.version,
+      )
     );
   }
   // Test the exact camera ray through the drawn clue, rather than the much
@@ -476,6 +485,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           if (width > 0 && height > 0)
             g.drawImage(cache.cv, sx, sy, width, height, dx + sx, dy + sy, width, height);
         } else paintBuilding(g, b, r.view, (x, y, z) => r.w(b.x + x, b.y + y, (b.z || 0) + z));
+        twoSeatsFrontages.draw(r, g, b, state, { cutaway: occluding });
         g.globalAlpha = 1;
       },
       { occluder: true },
@@ -641,6 +651,16 @@ export function createWorldRenderer(game, world, specs, options = {}) {
     if (!shouldDrawActor(person) || !r.visible(person.x, person.y, person.z || 0, 35, 50, 50))
       return;
     const rig = rigFor(person, type);
+    const dressing = actorDressing(options.getActorDressing?.(state, person.id), person.id);
+    const appearance = twoSeatsAppearance(person);
+    const canonicalWeapon =
+      person.kind === 'companion' &&
+      person.companionId === person.id &&
+      Array.isArray(state?.companions?.actors) &&
+      state.companions.actors.includes(person) &&
+      typeof person.weapon === 'string' &&
+      person.weapon !== 'unarmed' &&
+      Object.hasOwn(WEAPONS, person.weapon);
     const reading = Boolean(
       prop && person.sceneAction === 'read-clipboard' && person.health > 0 && !person.meleeAction,
     );
@@ -659,7 +679,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
             : undefined,
       point:
         reading ||
-        (type !== 'pedestrian' &&
+        ((type !== 'pedestrian' || canonicalWeapon) &&
           person.health > 0 &&
           WEAPONS[person.weapon]?.mode !== 'melee' &&
           !person.meleeAction),
@@ -677,8 +697,16 @@ export function createWorldRenderer(game, world, specs, options = {}) {
       person.y,
       person.z || 0,
       (g, ox, oy) => {
-        rig.draw(g, ox, oy, r.view);
-        if (person.health > 0 && type !== 'pedestrian')
+        drawActorWithDressing(
+          g,
+          ox,
+          oy,
+          rig,
+          r.view,
+          dressing,
+          appearance ? (g, art) => enqueueTwoSeatsMarks(art, appearance) : null,
+        );
+        if (person.health > 0 && (type !== 'pedestrian' || canonicalWeapon))
           drawActorEquipment(g, ox, oy, rig, r.view, person.weapon || 'pistol');
         const marks = authoredAppearance(person)
           ? drawLateMeterClothingMarks(r, g, person, { origin: [ox, oy] })
@@ -779,19 +807,21 @@ export function createWorldRenderer(game, world, specs, options = {}) {
         E.px.rect(g, p[0] - 5, p[1] - 5, 11, 11, location.color || '#5d766a');
         E.font.text(
           g,
-          {
-            home: 'H',
-            garage: 'G',
-            clinic: '+',
-            weapons: 'W',
-            armour: 'A',
-            food: 'F',
-            taxi: 'T',
-            radio: 'R',
-            depot: 'D',
-            activity:
-              { bowling: 'B', darts: 'D', pool: 'P', arcade: 'S' }[location.activity] || 'S',
-          }[location.type] || '$',
+          twoSeatsFrontages.locationGlyph(location, state) ||
+            {
+              home: 'H',
+              garage: 'G',
+              clinic: '+',
+              weapons: 'W',
+              armour: 'A',
+              food: 'F',
+              taxi: 'T',
+              radio: 'R',
+              depot: 'D',
+              activity:
+                { bowling: 'B', darts: 'D', pool: 'P', arcade: 'S' }[location.activity] || 'S',
+            }[location.type] ||
+            '$',
           p[0],
           p[1] - 3,
           '#f1e7bb',
@@ -1098,6 +1128,7 @@ export function createWorldRenderer(game, world, specs, options = {}) {
           },
           'pedestrian',
           1 / 60,
+          state,
         );
       }
       const p = state.player;

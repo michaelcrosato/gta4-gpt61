@@ -1113,6 +1113,50 @@ export const FIRST_ARC_MISSIONS = freeze([
       ),
     ],
     failures: [
+      failure(
+        'required-companion-dead',
+        rule('required-actor-dead', {
+          actors: ['LL-CHAR-002', 'LL-CHAR-008', 'LL-CHAR-025'],
+          stages: ['dispatch-threat', 'pickup', 'home', 'workwear'],
+        }),
+        'start',
+        [line('Mara', 'They needed a safe way through this. I am not leaving them like this.')],
+      ),
+      failure(
+        'dispatch-person-lost',
+        rule('required-actor-dead', {
+          actors: ['LL-ARC-DAX', 'LL-ARC-PEL'],
+          stages: ['dispatch-threat'],
+        }),
+        'start',
+        [
+          line(
+            'Mara',
+            'This was supposed to end with the blade on the floor. We need to start before anyone gets hurt.',
+          ),
+        ],
+      ),
+      failure(
+        'shopkeeper-lost',
+        rule('required-actor-dead', { actors: ['LL-ARC-BEA'], stages: ['workwear'] }),
+        'outfit-ready',
+        [line('Mara', 'Bea was helping us begin again. We have to keep her safe.')],
+      ),
+      failure(
+        'required-felix-lost',
+        rule('passenger-dead-or-abandoned', {
+          actors: ['LL-CHAR-002'],
+          stages: ['pickup', 'home', 'workwear'],
+          grace: 35,
+        }),
+        'pickup-ready',
+        [
+          line(
+            'Mara',
+            'We need you with us, Felix. I am coming back before this trip goes any further.',
+          ),
+        ],
+      ),
       failure('civilian-harmed', rule('civilian-damaged-by-player'), 'start', [
         line('Felix', 'They came to frighten my drivers. You just finished the job for them.'),
       ]),

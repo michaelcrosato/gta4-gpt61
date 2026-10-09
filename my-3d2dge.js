@@ -2114,6 +2114,20 @@ class Humanoid {
     this._cheat = st > 0 && this.o.cheat ? clamp(angDiff(this.facing, camA), -this.o.cheat, this.o.cheat) * st : 0;
     if (this.o.style === 'classic') this._drawClassic(g, ox, oy, view); else this._drawHD(g, ox, oy, view);
   }
+  /** Optional synchronous art only. Projected joints include native depth;
+   * enqueue adds an attachment to the same body-part painter order. */
+  _drawAttachments(g, joints, scale, parts) {
+    if (typeof this.o.drawAttachments !== 'function') return;
+    const anchors = Object.freeze(Object.fromEntries(Object.entries(joints).map(([key, p]) => [key, Object.freeze(p.slice())])));
+    const result = this.o.drawAttachments(g, Object.freeze({
+      joints: anchors, scale, limbWidth: this.o.limbW,
+      enqueue(depth, draw) {
+        if (!Number.isFinite(depth) || typeof draw !== 'function') throw new Error('Invalid humanoid attachment.');
+        parts.push({ d: depth, f: () => draw(g) });
+      }
+    }));
+    if (result && typeof result.then === 'function') throw new Error('Humanoid attachments must be synchronous.');
+  }
   /**
    * HD style: volumetric limbs, shaped torso, outfits, hair styles, hands and boots, each shaded with
    * hue-shifted tones and a light from the upper left (the look of hand-drawn PS1 / N64 era sprites).
@@ -2321,6 +2335,7 @@ class Humanoid {
         px.disc(g, pom[0], pom[1], Math.max(.5, .6 * u - .35), h.base); px.dot(g, tip[0], tip[1], '#ffffff');
       } });
     }
+    this._drawAttachments(g, Q, sc, ops);
     ops.sort((a, b) => a.d - b.d);
     for (const op of ops) op.f();
   }
@@ -2399,6 +2414,7 @@ class Humanoid {
         }
       });
     }
+    this._drawAttachments(g, Q, sc, ops);
     ops.sort((a, b) => a.d - b.d);
     for (const op of ops) op.f();
   }

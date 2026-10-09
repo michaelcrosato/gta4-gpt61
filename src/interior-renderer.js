@@ -1,5 +1,6 @@
 /** Original cutaway rooms rendered with the same rigs and combat art as Harbor City. */
 import { createWorldRenderer } from './renderer.js';
+import { drawClothingRack } from './clothing-art.js';
 import { drawNightCrossingProps } from './campaign/scenes.js';
 import {
   INTERIOR_LAYOUTS,
@@ -462,6 +463,8 @@ function drawScenery(r, state, room, game, stats) {
     'blue-hour-lanes': 'BLUE HOUR LANES',
     'dockside-rooms': 'DOCKSIDE ROOMS',
     'impound-annex': 'IMPOUND RELEASES',
+    'tess-flat': "TESS'S FLAT",
+    'pier-goods': 'PIER GOODS',
   }[room.id];
   const signX = room.width / 2,
     signY = 11,
@@ -564,17 +567,18 @@ function drawScenery(r, state, room, game, stats) {
         const alpha = g.globalAlpha;
         if (!g._info && !g._cover && item.height >= 30 && overlapsPlayer(r, box, state.player))
           g.globalAlpha *= 0.4;
-        r.box(
-          g,
-          item.x,
-          item.y,
-          room.floorZ,
-          item.x + item.w,
-          item.y + item.h,
-          room.floorZ + item.height,
-          E.shade(item.color, 0.12),
-          E.shade(item.color, -0.08),
-        );
+        if (!drawClothingRack(r, g, room, item, health))
+          r.box(
+            g,
+            item.x,
+            item.y,
+            room.floorZ,
+            item.x + item.w,
+            item.y + item.h,
+            room.floorZ + item.height,
+            E.shade(item.color, 0.12),
+            E.shade(item.color, -0.08),
+          );
         propDetails(r, g, room, item, health);
         g.globalAlpha = alpha;
       },
@@ -675,6 +679,8 @@ function drawScenery(r, state, room, game, stats) {
 }
 
 export function createInteriorRenderer(game, specs, options = {}) {
+  if (options.getActorDressing !== undefined && typeof options.getActorDressing !== 'function')
+    throw new Error('Actor dressing requires a synchronous view callback.');
   const limits = {
     maxRooms: 2,
     maxFloorPixels: 1_600_000,
@@ -828,6 +834,8 @@ export function createInteriorRenderer(game, specs, options = {}) {
         options.drawRoomDetails?.(r, renderSources.get(state) ?? state, room),
       onRenderedClues: (state, actor, clues) =>
         options.onRenderedClues?.(renderSources.get(state) ?? state, actor, clues),
+      getActorDressing: (state, actorId) =>
+        options.getActorDressing?.(renderSources.get(state) ?? state, actorId),
     });
     rooms.set(room.id, renderer);
     stats.cachedRooms = rooms.size;

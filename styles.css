@@ -632,6 +632,11 @@ kbd {
   letter-spacing: 1px;
   color: #a6b6a9;
 }
+@media (pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 450px) {
+  .dialogue-panel[data-intervention='true'] > span {
+    padding-right: 120px;
+  }
+}
 .story-caption-action {
   float: right;
   min-height: 36px;
@@ -704,6 +709,10 @@ kbd {
 }
 .story-options button small {
   color: var(--gold);
+}
+#info-dialog[data-story-panel][data-story-choice='outfit'] > .dialog-header {
+  display: flex;
+  background: #14231f;
 }
 .story-failure-line b {
   color: var(--gold);
