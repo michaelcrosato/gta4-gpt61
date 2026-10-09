@@ -96,6 +96,24 @@ LOWLIGHT_ROOT=dist PORT=5174 npm run dev
 The build is a static site in `dist/`. Progress and preferences are saved in the
 browser on this device; no account or network service is required for gameplay.
 
+## Vercel
+
+Import this repository with its root directory set to `./` and use the
+**Other** framework preset. The checked-in `vercel.json` selects
+`npm ci --ignore-scripts --omit=dev`, `npm run build` and the `dist` output
+directory. No environment variables or server functions are needed.
+
+The build copies only public game files, in parallel. The entry page preloads
+the engine and game module. Browsers revalidate the unversioned files on reload,
+while the CDN can cache them between deployments; this avoids retaining old game
+code after an update. Vercel also provides
+[automatic compression](https://vercel.com/docs/how-vercel-cdn-works/compression).
+The [cache configuration](https://vercel.com/docs/caching/cache-control-headers)
+is version-controlled with the game. Saves remain local to the browser and
+deployment origin.
+
+## Development checks
+
 `npm run format` formats game source and tooling; it preserves the supplied
 engine source layout. `npm run scope` reports the source catalogue separately
 from the implemented opening, and does not treat planned content as delivered.

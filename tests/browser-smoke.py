@@ -136,6 +136,7 @@ async def canonical_start(page, report, output, name, phone):
         "lowlight.storyView()?.dialogue && !document.getElementById('dialogue-panel').hidden",
         timeout=90000)
     report["canonical"]["reunion"] = await snapshot(page)
+    scene_use_bounds = await page.locator("#touch-interact").bounding_box() if phone else None
     await page.screenshot(path=str(output / f"{name}-canonical-caption.png"))
     require(await page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
             "Canonical arrival has horizontal overflow")
@@ -155,6 +156,16 @@ async def canonical_start(page, report, output, name, phone):
             "index=>lowlight.storyView().stageId==='taxi' || lowlight.storyView().dialogueIndex>index",
             arg=index, timeout=5000)
     await page.wait_for_function("lowlight.storyView().stageId==='taxi'", timeout=5000)
+    if phone:
+        use_bounds = await page.locator("#touch-interact").bounding_box()
+        require(scene_use_bounds is not None and use_bounds is not None,
+                "The essential USE control disappeared during the story transition")
+        require(all(abs(use_bounds[key] - scene_use_bounds[key]) <= 0.5
+                    for key in ("x", "y", "width", "height")),
+                "USE moved when the cinematic restored other touch actions")
+        report["canonical"]["stableTouchUseBounds"] = {
+            "duringScene": scene_use_bounds, "afterScene": use_bounds,
+        }
     points = await page.evaluate("async()=>{const{WORLD}=await import('/src/simulation.js');return WORLD.campaignSceneBindings['pier-berth'].driverWaypoints}")
     await walk_story_route(page, points, report["canonical"]["trace"])
     if phone:
