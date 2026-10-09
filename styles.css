@@ -1292,6 +1292,11 @@ kbd {
     max-height: 90dvh;
   }
 }
+@media (pointer: coarse) {
+  body.in-conversation .minimap-panel {
+    display: none;
+  }
+}
 @media (max-height: 680px) and (orientation: portrait) {
   .title-content {
     margin-bottom: 88px;
@@ -1693,5 +1698,154 @@ kbd {
   }
   .activity-dialog > h2 {
     margin: 0 0 7px;
+  }
+}
+
+@media (min-width: 901px) {
+  .player-status:has(.wanted-stars:not(:empty)) ~ .district-announcement {
+    top: 131px;
+  }
+}
+
+/* Keep the short touch HUD in separate columns and reserve room above controls. */
+@media (pointer: coarse) and (max-height: 620px) and (orientation: landscape) {
+  #game-hud {
+    --hud-edge: max(20px, env(safe-area-inset-left), env(safe-area-inset-right));
+  }
+  .player-status {
+    top: max(12px, env(safe-area-inset-top));
+  }
+  .player-status #cash {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .vitals {
+    margin-bottom: 5px;
+  }
+  .wanted-stars {
+    font-size: 14px;
+    letter-spacing: 3px;
+  }
+  .weapon-status b {
+    font-size: 14px;
+  }
+  .weapon-status small {
+    font-size: 9px;
+  }
+  .weapon-status span {
+    font-size: 7px;
+  }
+  .mission-panel {
+    left: var(--hud-edge);
+    width: 240px;
+    max-width: none;
+    max-height: max(72px, calc(100dvh - 210px));
+    padding: 8px 10px;
+    overflow: auto;
+    pointer-events: auto;
+    touch-action: pan-y;
+  }
+  .mission-label {
+    font-size: 6px;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .mission-panel h2 {
+    font-size: 15px;
+    margin-bottom: 5px;
+  }
+  .mission-panel #mission-objective {
+    line-height: 1.4;
+    max-width: none;
+    overflow-wrap: anywhere;
+  }
+  .mission-panel #mission-distance {
+    margin-top: 4px;
+  }
+  .minimap-panel {
+    left: calc(var(--hud-edge) + 96px);
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: 128px;
+  }
+  .minimap-frame canvas {
+    height: 88px;
+  }
+  .map-caption {
+    font-size: 6px;
+    letter-spacing: 0.3px;
+    padding: 4px 0 0;
+  }
+  .map-legend {
+    display: none;
+  }
+  .joystick {
+    left: var(--hud-edge);
+  }
+  .context-prompt {
+    left: calc(var(--hud-edge) + 256px);
+    right: calc(var(--hud-edge) + 144px);
+    transform: none;
+    max-width: none;
+    white-space: normal;
+  }
+  #context-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notifications {
+    top: 84px;
+    right: var(--hud-edge);
+    width: 128px;
+    max-height: max(40px, calc(100dvh - 275px));
+    overflow: auto;
+    pointer-events: auto;
+  }
+  .notifications .toast {
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    flex-shrink: 0;
+  }
+  .notifications .toast:last-child {
+    order: -1;
+  }
+  .touch-more {
+    right: var(--hud-edge);
+    bottom: 152px;
+  }
+  .touch-actions {
+    right: var(--hud-edge);
+  }
+  .dialogue-panel {
+    width: min(570px, calc(100vw - var(--hud-edge) * 2 - 288px));
+  }
+  body.in-conversation .mission-panel {
+    width: 128px;
+    max-height: max(80px, calc(100dvh - 170px));
+  }
+}
+
+@media (pointer: coarse) and (max-width: 600px) and (orientation: portrait) {
+  .context-prompt {
+    left: 169px;
+    right: 19px;
+    bottom: 187px;
+    transform: none;
+    max-width: none;
+  }
+  #context-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notifications {
+    max-height: max(60px, min(140px, calc(100dvh - 500px)));
+    overflow: auto;
+    pointer-events: auto;
+  }
+  .notifications .toast {
+    flex-shrink: 0;
+  }
+  .notifications .toast:last-child {
+    order: -1;
   }
 }

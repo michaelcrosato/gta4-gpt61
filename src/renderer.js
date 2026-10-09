@@ -1,6 +1,9 @@
 /* Original Harbor City architecture, vehicles and atmosphere, drawn by my-3d2dge. */
 import { drawActorEquipment, drawStreetEquipment, meleeAnimation } from './weapon-art.js';
 import { WEAPONS } from './combat.js';
+import { createCityGroundRenderer } from './city-ground.js';
+import { createSpatialIndex } from './spatial-index.js';
+import { createTerrain } from './terrain.js';
 const E = globalThis.My3D2dge;
 const hash = (value) => {
   let h = 2166136261;
@@ -8,7 +11,160 @@ const hash = (value) => {
   return (h >>> 0) / 4294967296;
 };
 
-export function createWorldRenderer(game, world, specs) {
+export function createWorldRenderer(game, world, specs, options = {}) {
+  const limits = {
+    maxBuildingTextures: 96,
+    maxBuildingPixels: 6_000_000,
+    maxRigs: 256,
+    rigIdleFrames: 240,
+    ...options,
+  };
+  for (const key of ['maxBuildingTextures', 'maxBuildingPixels', 'maxRigs', 'rigIdleFrames'])
+    if (!Number.isInteger(limits[key]) || limits[key] < 1)
+      throw new Error('Invalid renderer cache bounds.');
+  const cityGround = world.landforms?.length ? createCityGroundRenderer(world) : null;
+  const terrain = cityGround ? createTerrain(world) : null;
+  const buildingViews = new Map();
+  const stats = {
+    visibleBuildings: 0,
+    queriedBuildings: 0,
+    buildingTextures: 0,
+    buildingPixels: 0,
+    generatedBuildingTextures: 0,
+    rigs: 0,
+    frame: 0,
+    ground: cityGround?.stats || null,
+  };
+  let frame = 0,
+    underground = false;
+  function shouldDrawActor(actor) {
+    const z = actor.z || 0;
+    return underground
+      ? z < 0
+      : z >= -1 && (!terrain || terrain.overheadDeck(actor.x, actor.y, 18, z) === null);
+  }
+  function releaseTexture(texture) {
+    texture.cv.width = 0;
+    texture.cv.height = 0;
+    stats.buildingPixels -= texture.pixels;
+  }
+  function trimTextures(required = 0) {
+    while (
+      buildings.size &&
+      (buildings.size >= limits.maxBuildingTextures ||
+        stats.buildingPixels + required > limits.maxBuildingPixels)
+    ) {
+      const key = buildings.keys().next().value;
+      releaseTexture(buildings.get(key));
+      buildings.delete(key);
+    }
+    stats.buildingTextures = buildings.size;
+  }
+  const viewKey = (view) => [view.ax, view.ay, view.bx, view.by, view.bz].join(':');
+  function projectedBounds(building, view, local = false) {
+    const x = local ? 0 : building.x,
+      y = local ? 0 : building.y,
+      z = local ? 0 : building.z || 0,
+      height = (building.height || 70) + 24;
+    const points = [];
+    for (const X of [x, x + building.w])
+      for (const Y of [y, y + building.h])
+        for (const Z of [z, z + height]) points.push(view.p(X, Y, Z));
+    const left = Math.floor(Math.min(...points.map((p) => p[0]))) - 6,
+      top = Math.floor(Math.min(...points.map((p) => p[1]))) - 6;
+    return {
+      x: left,
+      y: top,
+      w: Math.ceil(Math.max(...points.map((p) => p[0]))) + 7 - left,
+      h: Math.ceil(Math.max(...points.map((p) => p[1]))) + 7 - top,
+    };
+  }
+  function visibleBuildings(r) {
+    const key = viewKey(r.view);
+    let index = buildingViews.get(key);
+    if (!index) {
+      if (buildingViews.size >= 2) buildingViews.delete(buildingViews.keys().next().value);
+      index = createSpatialIndex(world.buildings, {
+        cellSize: 256,
+        getBounds: (b) => projectedBounds(b, r.view),
+      });
+      buildingViews.set(key, index);
+    } else {
+      buildingViews.delete(key);
+      buildingViews.set(key, index);
+    }
+    const found = index.queryRect({ x: r.ix, y: r.iy, w: r.bw, h: r.bh });
+    stats.queriedBuildings = found.length;
+    return found;
+  }
+  const lampPoints = [],
+    lampViews = new Map();
+  for (const road of world.roads) {
+    if (
+      road.access &&
+      (!road.access.length || (!road.access.includes('foot') && !road.access.includes('car')))
+    )
+      continue;
+    if (road.tunnel || Math.min(road.z1 ?? road.z ?? 0, road.z2 ?? road.z ?? 0) < 0) continue;
+    const dx = road.x2 - road.x1,
+      dy = road.y2 - road.y1,
+      length = Math.hypot(dx, dy);
+    if (!length) continue;
+    const ux = dx / length,
+      uy = dy / length,
+      nx = Math.abs(uy) > Math.abs(ux) ? uy : -uy,
+      ny = Math.abs(uy) > Math.abs(ux) ? -ux : ux;
+    for (let along = 105; along < length; along += 140)
+      lampPoints.push({
+        x: road.x1 + ux * along + nx * (road.width || 80) * 0.55,
+        y: road.y1 + uy * along + ny * (road.width || 80) * 0.55,
+        z:
+          (road.z1 ?? road.z ?? 0) +
+          (((road.z2 ?? road.z ?? 0) - (road.z1 ?? road.z ?? 0)) * along) / length,
+        nx,
+        ny,
+      });
+  }
+  stats.lampCount = lampPoints.length;
+  stats.queriedLamps = 0;
+  function visibleLamps(r) {
+    const key = viewKey(r.view);
+    let index = lampViews.get(key);
+    if (!index) {
+      if (lampViews.size >= 2) lampViews.delete(lampViews.keys().next().value);
+      index = createSpatialIndex(lampPoints, {
+        cellSize: 256,
+        getBounds: (lamp) => {
+          const points = [
+            [lamp.x, lamp.y, lamp.z],
+            [lamp.x, lamp.y, lamp.z + 34],
+            [lamp.x - lamp.nx * 8, lamp.y - lamp.ny * 8, lamp.z + 34],
+          ].map((p) => r.view.p(...p));
+          const x = Math.floor(Math.min(...points.map((p) => p[0]))) - 12,
+            y = Math.floor(Math.min(...points.map((p) => p[1]))) - 12;
+          return {
+            x,
+            y,
+            w: Math.ceil(Math.max(...points.map((p) => p[0]))) + 13 - x,
+            h: Math.ceil(Math.max(...points.map((p) => p[1]))) + 13 - y,
+          };
+        },
+      });
+      lampViews.set(key, index);
+    } else {
+      lampViews.delete(key);
+      lampViews.set(key, index);
+    }
+    const lamps = index.queryRect({ x: r.ix, y: r.iy, w: r.bw, h: r.bh });
+    stats.queriedLamps = lamps.length;
+    return lamps;
+  }
+  function retireRigs() {
+    for (const [id, entry] of rigs)
+      if (frame - entry.lastFrame > limits.rigIdleFrames) rigs.delete(id);
+    stats.rigs = rigs.size;
+  }
+
   const buildings = new Map();
   const rigs = new Map();
   const floors = new Map();
@@ -37,35 +193,20 @@ export function createWorldRenderer(game, world, specs) {
     );
   }
 
-  function cachedBuilding(building, view) {
-    const key = `${building.id}:${view.yawDeg}:${view.pitchDeg}:${view.scale}`;
-    if (buildings.has(key)) return buildings.get(key);
+  function paintBuilding(g, building, view, p) {
     const w = building.w,
       d = building.h,
       height = building.height || 70;
-    const points = [
-      [0, 0, 0],
-      [w, 0, 0],
-      [0, d, 0],
-      [w, d, 0],
-      [0, 0, height],
-      [w, 0, height],
-      [0, d, height],
-      [w, d, height],
-    ];
-    const projected = points.map((p) => view.p(...p));
-    const x0 = Math.floor(Math.min(...projected.map((p) => p[0]))) - 5;
-    const y0 = Math.floor(Math.min(...projected.map((p) => p[1]))) - 12;
-    const cv = E.mkCanvas(
-      Math.ceil(Math.max(...projected.map((p) => p[0]))) - x0 + 6,
-      Math.ceil(Math.max(...projected.map((p) => p[1]))) - y0 + 6,
-    );
-    const g = E.ctx2d(cv);
-    const p = (x, y, z) => {
-      const q = view.p(x, y, z);
-      return [q[0] - x0, q[1] - y0];
-    };
     const base = building.color || '#666556';
+    const profile = building.protectedPrologue
+      ? 'legacy'
+      : building.profile || building.type || 'legacy';
+    const industrial = ['industrial', 'warehouse', 'airport'].includes(profile),
+      finance = profile === 'finance';
+    const floorStep = industrial ? 24 : finance ? 18 : 15,
+      windowStep = industrial ? 24 : finance ? 10 : 12,
+      windowWidth = finance ? 6 : industrial ? 7 : 4,
+      windowHeight = finance ? 11 : industrial ? 5 : 7;
     const side = E.shade(base, -0.18),
       dark = E.shade(base, -0.34);
     for (const face of [
@@ -78,11 +219,11 @@ export function createWorldRenderer(game, world, specs) {
       const [ax, ay] = face.a,
         [bx, by] = face.b;
       E.px.poly(g, [p(ax, ay, 0), p(bx, by, 0), p(bx, by, height), p(ax, ay, height)], face.color);
-      for (let z = 14; z < height - 9; z += 15) {
+      for (let z = 14; z < height - 9; z += floorStep) {
         E.px.line(g, ...p(ax, ay, z - 4), ...p(bx, by, z - 4), E.shade(face.color, -0.12));
-        for (let t = 7; t < face.size - 5; t += 12) {
+        for (let t = 7; t < face.size - 5; t += windowStep) {
           const u = t / face.size,
-            u1 = Math.min(1, (t + 4) / face.size);
+            u1 = Math.min(1, (t + windowWidth) / face.size);
           const xa = ax + (bx - ax) * u,
             ya = ay + (by - ay) * u;
           const xb = ax + (bx - ax) * u1,
@@ -90,8 +231,8 @@ export function createWorldRenderer(game, world, specs) {
           const lit = hash(`${building.id}:${z}:${t}`) > 0.57;
           E.px.poly(
             g,
-            [p(xa, ya, z), p(xb, yb, z), p(xb, yb, z + 7), p(xa, ya, z + 7)],
-            lit ? '#c4ae76' : '#2b3a39',
+            [p(xa, ya, z), p(xb, yb, z), p(xb, yb, z + windowHeight), p(xa, ya, z + windowHeight)],
+            lit ? (finance ? '#a5c2bb' : '#c4ae76') : finance ? '#3c5654' : '#2b3a39',
           );
           E.px.line(g, ...p(xa, ya, z + 3), ...p(xb, yb, z + 3), lit ? '#8b845c' : '#44504a');
         }
@@ -104,6 +245,33 @@ export function createWorldRenderer(game, world, specs) {
       E.px.poly(g, [p(ax1, ay1, 0), p(bx1, by1, 0), p(bx1, by1, 12), p(ax1, ay1, 12)], '#162322');
       if (hash(building.id) > 0.45)
         E.px.poly(g, [p(ax, ay, 12), p(bx, by, 12), p(bx, by, 15), p(ax, ay, 15)], '#456963');
+      if (industrial) {
+        const start = 0.28,
+          end = 0.72,
+          point = (u, z) => p(ax + (bx - ax) * u, ay + (by - ay) * u, z);
+        E.px.poly(g, [point(start, 0), point(end, 0), point(end, 18), point(start, 18)], '#56625b');
+        for (let z = 3; z < 18; z += 3)
+          E.px.line(g, ...point(start, z), ...point(end, z), '#818b79');
+      } else if (finance) {
+        for (let t = 3; t < face.size; t += 22) {
+          const u = t / face.size,
+            x = ax + (bx - ax) * u,
+            y = ay + (by - ay) * u;
+          E.px.line(g, ...p(x, y, 0), ...p(x, y, height), '#929f97');
+        }
+      } else if (['housing', 'historic', 'coastal', 'hillside', 'university'].includes(profile)) {
+        for (let z = 24; z < height - 10; z += 30) {
+          const a = 0.42,
+            b = 0.62;
+          E.px.line(
+            g,
+            ...p(ax + (bx - ax) * a, ay + (by - ay) * a, z),
+            ...p(ax + (bx - ax) * b, ay + (by - ay) * b, z),
+            '#afad96',
+            2,
+          );
+        }
+      }
     }
     E.px.poly(
       g,
@@ -149,30 +317,119 @@ export function createWorldRenderer(game, world, specs) {
       E.px.line(g, ...q, ...top, '#2b3936');
       E.px.line(g, top[0] - 5, top[1] + 3, top[0] + 5, top[1] + 3, '#2b3936');
     }
-    const result = { cv, x0, y0 };
-    buildings.set(key, result);
-    return result;
+    if (finance) {
+      E.px.poly(
+        g,
+        [
+          p(w * 0.25, d * 0.25, height + 3),
+          p(w * 0.75, d * 0.25, height + 3),
+          p(w * 0.75, d * 0.75, height + 14),
+          p(w * 0.25, d * 0.75, height + 14),
+        ],
+        '#607873',
+      );
+      E.px.line(
+        g,
+        ...p(w * 0.5, d * 0.5, height + 14),
+        ...p(w * 0.5, d * 0.5, height + 22),
+        '#b1b6a1',
+        2,
+      );
+    } else if (industrial) {
+      E.px.poly(
+        g,
+        [
+          p(w * 0.6, d * 0.15, height + 2),
+          p(w * 0.84, d * 0.15, height + 2),
+          p(w * 0.84, d * 0.65, height + 2),
+          p(w * 0.6, d * 0.65, height + 2),
+        ],
+        '#a3b4a1',
+      );
+      E.px.line(
+        g,
+        ...p(w * 0.6, d * 0.4, height + 3),
+        ...p(w * 0.84, d * 0.4, height + 3),
+        '#3d554e',
+      );
+    } else if (['coastal', 'hillside'].includes(profile)) {
+      E.px.poly(
+        g,
+        [p(0, 0, height), p(w, 0, height), p(w, d * 0.5, height + 10), p(0, d * 0.5, height + 10)],
+        '#9b8264',
+      );
+      E.px.poly(
+        g,
+        [p(0, d * 0.5, height + 10), p(w, d * 0.5, height + 10), p(w, d, height), p(0, d, height)],
+        '#715f4e',
+      );
+    } else if (['park', 'university', 'civic'].includes(profile)) {
+      E.px.poly(
+        g,
+        [
+          p(w * 0.1, d * 0.1, height + 2),
+          p(w * 0.9, d * 0.1, height + 2),
+          p(w * 0.9, d * 0.23, height + 2),
+          p(w * 0.1, d * 0.23, height + 2),
+        ],
+        '#829674',
+      );
+    }
+  }
+  function cachedBuilding(building, view) {
+    const key = building.id + ':' + viewKey(view);
+    if (buildings.has(key)) {
+      const cached = buildings.get(key);
+      buildings.delete(key);
+      buildings.set(key, cached);
+      return cached;
+    }
+    const bounds = projectedBounds(building, view, true),
+      pixels = bounds.w * bounds.h;
+    if (bounds.w > 2048 || bounds.h > 2048 || pixels > limits.maxBuildingPixels) return null;
+    trimTextures(pixels);
+    const cv = E.mkCanvas(bounds.w, bounds.h),
+      g = E.ctx2d(cv);
+    paintBuilding(g, building, view, (x, y, z) => {
+      const p = view.p(x, y, z);
+      return [p[0] - bounds.x, p[1] - bounds.y];
+    });
+    const texture = { cv, x0: bounds.x, y0: bounds.y, pixels };
+    buildings.set(key, texture);
+    stats.buildingPixels += pixels;
+    stats.generatedBuildingTextures++;
+    stats.buildingTextures = buildings.size;
+    return texture;
   }
 
   function drawBuilding(r, b, state) {
     const center = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-    if (!r.visible(center.x, center.y, 0, 220, 250, 240)) return;
-    const cache = cachedBuilding(b, r.view);
     r.queue(
       center.x,
       center.y,
       0,
       (g) => {
-        const q = r.w(b.x, b.y, 0);
+        const cache = g._info ? null : cachedBuilding(b, r.view);
+        const q = r.w(b.x, b.y, b.z || 0);
         const player = state.player;
-        const screenPlayer = r.w(player.x, player.y, 12),
+        const screenPlayer = r.w(player.x, player.y, (player.z || 0) + 12),
           screenBuilding = r.w(center.x, center.y, 0);
         const occluding =
+          (player.z || 0) < (b.z || 0) + (b.height || 70) &&
           screenBuilding[1] > screenPlayer[1] &&
           Math.abs(screenPlayer[0] - screenBuilding[0]) < b.w * 0.75 &&
           Math.hypot(center.x - player.x, center.y - player.y) < 170;
         g.globalAlpha = occluding ? 0.36 : 1;
-        g.drawImage(cache.cv, Math.round(q[0] + cache.x0), Math.round(q[1] + cache.y0));
+        if (cache && !g._info) {
+          const dx = Math.round(q[0] + cache.x0),
+            dy = Math.round(q[1] + cache.y0),
+            sx = Math.max(0, -dx),
+            sy = Math.max(0, -dy);
+          const width = Math.min(cache.cv.width, r.bw - dx) - sx,
+            height = Math.min(cache.cv.height, r.bh - dy) - sy;
+          if (width > 0 && height > 0)
+            g.drawImage(cache.cv, sx, sy, width, height, dx + sx, dy + sy, width, height);
+        } else paintBuilding(g, b, r.view, (x, y, z) => r.w(b.x + x, b.y + y, (b.z || 0) + z));
         g.globalAlpha = 1;
       },
       { occluder: true },
@@ -180,13 +437,13 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   function drawVehicle(r, car, state) {
-    if (!r.visible(car.x, car.y, 0, 60, 70, 70)) return;
+    if (!shouldDrawActor(car) || !r.visible(car.x, car.y, car.z || 0, 60, 70, 70)) return;
     const spec = specs[car.spec] || specs.sedan;
     const L = (spec.length || 28) / 2,
       W = (spec.width || 14) / 2;
     const c = Math.cos(car.angle),
       s = Math.sin(car.angle);
-    const point = (x, y, z) => r.w(car.x + x * c - y * s, car.y + x * s + y * c, z);
+    const point = (x, y, z) => r.w(car.x + x * c - y * s, car.y + x * s + y * c, (car.z || 0) + z);
     const prism = (g, l, w, z0, z1, color, roof) => {
       const corners = [
         [-l, -w],
@@ -212,8 +469,8 @@ export function createWorldRenderer(game, world, specs) {
         roof || color,
       );
     };
-    r.shadow(car.x, car.y, L, 0.3, '#0b1716');
-    r.queue(car.x, car.y, 0, (g) => {
+    r.shadow(car.x, car.y, L, 0.3, '#0b1716', car.z || 0);
+    r.queue(car.x, car.y, car.z || 0, (g) => {
       prism(g, L, W, 1, 3, '#17211e');
       for (const axle of [-L * 0.6, L * 0.6])
         for (const side of [-W, W]) {
@@ -264,7 +521,14 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   function rigFor(person, type) {
-    if (rigs.has(person.id)) return rigs.get(person.id);
+    if (rigs.has(person.id)) {
+      const entry = rigs.get(person.id);
+      entry.lastFrame = frame;
+      rigs.delete(person.id);
+      rigs.set(person.id, entry);
+      return entry.rig;
+    }
+    while (rigs.size >= limits.maxRigs) rigs.delete(rigs.keys().next().value);
     const palette = ['#4b6059', '#71634d', '#556573', '#8a6c55', '#514d4b'];
     const rig = new E.Humanoid({
       build: 'heroic',
@@ -283,13 +547,15 @@ export function createWorldRenderer(game, world, specs) {
         hair: '#35312a',
       },
     });
-    rigs.set(person.id, rig);
+    rigs.set(person.id, { rig, lastFrame: frame });
+    stats.rigs = rigs.size;
     return rig;
   }
 
   function drawPerson(r, person, type, dt) {
     if (person.inVehicle) return;
-    if (!r.visible(person.x, person.y, 0, 35, 50, 50)) return;
+    if (!shouldDrawActor(person) || !r.visible(person.x, person.y, person.z || 0, 35, 50, 50))
+      return;
     const rig = rigFor(person, type);
     rig.update(dt, {
       x: person.x,
@@ -325,7 +591,7 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   function drawPoliceAircraft(r, craft) {
-    if (!r.visible(craft.x, craft.y, craft.z, 95, 100, 100)) return;
+    if (!shouldDrawActor(craft) || !r.visible(craft.x, craft.y, craft.z, 95, 100, 100)) return;
     const c = Math.cos(craft.angle),
       s = Math.sin(craft.angle),
       p = (x, y, z = 0) => r.w(craft.x + x * c - y * s, craft.y + x * s + y * c, craft.z + z);
@@ -372,23 +638,17 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   function streetFurniture(r, state) {
-    for (const road of world.roads) {
-      const vertical = road.x1 === road.x2;
-      const length = Math.hypot(road.x2 - road.x1, road.y2 - road.y1);
-      for (let distance = 105; distance < length; distance += 140) {
-        const x = vertical ? road.x1 + road.width * 0.55 : road.x1 + distance;
-        const y = vertical ? road.y1 + distance : road.y1 + road.width * 0.55;
-        if (!r.visible(x, y, 0, 40, 100, 70)) continue;
-        r.queue(x, y, 0, (g) => {
-          const base = r.w(x, y, 0),
-            top = r.w(x, y, 34),
-            light = r.w(x - 8, y, 34);
-          E.px.line(g, ...base, ...top, '#364e41', 2);
-          E.px.line(g, ...top, ...light, '#364e41', 2);
-          E.px.rect(g, light[0] - 2, light[1] - 1, 5, 2, '#dac68f');
-          r.glowDisc(g, light[0], light[1], 6, '#c3a56d', 0.14);
-        });
-      }
+    for (const lamp of visibleLamps(r)) {
+      const { x, y, z, nx, ny } = lamp;
+      r.queue(x, y, z, (g) => {
+        const base = r.w(x, y, z),
+          top = r.w(x, y, z + 34),
+          light = r.w(x - nx * 8, y - ny * 8, z + 34);
+        E.px.line(g, ...base, ...top, '#364e41', 2);
+        E.px.line(g, ...top, ...light, '#364e41', 2);
+        E.px.rect(g, light[0] - 2, light[1] - 1, 5, 2, '#dac68f');
+        r.glowDisc(g, light[0], light[1], 6, '#c3a56d', 0.14);
+      });
     }
     for (const location of world.locations) {
       if (!r.visible(location.x, location.y, 0, 70, 80, 70)) continue;
@@ -634,10 +894,39 @@ export function createWorldRenderer(game, world, specs) {
   }
 
   return {
+    stats,
+    dispose() {
+      for (const value of buildings.values()) releaseTexture(value);
+      buildings.clear();
+      for (const value of floors.values())
+        if (value) {
+          value.cv.width = 0;
+          value.cv.height = 0;
+        }
+      floors.clear();
+      buildingViews.clear();
+      lampViews.clear();
+      rigs.clear();
+      cityGround?.dispose();
+      stats.buildingTextures = 0;
+      stats.rigs = 0;
+    },
     draw(r, state, { title = false, rain = true } = {}) {
-      drawFloor(r);
-      for (const b of world.buildings) drawBuilding(r, b, state);
-      streetFurniture(r, state);
+      frame++;
+      stats.frame = frame;
+      underground = (state.player.z || 0) < -1;
+      if (cityGround) {
+        if (underground) cityGround.drawUnderground(r, state.player);
+        else {
+          cityGround.draw(r);
+          cityGround.drawElevated(r);
+        }
+      } else drawFloor(r);
+      const visible = underground ? [] : visibleBuildings(r);
+      stats.visibleBuildings = visible.length;
+      for (const b of visible) drawBuilding(r, b, state);
+      if (!underground) streetFurniture(r, state);
+      retireRigs();
       for (const car of state.vehicles) drawVehicle(r, car, state);
       for (const person of state.pedestrians) drawPerson(r, person, 'pedestrian', 1 / 60);
       for (const person of state.police) drawPerson(r, person, 'police', 1 / 60);
@@ -651,6 +940,7 @@ export function createWorldRenderer(game, world, specs) {
             id: `contact:${state.mission.id}:${state.mission.stage}`,
             x: t.x,
             y: t.y,
+            z: t.z || 0,
             angle: Math.PI / 2,
             health: 100,
           },
@@ -659,7 +949,7 @@ export function createWorldRenderer(game, world, specs) {
         );
       }
       const p = state.player;
-      if (!p.vehicleId) {
+      if (!p.vehicleId && shouldDrawActor(p)) {
         hero.update(1 / 60, {
           x: p.x,
           y: p.y,
@@ -668,19 +958,21 @@ export function createWorldRenderer(game, world, specs) {
           facing: p.angle,
           vx: p.vx || Math.cos(p.angle) * (p.speed || 0),
           vy: p.vy || Math.sin(p.angle) * (p.speed || 0),
-          point: p.weapon !== 'unarmed' && !p.meleeAction && (!!p.firing || !!p.aiming),
+          point:
+            !p.swimming && p.weapon !== 'unarmed' && !p.meleeAction && (!!p.firing || !!p.aiming),
           aim: p.aimTarget
             ? Math.atan2(
                 p.aimTarget.z - ((p.z || 0) + 13),
                 Math.max(1, Math.hypot(p.aimTarget.x - p.x, p.aimTarget.y - p.y)),
               )
             : 0,
-          attack: meleeAnimation(p.meleeAction),
-          air: (p.z || 0) > 3 && !p.traversal,
+          attack: p.swimming ? undefined : meleeAnimation(p.meleeAction),
+          air: (p.z || 0) - (p.groundZ || 0) > 3 && !p.traversal,
           climb: p.traversal?.kind === 'climb',
-          stance: p.weapon === 'unarmed' ? 'guard' : undefined,
-          pose:
-            p.health <= 0
+          stance: !p.swimming && p.weapon === 'unarmed' ? 'guard' : undefined,
+          pose: p.swimming
+            ? 'cast'
+            : p.health <= 0
               ? 'down'
               : p.surrendering
                 ? 'cheer'
@@ -690,14 +982,40 @@ export function createWorldRenderer(game, world, specs) {
                     ? 'crouch'
                     : undefined,
         });
-        r.shadow(p.x, p.y, 8, 0.35, '#142820');
+        if (p.swimming) {
+          r.groundDisc(p.x, p.y, 8, '#536f67', 0.25);
+          r.groundRing(p.x, p.y, 11 + Math.sin(game.real * 4) * 1.5, '#adc6b5', 0.4);
+        } else r.shadow(p.x, p.y, 8, 0.35, '#142820', p.groundZ || 0);
         r.actor(
           p.x,
           p.y,
           p.z || 0,
           (g, ox, oy) => {
-            hero.draw(g, ox, oy, r.view);
-            if (!p.surrendering && p.health > 0)
+            if (p.swimming) {
+              // Sink the waist below a hard pixel waterline; arm strokes remain above it.
+              g.save();
+              g.beginPath();
+              g.rect(0, 0, g.canvas.width, Math.max(0, Math.round(oy + 1)));
+              g.clip();
+              hero.draw(g, ox, oy - r.view.bz * 18, r.view);
+              g.restore();
+              E.px.reset(g);
+              const c = Math.cos(p.angle),
+                s = Math.sin(p.angle),
+                project = (x, y, z) => {
+                  const q = r.view.p(x * c - y * s, x * s + y * c, z);
+                  return [ox + q[0], oy + q[1]];
+                };
+              for (const side of [-1, 1]) {
+                const stroke = Math.sin(game.real * 5 + (side * Math.PI) / 2),
+                  shoulder = project(0, side * 5, 3),
+                  elbow = project(4 + stroke * 6, side * 10, 2),
+                  hand = project(8 + stroke * 7, side * (12 - stroke * 3), 1);
+                E.px.line(g, ...shoulder, ...elbow, '#bc927b', 3);
+                E.px.line(g, ...elbow, ...hand, '#c5a28a', 2);
+              }
+            } else hero.draw(g, ox, oy, r.view);
+            if (!p.swimming && !p.surrendering && p.health > 0)
               drawActorEquipment(
                 g,
                 ox,
@@ -713,7 +1031,7 @@ export function createWorldRenderer(game, world, specs) {
           },
         );
       }
-      for (const bullet of state.bullets)
+      for (const bullet of state.bullets.filter(shouldDrawActor))
         r.queue(bullet.x, bullet.y, bullet.z || 12, (g) => {
           E.px.line(
             g,
@@ -723,7 +1041,7 @@ export function createWorldRenderer(game, world, specs) {
             2,
           );
         });
-      for (const obstacle of world.obstacles || []) {
+      for (const obstacle of underground ? [] : world.obstacles || []) {
         if (!r.visible(obstacle.x, obstacle.y, 0, 60, 90, 90)) continue;
         r.queue(obstacle.x + obstacle.w / 2, obstacle.y + obstacle.h / 2, 0, (g) => {
           r.box(
@@ -746,13 +1064,25 @@ export function createWorldRenderer(game, world, specs) {
         });
       }
       for (const pickup of state.pickups || []) {
-        if (!pickup.available || !r.visible(pickup.x, pickup.y, 0, 35, 55, 55)) continue;
-        r.groundRing(pickup.x, pickup.y, 9, '#b5c59b', 0.45);
-        r.queue(pickup.x, pickup.y, 3, (g) => drawStreetEquipment(g, r, pickup));
+        if (
+          !pickup.available ||
+          !shouldDrawActor(pickup) ||
+          !r.visible(pickup.x, pickup.y, pickup.z || 0, 35, 55, 55)
+        )
+          continue;
+        r.groundRing(pickup.x, pickup.y, 9, '#b5c59b', 0.45, pickup.z || 0);
+        r.queue(pickup.x, pickup.y, (pickup.z || 0) + 3, (g) => drawStreetEquipment(g, r, pickup));
       }
       for (const item of state.ordnance || []) {
-        if (!r.visible(item.x, item.y, item.z || 0, 35, 55, 55)) continue;
-        r.shadow(item.x, item.y, item.kind === 'rocket' ? 5 : 3, 0.22, '#18251a');
+        if (!shouldDrawActor(item) || !r.visible(item.x, item.y, item.z || 0, 35, 55, 55)) continue;
+        r.shadow(
+          item.x,
+          item.y,
+          item.kind === 'rocket' ? 5 : 3,
+          0.22,
+          '#18251a',
+          item.groundZ || 0,
+        );
         r.queue(item.x, item.y, item.z || 0, (g) => {
           const q = r.w(item.x, item.y, item.z || 0);
           if (item.kind === 'rocket') {
@@ -773,15 +1103,16 @@ export function createWorldRenderer(game, world, specs) {
         });
       }
       for (const fire of state.fires || []) {
-        if (!r.visible(fire.x, fire.y, 0, 80, 100, 100)) continue;
-        r.groundDisc(fire.x, fire.y, fire.radius, '#a67435', 0.3);
-        r.queue(fire.x, fire.y, 0, (g) => {
+        if (!shouldDrawActor(fire) || !r.visible(fire.x, fire.y, fire.z || 0, 80, 100, 100))
+          continue;
+        r.groundDisc(fire.x, fire.y, fire.radius, '#a67435', 0.3, fire.z || 0);
+        r.queue(fire.x, fire.y, fire.z || 0, (g) => {
           for (let i = 0; i < 18; i++) {
             const angle = i * 2.4,
               radius = fire.radius * hash(`${fire.id}:${i}`),
               x = fire.x + Math.cos(angle) * radius,
               y = fire.y + Math.sin(angle) * radius;
-            const q = r.w(x, y, 1),
+            const q = r.w(x, y, (fire.z || 0) + 1),
               height = 7 + Math.sin(game.real * 8 + i) * 4;
             E.px.poly(
               g,
@@ -796,18 +1127,19 @@ export function createWorldRenderer(game, world, specs) {
         });
       }
       const target = state.waypoint || state.mission?.target;
-      if (target && !title) {
-        r.groundRing(target.x, target.y, target.radius || 22, '#e7c875', 0.7);
+      if (target && !title && shouldDrawActor(target)) {
+        r.groundRing(target.x, target.y, target.radius || 22, '#e7c875', 0.7, target.z || 0);
         r.groundRing(
           target.x,
           target.y,
           (target.radius || 22) + 3 + Math.sin(game.time * 3) * 2,
           '#e7c875',
           0.35,
+          target.z || 0,
         );
-        if (r.visible(target.x, target.y, 0, 30, 80, 50))
-          r.queue(target.x, target.y, 0, (g) => {
-            const p = r.w(target.x, target.y, 28 + Math.sin(game.time * 3) * 2);
+        if (r.visible(target.x, target.y, target.z || 0, 30, 80, 50))
+          r.queue(target.x, target.y, target.z || 0, (g) => {
+            const p = r.w(target.x, target.y, (target.z || 0) + 28 + Math.sin(game.time * 3) * 2);
             E.px.poly(
               g,
               [
@@ -819,7 +1151,7 @@ export function createWorldRenderer(game, world, specs) {
             );
           });
       }
-      if (rain)
+      if (rain && !underground)
         r.overlay((g) => {
           g.globalAlpha = 0.23;
           for (let i = 0; i < 95; i++) {

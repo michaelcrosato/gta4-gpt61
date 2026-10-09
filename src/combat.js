@@ -1,3 +1,4 @@
+import { worldElevation } from './world-elevation.js';
 /** Original weapon handling and combat rules. Rendering and audio consume the same live state. */
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -291,6 +292,8 @@ export function initializeCombat(state, pickups = []) {
   if (!player.weapons.includes('unarmed')) player.weapons.unshift('unarmed');
   for (const id of Object.keys(WEAPONS)) player.ammo[id] ??= { clip: 0, reserve: 0 };
   player.z ??= 0;
+  player.groundZ ??= 0;
+  player.swimming ??= false;
   player.vz ??= 0;
   player.crouching ??= false;
   player.cover ??= null;
@@ -570,6 +573,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
     player.reloadRemaining > 0 ||
     player.fireCooldown > 0 ||
     player.traversal ||
+    player.swimming ||
     (player.vehicleId && !weapon.vehicleAllowed) ||
     player.defending
   )
@@ -657,6 +661,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
       weapon: player.weapon,
       owner: 'player',
       ...muzzle,
+      groundZ: player.groundZ || 0,
       vx: Math.cos(heading) * horizontalSpeed,
       vy: Math.sin(heading) * horizontalSpeed,
       vz: (weapon.bulletSpeed * heightDelta) / trajectoryLength,
@@ -686,6 +691,7 @@ export function fireCombatWeapon(state, ctx, input = {}) {
       x: player.x + Math.cos(angle) * Math.max(0, offset),
       y: player.y + Math.sin(angle) * Math.max(0, offset),
       z: (player.z || 0) + 13,
+      groundZ: player.groundZ || 0,
       vx: Math.cos(angle) * weapon.throwSpeed * charge,
       vy: Math.sin(angle) * weapon.throwSpeed * charge,
       vz: weapon.throwLift,
@@ -754,6 +760,7 @@ function ignite(state, projectile, ctx) {
     id: ctx.id('fire'),
     x: projectile.x,
     y: projectile.y,
+    z: projectile.groundZ || 0,
     radius: weapon.fireRadius,
     maxRadius: weapon.maxFireRadius,
     remaining: weapon.fireDuration,
@@ -764,13 +771,17 @@ function ignite(state, projectile, ctx) {
   projectile.remaining = 0;
 }
 function settleObject(state, projectile, ctx) {
-  if (projectile.material !== 'glass' && !ctx.isBlocked(projectile.x, projectile.y, 3))
+  if (
+    projectile.material !== 'glass' &&
+    !ctx.isBlocked(projectile.x, projectile.y, 3, projectile.groundZ || 0)
+  )
     state.pickups.push({
       id: ctx.id('street-object'),
       type: 'object',
       weapon: 'street-object',
       x: projectile.x,
       y: projectile.y,
+      z: projectile.groundZ || 0,
       name: projectile.objectName,
       material: projectile.material,
       ammo: 1,
@@ -826,7 +837,7 @@ function rocketSolidContact(start, end, ctx) {
         y: start.y + (end.y - start.y) * t,
         z: start.z + (end.z - start.z) * t,
       };
-    if (!ctx.isBlocked(point.x, point.y, 2, Math.max(0, point.z))) continue;
+    if (!ctx.isBlocked(point.x, point.y, 2, point.z)) continue;
     let low = (i - 1) / steps,
       high = t;
     for (let iteration = 0; iteration < 8; iteration++) {
@@ -836,7 +847,7 @@ function rocketSolidContact(start, end, ctx) {
           start.x + (end.x - start.x) * mid,
           start.y + (end.y - start.y) * mid,
           2,
-          Math.max(0, start.z + (end.z - start.z) * mid),
+          start.z + (end.z - start.z) * mid,
         )
       )
         high = mid;
@@ -858,10 +869,12 @@ export function updateOrdnance(state, dt, ctx) {
       y: projectile.y + projectile.vy * dt,
       z: projectile.z + projectile.vz * dt,
     };
+    const floor = ctx.surfaceHeight?.(next.x, next.y, projectile.groundZ || 0) ?? 0;
+    projectile.groundZ = floor;
     if (projectile.kind === 'rocket') {
       let impact = rocketSolidContact(previous, next, ctx);
-      if (next.z <= 0) {
-        const ground = previous.z > 0 ? previous.z / (previous.z - next.z) : 0;
+      if (next.z <= floor) {
+        const ground = previous.z > floor ? (previous.z - floor) / (previous.z - next.z) : 0;
         impact = impact === null ? ground : Math.min(impact, ground);
       }
       const actors = [
@@ -884,20 +897,25 @@ export function updateOrdnance(state, dt, ctx) {
       const fraction = impact === null ? 1 : clamp(impact, 0, 1);
       projectile.x = previous.x + (next.x - previous.x) * fraction;
       projectile.y = previous.y + (next.y - previous.y) * fraction;
-      projectile.z = Math.max(0, previous.z + (next.z - previous.z) * fraction);
+      projectile.z = Math.max(floor, previous.z + (next.z - previous.z) * fraction);
       if (impact !== null || projectile.remaining <= 0) explode(state, projectile, ctx);
       continue;
     }
-    const wall =
-      ctx.isBlocked(next.x, next.y, 2, Math.max(0, next.z)) || !ctx.hasLineOfSight(previous, next);
+    next.z = Math.max(floor, next.z);
+    const wall = ctx.isBlocked(next.x, next.y, 2, next.z) || !ctx.hasLineOfSight(previous, next);
     if (!wall) {
       projectile.x = next.x;
       projectile.y = next.y;
     }
-    projectile.z = next.z;
+    projectile.z = wall ? previous.z : next.z;
     if (wall) {
-      projectile.vx *= -0.45;
-      projectile.vy *= -0.45;
+      const vertical =
+        ctx.isBlocked(previous.x, previous.y, 2, next.z) || previous.z < 0 !== next.z < 0;
+      if (vertical) projectile.vz *= -0.35;
+      else {
+        projectile.vx *= -0.45;
+        projectile.vy *= -0.45;
+      }
       projectile.bounces++;
     }
     const victims = hostileList(state).filter(
@@ -905,9 +923,10 @@ export function updateOrdnance(state, dt, ctx) {
         person.id !== projectile.owner &&
         person.health > 0 &&
         distance(person, projectile) < 8 &&
-        projectile.z < 18,
+        projectile.z >= (person.z || 0) &&
+        projectile.z < (person.z || 0) + 18,
     );
-    const ground = projectile.z <= 0;
+    const ground = projectile.z <= floor;
     if (projectile.kind === 'molotov' && (wall || ground || victims.length))
       ignite(state, projectile, ctx);
     else if (projectile.kind === 'object' && (wall || ground || victims.length)) {
@@ -918,7 +937,7 @@ export function updateOrdnance(state, dt, ctx) {
       settleObject(state, projectile, ctx);
     } else if (projectile.kind === 'grenade') {
       if (ground) {
-        projectile.z = 0;
+        projectile.z = floor;
         projectile.vz = Math.abs(projectile.vz) > 17 ? -projectile.vz * 0.35 : 0;
         projectile.vx *= 0.64;
         projectile.vy *= 0.64;
@@ -995,6 +1014,7 @@ export function predictThrow(state, ctx, steps = 90) {
     z: (player.z || 0) + 13,
   };
   let lift = weapon.throwLift;
+  let groundZ = player.groundZ || 0;
   const points = [{ ...point }];
   for (let i = 0; i < steps; i++) {
     lift -= 180 / 60;
@@ -1003,13 +1023,19 @@ export function predictThrow(state, ctx, steps = 90) {
       y: point.y + (Math.sin(player.angle) * speed) / 60,
       z: point.z + lift / 60,
     };
-    if (ctx.isBlocked(next.x, next.y, 2, Math.max(0, next.z)) || !ctx.hasLineOfSight(point, next))
-      break;
+    groundZ = ctx.surfaceHeight?.(next.x, next.y, groundZ) ?? 0;
+    if (next.z < groundZ) {
+      const t = (point.z - groundZ) / (point.z - next.z);
+      next.x = point.x + (next.x - point.x) * t;
+      next.y = point.y + (next.y - point.y) * t;
+      next.z = groundZ;
+    }
+    if (ctx.isBlocked(next.x, next.y, 2, next.z) || !ctx.hasLineOfSight(point, next)) break;
     point.x = next.x;
     point.y = next.y;
     point.z = next.z;
-    points.push({ ...point, z: Math.max(0, point.z) });
-    if (point.z <= 0) break;
+    points.push({ ...point, z: Math.max(groundZ, point.z) });
+    if (point.z <= groundZ) break;
   }
   return points;
 }
@@ -1020,6 +1046,7 @@ export function validateCombatSave(state, world) {
     typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
   const point = (item) => item && finite(item.x, 0, world.width) && finite(item.y, 0, world.height);
   const p = state.player;
+  const elevation = worldElevation(world);
   if (
     state.combatVersion !== 1 ||
     !Array.isArray(state.ordnance) ||
@@ -1041,7 +1068,9 @@ export function validateCombatSave(state, world) {
   )
     throw new Error('The saved weapon loadout is invalid.');
   if (
-    !finite(p.z, 0, 100) ||
+    !finite(p.z, elevation.min, elevation.max) ||
+    (p.groundZ !== undefined && !finite(p.groundZ, elevation.min, elevation.max)) ||
+    (p.swimming !== undefined && typeof p.swimming !== 'boolean') ||
     !finite(p.vz, -500, 500) ||
     !finite(p.recoil, 0, 2) ||
     !finite(p.dodgeRemaining, 0, 1) ||
@@ -1073,7 +1102,9 @@ export function validateCombatSave(state, world) {
       !point(p.traversal.end) ||
       !finite(p.traversal.elapsed, 0, 3) ||
       !finite(p.traversal.duration, 0.01, 3) ||
-      !finite(p.traversal.height, 0, 100))
+      !finite(p.traversal.height, 0, 100) ||
+      (p.traversal.groundZ !== undefined &&
+        !finite(p.traversal.groundZ, elevation.min, elevation.max)))
   )
     throw new Error('The saved traversal is invalid.');
   if (
@@ -1112,7 +1143,8 @@ export function validateCombatSave(state, world) {
         !point(item) ||
         !WEAPONS[item.weapon] ||
         !['rocket', 'grenade', 'molotov', 'object'].includes(item.kind) ||
-        !finite(item.z, 0, 1000) ||
+        !finite(item.z, elevation.min, Math.max(1000, elevation.max)) ||
+        (item.groundZ !== undefined && !finite(item.groundZ, elevation.min, elevation.max)) ||
         !finite(item.vx, -1000, 1000) ||
         !finite(item.vy, -1000, 1000) ||
         !finite(item.vz, -500, 500) ||
@@ -1129,6 +1161,7 @@ export function validateCombatSave(state, world) {
       (item) =>
         !point(item) ||
         !finite(item.radius, 0, 200) ||
+        (item.z !== undefined && !finite(item.z, elevation.min, elevation.max)) ||
         !finite(item.maxRadius, item.radius, 200) ||
         !finite(item.remaining, 0, 30) ||
         !finite(item.damage, 0, 100) ||
@@ -1142,6 +1175,7 @@ export function validateCombatSave(state, world) {
         !point(item) ||
         !WEAPONS[item.weapon] ||
         !['weapon', 'object'].includes(item.type) ||
+        (item.z !== undefined && !finite(item.z, elevation.min, elevation.max)) ||
         typeof item.available !== 'boolean' ||
         !finite(item.remaining, 0, 3600) ||
         (item.ammo !== undefined &&

@@ -1,6 +1,6 @@
 {
   "name": "lowlight",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "An original urban crime drama powered by my-3d2dge",
@@ -8,9 +8,9 @@
     "dev": "node scripts/dev-server.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check src/game.js && node --check src/renderer.js && node --check src/simulation.js && node --check src/navigation.js && node --check src/combat.js && node --check src/police.js && node --check src/world.js && node --check src/weapon-art.js && node --check src/minigames.js && node --check src/minigame-view.js && node --check src/activity-save.js",
-    "format": "prettier --write index.html styles.css src scripts/*.mjs tests/*.mjs package.json manifest.webmanifest",
-    "format:check": "prettier --check index.html styles.css src scripts/*.mjs tests/*.mjs package.json manifest.webmanifest",
+    "check": "node scripts/check.mjs",
+    "format": "prettier --write index.html styles.css src scripts/*.mjs tests/*.mjs tests/helpers/*.mjs package.json manifest.webmanifest",
+    "format:check": "prettier --check index.html styles.css src scripts/*.mjs tests/*.mjs tests/helpers/*.mjs package.json manifest.webmanifest",
     "scope": "node scripts/scope-status.mjs"
   },
   "engines": {

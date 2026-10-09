@@ -220,7 +220,7 @@ export function drawActorEquipment(g, ox, oy, rig, view, weapon, material = 'met
 export function drawStreetEquipment(g, r, pickup) {
   const model = MODELS[pickup.weapon];
   if (!model) return;
-  const point = (x, y, z) => r.w(pickup.x + x, pickup.y + y, 3 + z);
+  const point = (x, y, z) => r.w(pickup.x + x, pickup.y + y, (pickup.z || 0) + 3 + z);
   drawModel(g, point, r.view, model, pickup.material || 'metal');
 }
 

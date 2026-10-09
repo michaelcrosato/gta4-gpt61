@@ -14,6 +14,7 @@ import {
   currentVehicle,
   isBlocked,
   WORLD,
+  TERRAIN,
   MISSIONS,
   WEAPONS,
   VEHICLE_SPECS,
@@ -54,8 +55,11 @@ function occupy(state, id) {
 test('city connects five districts with traversable roads and collision geometry', () => {
   assert.equal(WORLD.districts.length, 5);
   assert.ok(WORLD.buildings.length >= 35);
-  assert.ok(WORLD.roads.every((road) => road.width >= 80));
-  for (const road of WORLD.roads) {
+  assert.equal(WORLD.neighbourhoods.length, 65);
+  assert.equal(WORLD.sites.length, 194);
+  const roads = WORLD.roads.filter((road) => road.access?.includes('car'));
+  assert.ok(roads.every((road) => road.width >= 28));
+  for (const road of roads) {
     const samples = 20;
     for (let i = 0; i <= samples; i += 1) {
       const fraction = i / samples;
@@ -64,8 +68,11 @@ test('city connects five districts with traversable roads and collision geometry
           road.x1 + (road.x2 - road.x1) * fraction,
           road.y1 + (road.y2 - road.y1) * fraction,
           10,
+          (road.z1 ?? road.z ?? 0) +
+            ((road.z2 ?? road.z ?? 0) - (road.z1 ?? road.z ?? 0)) * fraction,
         ),
         false,
+        `Road ${road.id} at ${fraction} must be clear on its own layer`,
       );
     }
   }
