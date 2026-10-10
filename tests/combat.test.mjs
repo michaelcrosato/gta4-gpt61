@@ -569,6 +569,42 @@ test('live ordnance, partial reload/traversal and pickup depletion survive deter
   assert.equal(restoredPickup.pickups.find((item) => item.id === pickup.id).available, false);
 });
 
+test('respawned pickups keep a valid timer and remain available after Continue', () => {
+  const state = free(),
+    pickup = state.pickups.find((item) => item.respawnSeconds);
+  Object.assign(state.player, { x: pickup.x, y: pickup.y });
+  assert.equal(pickupWeapon(state, pickup.id), true);
+  assert.equal(pickup.remaining, pickup.respawnSeconds);
+  // This timer fixture starts within one fixed step of a real pickup's respawn.
+  pickup.remaining = 0.01;
+  const continued = restoreGame(saveGame(state));
+  updateSimulation(continued, 1 / 60);
+  const respawned = continued.pickups.find((item) => item.id === pickup.id);
+  assert.equal(respawned.available, true);
+  assert.equal(respawned.remaining, 0);
+  const restored = restoreGame(saveGame(continued));
+  assert.equal(restored.pickups.find((item) => item.id === pickup.id).remaining, 0);
+  assert.equal(pickupWeapon(restored, pickup.id), true);
+});
+
+test('Continue repairs only the old completed pickup timer underflow', () => {
+  const state = free(),
+    pickup = state.pickups.find((item) => item.respawnSeconds);
+  pickup.remaining = -1 / 120;
+  const saved = JSON.parse(saveGame(state));
+  const restored = restoreGame(saved);
+  assert.equal(restored.pickups.find((item) => item.id === pickup.id).remaining, 0);
+  assert.equal(restored.pickups.find((item) => item.id === pickup.id).available, true);
+  for (const change of [{ remaining: -1 }, { available: false }, { respawnSeconds: 0 }]) {
+    const corrupt = structuredClone(saved);
+    Object.assign(
+      corrupt.state.pickups.find((item) => item.id === pickup.id),
+      change,
+    );
+    assert.throws(() => restoreGame(corrupt), /pickups/);
+  }
+});
+
 test('legacy version1 saves gain new combat defaults while corrupt new records are rejected', () => {
   const legacy = JSON.parse(saveGame(createSimulation()));
   delete legacy.state.combatVersion;

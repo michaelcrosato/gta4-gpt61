@@ -727,7 +727,7 @@ export function performCampaignService(state, kind, context, options = {}) {
       hours: kind === 'rest' ? 6 : 0,
       scope: scope(state),
     };
-    const calendarBefore = sync(context.services.calendarHours, state);
+    let calendarBefore = sync(context.services.calendarHours, state);
     const result = sync(context.services.handlers[kind], state, request);
     if (
       !accepted(result) ||
@@ -748,6 +748,19 @@ export function performCampaignService(state, kind, context, options = {}) {
       };
       model.sequence++;
       return { ok: true, pending: true, receipt: clone(result.receipt) };
+    }
+    if (kind === 'rest' && result.replayed === true) {
+      // A saved physical rest can outlive its pending campaign observer. Use
+      // its verified calendar interval without requiring another six hours.
+      const calendar = result.receipt.calendar;
+      if (
+        calendar?.hours !== 6 ||
+        !finite(calendar.startedAt) ||
+        !finite(calendar.endedAt) ||
+        Math.abs(calendar.endedAt - calendar.startedAt - 6) > EPS
+      )
+        return gate('six-hours-of-actual-calendar-rest-not-observed');
+      calendarBefore = calendar.startedAt;
     }
     if (
       kind === 'rest' &&

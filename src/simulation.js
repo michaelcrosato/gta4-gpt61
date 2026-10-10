@@ -2998,6 +2998,28 @@ function validExitPoint(state, vehicle) {
   }
   return null;
 }
+function nearbyPickupInteractions(state) {
+  if (state.player.vehicleId) return [];
+  return (state.pickups || [])
+    .filter(
+      (pickup) =>
+        pickup.available &&
+        inScene(pickup, currentSceneId(state)) &&
+        distance(state.player, pickup) < 27 &&
+        Math.abs((pickup.z || 0) - (state.player.z || 0)) < 16 &&
+        hasLineOfSight(state.player, pickup, state),
+    )
+    .map((pickup) => ({
+      ...pickup,
+      type: 'pickup',
+      name: WEAPONS[pickup.weapon]?.name || pickup.name,
+      prompt: `Pick up ${pickup.type === 'object' ? pickup.name : WEAPONS[pickup.weapon]?.name || pickup.name}`,
+      radius: 27,
+      available: true,
+      distance: distance(state.player, pickup),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+}
 function interactionCandidates(state) {
   const candidates = [];
   const player = state.player;
@@ -3042,17 +3064,8 @@ function interactionCandidates(state) {
     }
   }
   if (!player.vehicleId) {
-    for (const pickup of state.pickups || [])
-      if (pickup.available)
-        candidates.push({
-          ...pickup,
-          type: 'pickup',
-          name: WEAPONS[pickup.weapon]?.name || pickup.name,
-          prompt: `Pick up ${pickup.type === 'object' ? pickup.name : WEAPONS[pickup.weapon]?.name || pickup.name}`,
-          radius: 27,
-          available: true,
-        });
-    for (const vehicle of state.vehicles) {
+    candidates.push(...nearbyPickupInteractions(state));
+    for (const vehicle of sceneVehicles(state)) {
       if (vehicle.health <= 0 || (vehicle.kind === 'traffic' && vehicle.speed > 24)) continue;
       candidates.push({
         id: vehicle.id,
@@ -3185,7 +3198,9 @@ export function nearestInteractable(state) {
       available: true,
     };
   if (currentSceneId(state)) {
-    const item = nearestInteriorInteractable(state);
+    const item = nearestInteriorInteractable(state),
+      pickup = nearbyPickupInteractions(state)[0];
+    if (pickup && (!item || pickup.distance < item.distance)) return pickup;
     if (item)
       return {
         ...item,
@@ -3474,7 +3489,10 @@ export function interact(state) {
     }
     return candidate;
   }
-  if (currentSceneId(state) && !['dialogue', 'vehicle', 'exit'].includes(candidate.type)) {
+  if (
+    currentSceneId(state) &&
+    !['dialogue', 'vehicle', 'exit', 'pickup'].includes(candidate.type)
+  ) {
     const result = interactInterior(state, interiorContext(state));
     return result.ok
       ? result.result || result
@@ -4204,6 +4222,16 @@ export function restoreGame(serialized, options = {}) {
   migrateRailSignals(state, WORLD);
   if (!state.railSignals) throw new Error('The saved Metro signal reservations are missing.');
   if (state.combatVersion === undefined) initializeCombat(state, WORLD.pickups || []);
+  // Older version-one saves retained the final fixed step below zero when a
+  // pickup respawned. Repair only that completed, one-step timer underflow.
+  if (Array.isArray(state.pickups))
+    for (const pickup of state.pickups)
+      if (
+        pickup?.available === true &&
+        finiteNumber(pickup.respawnSeconds, Number.MIN_VALUE, 3600) &&
+        finiteNumber(pickup.remaining, -1 / 60, 0)
+      )
+        pickup.remaining = 0;
   validateCombatSave(state, SCENES.validationWorld(state));
   if (state.policeVersion === undefined) initializePolicing(state);
   validatePoliceSave(state, WORLD);

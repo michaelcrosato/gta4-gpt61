@@ -43,9 +43,9 @@ export function useShelterService(state, kind, request = {}, context = {}) {
     return { ok: false, reason: 'invalid-service-request' };
   if (Object.hasOwn(model.receipts, id)) {
     const receipt = model.receipts[id];
-    return receipt.kind === kind
-      ? { ok: true, replayed: true, receipt: clone(receipt) }
-      : { ok: false, reason: 'receipt-conflict' };
+    if (receipt.kind !== kind) return { ok: false, reason: 'receipt-conflict' };
+    if (kind === 'rest') delete model.cancelled[id];
+    return { ok: true, replayed: true, receipt: clone(receipt) };
   }
   if (model.active)
     return model.active.id === id && model.active.kind === kind
@@ -76,6 +76,9 @@ export function useShelterService(state, kind, request = {}, context = {}) {
       hours: 6,
       startedAt: worldHours(state),
     };
+    // The mission reuses this receipt ID after an interrupted rest. The new
+    // pending action must replace the old cancellation before it is observed.
+    delete model.cancelled[id];
     return { ok: true, pending: true, receipt: { id, kind, status: 'pending' } };
   } else if (kind === 'wardrobe') {
     for (const outfit of ['co-op-workwear', 'shore-knit']) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -74,6 +74,47 @@ test('a static output cannot erase its source tree', async () => {
     /must not replace/,
   );
   await assert.rejects(buildStaticSite({ source, output: resolve('/') }), /must not replace/);
+});
+
+test('static output rejects public input overlap and symlink aliases before removing files', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'lowlight-build-paths-')),
+    fixture = join(temp, 'actual', 'source'),
+    alias = join(temp, 'alias'),
+    inputs = [
+      'index.html',
+      'styles.css',
+      'my-3d2dge.js',
+      'manifest.webmanifest',
+      'src/keep.js',
+      'assets/keep.txt',
+      'LICENSES/keep.txt',
+    ];
+  try {
+    for (const file of inputs) {
+      await mkdir(dirname(join(fixture, file)), { recursive: true });
+      await writeFile(join(fixture, file), `original:${file}`);
+    }
+    await symlink(dirname(fixture), alias, 'dir');
+    for (const output of [
+      join(fixture, 'src'),
+      join(fixture, 'src', 'generated'),
+      join(fixture, 'assets'),
+      join(fixture, 'index.html'),
+      join(alias, 'source'),
+      join(alias, 'source', 'src', 'generated'),
+    ]) {
+      await assert.rejects(buildStaticSite({ source: fixture, output }), /must not replace/);
+      assert.deepEqual(await files(fixture), inputs.toSorted());
+      for (const file of inputs)
+        assert.equal(await readFile(join(fixture, file), 'utf8'), `original:${file}`);
+    }
+    const output = join(alias, 'source', 'dist');
+    assert.equal(await buildStaticSite({ source: fixture, output }), output);
+    for (const file of inputs)
+      assert.equal(await readFile(join(output, file), 'utf8'), `original:${file}`);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
 });
 
 test('the actual Vercel build command produces its configured public output without installed dependencies', async () => {

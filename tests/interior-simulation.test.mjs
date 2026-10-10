@@ -147,6 +147,60 @@ test('room-local bullets and off-scene fires cannot hit exterior people or an in
   assert.equal(s.player.health, health);
   assert.ok(s.fires[0].remaining < 10, 'Off-scene fire clocks still advance');
 });
+test('indoor weapon pickups use the normal interaction and persist as collected after Continue', () => {
+  const s = free();
+  enter(s, 'voss-dispatch');
+  Object.assign(s.player, { x: 112, y: 118, angle: 0 });
+  const pickup = {
+    id: 'indoor-dropped-shotgun',
+    type: 'weapon',
+    weapon: 'shotgun',
+    sceneId: 'voss-dispatch',
+    x: 117,
+    y: 118,
+    z: 0,
+    ammo: 4,
+    available: true,
+    remaining: 0,
+  };
+  s.pickups.push(pickup);
+  assert.equal(nearestInteractable(s)?.id, pickup.id);
+  assert.equal(interact(s)?.type, 'pickup');
+  assert.equal(pickup.available, false);
+  assert.equal(s.player.weapon, 'shotgun');
+  assert.equal(s.player.ammo.shotgun.clip, 4);
+  assert.equal(s.player.sceneId, 'voss-dispatch');
+  const restored = restoreGame(saveGame(s));
+  assert.equal(restored.pickups.find((item) => item.id === pickup.id).available, false);
+  assert.equal(restored.player.ammo.shotgun.clip, 4);
+});
+test('exterior interactions exclude room pickups and vehicles at matching local coordinates', () => {
+  const s = free();
+  Object.assign(s.player, { x: 180, y: 180 });
+  s.pickups = [
+    {
+      id: 'room-pickup',
+      type: 'weapon',
+      weapon: 'shotgun',
+      sceneId: 'voss-dispatch',
+      x: 180,
+      y: 180,
+      z: 0,
+      ammo: 4,
+      available: true,
+      remaining: 0,
+    },
+  ];
+  const car = s.vehicles.find((item) => item.id === 'starter-taxi');
+  Object.assign(car, { x: 180, y: 180, scene: { kind: 'interior', id: 'saira-garage' } });
+  s.vehicles = [car];
+  assert.notEqual(nearestInteractable(s)?.id, 'room-pickup');
+  s.pickups = [];
+  assert.notEqual(nearestInteractable(s)?.id, car.id);
+  interact(s);
+  assert.equal(s.player.vehicleId, null);
+  assert.equal(car.occupied, false);
+});
 test('actual indoor gunfire damages an occupant and reports the exterior entrance through the witness delay', () => {
   const s = free();
   enter(s, 'voss-dispatch');

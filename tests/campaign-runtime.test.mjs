@@ -775,6 +775,64 @@ test('confirmed save candidate survives Continue, and rest completes only after 
   assert.deepEqual(h.state.progress.completed, []);
 });
 
+test('an interrupted shelter rest can restart in the same mission attempt and complete once', () => {
+  const h = fixture();
+  h.toRest();
+  h.eatAndSave();
+  h.approach('rest');
+  const first = performCampaignService(h.state, 'rest', h.context);
+  assert.equal(first.pending, true);
+  h.state.wanted.level = 1;
+  h.step();
+  assert.equal(h.state.shelterServices.active, null);
+  assert.equal(h.state.campaignRuntime.night.pendingServices.rest, undefined);
+  assert.equal(h.state.calendar.offsetHours, 0);
+
+  h.state.wanted.level = 0;
+  const restarted = performCampaignService(h.state, 'rest', h.context);
+  assert.equal(restarted.pending, true);
+  assert.equal(restarted.receipt.id, first.receipt.id);
+  h.step();
+  assert.ok(
+    h.state.campaignRuntime.night.pendingServices.rest,
+    'The cancelled action must not discard the replacement rest.',
+  );
+  h.until(() => Boolean(h.state.campaignRuntime.night.services.rest));
+  assert.equal(h.state.calendar.offsetHours, 6);
+  assert.equal(updateCampaignDirector(h.state.campaign, h.adapters).completed, 'LL-ST-001');
+  assert.equal(h.state.rewardCalls, 1);
+});
+
+test('a continued completed rest with a lost campaign observation uses its original calendar receipt', () => {
+  const h = fixture();
+  h.toRest();
+  h.eatAndSave();
+  h.approach('rest');
+  const first = performCampaignService(h.state, 'rest', h.context);
+  h.state.wanted.level = 1;
+  h.step();
+  const cancellation = copy(h.state.shelterServices.cancelled[first.receipt.id]);
+  h.state.wanted.level = 0;
+  assert.equal(performCampaignService(h.state, 'rest', h.context).pending, true);
+  // Existing-save fixture: the old version retained this cancellation while
+  // the replacement physical rest was active, then lost its pending observer.
+  h.state.shelterServices.cancelled[first.receipt.id] = cancellation;
+  h.step();
+  assert.equal(h.state.campaignRuntime.night.pendingServices.rest, undefined);
+  h.until(() => h.state.shelterServices.active === null);
+  assert.equal(h.state.calendar.offsetHours, 6);
+  assert.equal(h.state.campaignRuntime.night.services.rest, null);
+  const world = h.adapters.captureWorld();
+  assert.equal(h.adapters.restoreWorld(world, { reason: 'continue-contract' }).ok, true);
+
+  const result = performCampaignService(h.state, 'rest', h.context);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(h.state.calendar.offsetHours, 6, 'Recovery must not apply another six hours.');
+  assert.equal(h.state.shelterServices.active, null);
+  assert.equal(updateCampaignDirector(h.state.campaign, h.adapters).completed, 'LL-ST-001');
+  assert.equal(h.state.rewardCalls, 1);
+});
+
 test('checkpoints exclude only the director, restore actual bodies/calendar/ledgers in place and emit an input/camera epoch', () => {
   const h = fixture();
   h.start();
