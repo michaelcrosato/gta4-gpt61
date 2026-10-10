@@ -1801,7 +1801,8 @@ function combatContext(state, sceneId = currentSceneId(state)) {
   const geometry = SCENES.queries(state, sceneId);
   return {
     sceneId,
-    handImpairment: (actor) => twoSeatsWristView(state, actor.id),
+    handImpairment: (actor) =>
+      twoSeatsWristView(state, actor === state.player ? 'player' : (actor?.id ?? null)),
     onDamage: campaignObservers(state)?.damage,
     onAttack: campaignObservers(state)?.attack,
     onDisarm: campaignObservers(state)?.disarm,
