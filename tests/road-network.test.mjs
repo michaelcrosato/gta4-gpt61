@@ -85,6 +85,57 @@ test('coincident explicit road layers stay separate and snapping follows actor h
   assert.equal(snapToRoad(world, { x: 10, y: 0, z: 0 }).roadId, 'ground');
   assert.equal(createRoadNetwork(world).components, 2);
 });
+test('off-center vehicles keep their road level at bridges and tunnel crossings', () => {
+  for (const z of [28, -18]) {
+    const world = {
+      roads: [
+        road('ground', -100, 0, 100, 0, { z1: 0, z2: 0, width: 60 }),
+        road('crossing', 0, -100, 0, 100, { z1: z, z2: z, width: 60 }),
+      ],
+    };
+    for (const [start, end, roadId] of [
+      [{ x: 0, y: 5, z: 0 }, { x: 90, y: 0, z: 0 }, 'ground'],
+      [{ x: 5, y: 0, z }, { x: 0, y: 90, z }, 'crossing'],
+    ]) {
+      const snapped = snapToRoad(world, start, { includeZ: true }),
+        route = findRoute(world, start, end, { includeZ: true });
+      assert.equal(snapped.roadId, roadId);
+      assert.equal(snapped.z, start.z);
+      assert.equal(snapped.distance, 5, 'reported distance remains the XY projection distance');
+      assert.ok(route.length > 1, 'a route along the occupied road remains available');
+      assert.ok(route.every((point) => point.z === start.z));
+      assert.deepEqual(route.at(-1), end);
+    }
+    assert.equal(snapToRoad(world, { x: 0, y: 5 }).roadId, 'crossing');
+  }
+});
+test('height-aware snapping retains sloped roads and continuous bridge approaches', () => {
+  const world = {
+    roads: [
+      road('left', -100, 0, 0, 0, { width: 60 }),
+      road('up', 0, 0, 100, 0, { z1: 0, z2: 28, width: 60 }),
+      road('deck', 100, 0, 200, 0, { z1: 28, z2: 28, width: 60 }),
+      road('down', 200, 0, 300, 0, { z1: 28, z2: 0, width: 60 }),
+      road('right', 300, 0, 400, 0, { width: 60 }),
+      road('underpass', 50, -100, 50, 100, { width: 60 }),
+    ],
+  };
+  const onRamp = snapToRoad(world, { x: 50, y: 5, z: 14 }, { includeZ: true });
+  assert.equal(onRamp.roadId, 'up');
+  assert.equal(onRamp.z, 14);
+  assert.equal(snapToRoad(world, { x: 55, y: 0, z: 0 }).roadId, 'underpass');
+  const route = findRoute(
+    world,
+    { x: -50, y: 5, z: 0 },
+    { x: 350, y: -5, z: 0 },
+    { includeZ: true },
+  );
+  assert.equal(length(route), 400);
+  assert.deepEqual(
+    route.map((point) => point.z),
+    [0, 0, 28, 28, 0, 0],
+  );
+});
 test('revision and explicit invalidation rebuild changed static geometry', () => {
   const world = { roads: [road('street', 0, 0, 10, 0)] },
     first = createRoadNetwork(world);

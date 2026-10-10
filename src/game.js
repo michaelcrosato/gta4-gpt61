@@ -61,29 +61,19 @@ import { OUTFITS } from './wardrobe.js';
 import { FIRST_ARC_MISSIONS } from './campaign/first-arc.js';
 import { storyChoicePresentation, storyChoiceMarkup } from './campaign/choice-presentation.js';
 import { drawTwoSeatsClosedAccess } from './campaign/two-seats-registration.js';
+import { readBrowserState, SAVE_KEY, SETTINGS_KEY } from './browser-state.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
-const SAVE_KEY = 'lowlight.save.v1',
-  SETTINGS_KEY = 'lowlight.settings.v1';
 let state = createSimulation(61),
   mode = 'title',
   lastHud = 0,
   lastSave = 0,
   lastHealth = 100;
-let saved = null;
-const settings = {
-  volume: 0.4,
-  rain: true,
+const { settings, saved: initialSave } = readBrowserState((key) => localStorage.getItem(key), {
   reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-  camera: 'city',
-};
-try {
-  Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
-  saved = localStorage.getItem(SAVE_KEY);
-} catch {
-  /* Storage can be unavailable in private browsers; playing still works. */
-}
+});
+let saved = initialSave;
 const game = new E.Game({
   canvas: 'screen',
   view: new E.View('city', 'City', 35, 48, 1.1, 1),

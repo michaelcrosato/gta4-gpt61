@@ -1156,6 +1156,7 @@ export function updateOrdnance(state, dt, ctx) {
       for (const actor of actors) {
         if (
           actor.health <= 0 ||
+          !sameScene(actor, ctx) ||
           actor.id === projectile.owner ||
           (actor === state.player && projectile.owner === 'player') ||
           actor.crewIds?.includes(projectile.owner)
@@ -1249,8 +1250,8 @@ export function updateOrdnance(state, dt, ctx) {
   state.combatEffects = state.combatEffects.filter((item) => item.remaining > 0);
   for (const pickup of state.pickups)
     if (sameScene(pickup, ctx) && !pickup.available && pickup.respawnSeconds) {
-      pickup.remaining -= dt;
-      if (pickup.remaining <= 0) pickup.available = true;
+      pickup.remaining = Math.max(0, pickup.remaining - dt);
+      if (pickup.remaining === 0) pickup.available = true;
     }
   for (const pickup of state.pickups)
     if (sameScene(pickup, ctx) && pickup.despawnRemaining !== undefined)

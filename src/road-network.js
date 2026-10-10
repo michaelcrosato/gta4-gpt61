@@ -37,10 +37,15 @@ function closestProjection(segments, point) {
     const segment = segments[i],
       p = project(segment, point);
     const layerDistance = Math.abs(p.height - (Number.isFinite(point.z) ? point.z : 0));
+    // Include body height to separate crossing roads on different levels.
+    // Map points without height retain their nearest XY road projection.
+    const separation = Number.isFinite(point.z)
+      ? Math.hypot(p.distance, layerDistance)
+      : p.distance;
     if (
       !nearest ||
-      p.distance < nearest.distance - EPSILON ||
-      (Math.abs(p.distance - nearest.distance) <= EPSILON &&
+      separation < nearest.separation - EPSILON ||
+      (Math.abs(separation - nearest.separation) <= EPSILON &&
         layerDistance < nearest.layerDistance - EPSILON)
     )
       nearest = {
@@ -49,6 +54,7 @@ function closestProjection(segments, point) {
         roadIndex: segment.index,
         segmentIndex: i,
         layerDistance,
+        separation,
       };
   }
   return nearest;
