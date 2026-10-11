@@ -13,7 +13,7 @@ import {
   TWO_SEATS_WRIST_BANDAGE as WRIST_BANDAGE,
 } from './two-seats-scenes.js';
 import { validateCombatSave } from '../combat.js';
-import { FIRST_ARC_MISSIONS, FIRST_ARC_SUPPORTING_CAST } from './first-arc.js';
+import { FIRST_ARC_MISSIONS } from './first-arc.js';
 import {
   TWO_SEATS_IDS as I,
   initializeTwoSeatsRuntime,
@@ -160,7 +160,6 @@ export function createTwoSeatsParentContext(state, engine = {}) {
         : (engine.bindings ?? engine.world?.campaignSceneBindings ?? {}),
     b = copy(supplied),
     d = b.dispatch,
-    station = b['boardwalk-station'],
     flat = b['tess-flat'],
     shop = b['pier-goods'];
   const geometry = () =>

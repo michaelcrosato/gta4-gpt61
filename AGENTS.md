@@ -1,7 +1,8 @@
 # Repository instructions
 
 Read README.md and CONTRIBUTING.md before changing the repository. Keep changes
-focused and use the existing stack once application code is added.
+focused and use the existing stack: plain ES modules, Node.js tooling and no
+third-party runtime dependencies.
 
 ## Delivery workflow
 

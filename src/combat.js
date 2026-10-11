@@ -1249,7 +1249,7 @@ export function updateOrdnance(state, dt, ctx) {
   state.combatEffects = state.combatEffects.filter((item) => item.remaining > 0);
   for (const pickup of state.pickups)
     if (sameScene(pickup, ctx) && !pickup.available && pickup.respawnSeconds) {
-      pickup.remaining -= dt;
+      pickup.remaining = Math.max(0, pickup.remaining - dt);
       if (pickup.remaining <= 0) pickup.available = true;
     }
   for (const pickup of state.pickups)

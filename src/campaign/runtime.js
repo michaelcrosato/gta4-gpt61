@@ -94,27 +94,11 @@ function hash(value) {
   return result.toString(16).padStart(8, '0');
 }
 
-export const NIGHT_CROSSING_IDS = Object.freeze({
-  mission: MISSION,
-  felix: FELIX,
-  nadia: NADIA,
-  taxi: TAXI,
-  home: 'dockside-rooms',
-  key: 'dockside-tenancy',
-  evidence: 'co-op-arrears',
-});
 export const NIGHT_CROSSING_CINEMATICS = Object.freeze({
   berth: 'night-crossing-berth',
   shelter: 'night-crossing-shelter',
   rest: 'night-crossing-rest',
   ambient: 'night-crossing-drill-ambient',
-});
-export const CAMPAIGN_RUNTIME_REGISTRY = Object.freeze({
-  [MISSION]: Object.freeze({
-    stages: Object.freeze(authored.stages.map((stage) => stage.id)),
-    status: 'parent-integration-required',
-    sourceVerification: false,
-  }),
 });
 
 function blankNight() {
@@ -583,8 +567,13 @@ export function tickCampaignRuntime(state, dt, context) {
   n.failure.arrested ||= sync(context.observations?.playerArrested, state, a.startedAt) === true;
   const observation = passenger(state, context);
   if (observation?.alive) {
+    // Felix waiting at his place in the shelter is home, not abandoned.
+    const h = home(context),
+      atHome =
+        ['shelter', 'rest'].includes(a.stageId) && h && near(observation, h.felixTarget, h.roomId);
     const separated =
-      observation.sceneId !== playerScene(state) || distance(observation, state.player) > 150;
+      !atHome &&
+      (observation.sceneId !== playerScene(state) || distance(observation, state.player) > 150);
     n.abandonmentSeconds =
       !seated(state, context) && separated ? n.abandonmentSeconds + elapsed : 0;
   }

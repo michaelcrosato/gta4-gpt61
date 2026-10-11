@@ -11,7 +11,6 @@ import {
   DOCKSIDE_ROOM_LAYOUT,
   DOCKSIDE_PORTAL,
   nightCrossingProps,
-  drawNightCrossingProps,
   createNightCrossingRenderer,
 } from '../src/campaign/scenes.js';
 import {

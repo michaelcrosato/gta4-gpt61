@@ -176,7 +176,7 @@ function drawModel(g, point, view, model, material) {
   }
 }
 
-export function drawHeldWeapon(g, rig, view, weapon, material = 'metal') {
+function drawHeldWeapon(g, rig, view, weapon, material = 'metal') {
   const model = MODELS[weapon];
   if (!model || typeof rig.hand !== 'function' || !rig.J) return;
   const cv = E.charView(view),

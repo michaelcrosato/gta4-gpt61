@@ -900,7 +900,7 @@ test('same-attempt Warn resume retains connected call ownership and original dea
     f.adapters.activateStage(authored.stages[2], {
       ...f.request,
       receipt: 'actual:resume:warn',
-      reason: 'resume',
+      reason: 'resume-after-interleaving',
     }).ok,
     true,
   );

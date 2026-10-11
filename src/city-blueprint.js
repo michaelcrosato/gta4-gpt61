@@ -4935,4 +4935,3 @@ export const containsLand = (point) =>
   CITY_BLUEPRINT.landforms.some((form) => pointInPolygon(point, form.polygon)) &&
   !CITY_BLUEPRINT.lakes.some((lake) => pointInRect(point, lake));
 export const roadReservation = (road) => roadBox(road, 0);
-export default CITY_BLUEPRINT;

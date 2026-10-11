@@ -155,8 +155,8 @@ export function createBodyClearance(world) {
     return { clear: true, issues: [] };
   }
   function ceiling(x, y, z = 0, radius = 7) {
-    const b = body({ x, y, z, radius }),
-      heights = [];
+    body({ x, y, z, radius }); // validates the query body
+    const heights = [];
     for (const volume of floorIndex.queryRadius(x, y, radius)) {
       const range = planeExtrema(volume, x, y, radius);
       if (range && range.min - 1 > z) heights.push(range.min - 1);

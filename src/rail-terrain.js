@@ -105,10 +105,10 @@ function planeHeight(a, b, fallback, x, y) {
     t = L ? ((x - a.x) * dx + (y - a.y) * dy) / L : 0;
   return a.z + (b.z - a.z) * t;
 }
-export function railFloorHeight(volume, x, y) {
+function railFloorHeight(volume, x, y) {
   return planeHeight(volume.floorStart, volume.floorEnd, volume.referenceFloorMin, x, y);
 }
-export function railRoofHeight(volume, x, y) {
+function railRoofHeight(volume, x, y) {
   return planeHeight(volume.roofStart, volume.roofEnd, volume.zMax, x, y);
 }
 

@@ -4,6 +4,8 @@
  * an exclusive physical resource, never merely a track ID. No actor is mutated.
  */
 const EPS = 1e-6;
+// transit.js includes a swept corner using this tolerance; both sides must agree.
+const CORNER_EPS = 1e-7;
 const MAX_RECORDS = 32768;
 const compiledWorlds = new WeakMap();
 const copy = (value) => JSON.parse(JSON.stringify(value));
@@ -932,7 +934,7 @@ export function createRailDispatcher(world, trains = [], savedState = null) {
       )
         bad('off-corridor movement');
       const corners = entry.leg.lengths
-        .filter((d) => d > entry.train.distance + EPS && d < end - EPS)
+        .filter((d) => d > entry.train.distance + CORNER_EPS && d < end - CORNER_EPS)
         .map((d) => sample(entry.leg, d));
       if (
         path.length !== corners.length + 2 ||

@@ -47,8 +47,7 @@ export function createMinigameView({ onClose, onSnapshot, onResult, audio } = {}
     padAt = 0;
   let lastSoundEvent = 0;
   const aim = { x: 0, y: -0.606 },
-    poolAim = { x: 1.6, y: 0.56 },
-    keys = new Set();
+    poolAim = { x: 1.6, y: 0.56 };
 
   function range(id, label, value, min, max, step = 1) {
     return `<label class="activity-range" for="${id}"><span>${label}</span><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"><output></output></label>`;
@@ -520,7 +519,6 @@ export function createMinigameView({ onClose, onSnapshot, onResult, audio } = {}
     if (session && !session.finished) actMinigame(session, { type: 'quit' });
     const completed = session;
     session = null;
-    keys.clear();
     onClose?.(completed);
   });
   return {

@@ -146,12 +146,6 @@ const ownerScope = (owner) => ({
   attempt: owner.attempt,
   activationReceipt: owner.receipt,
 });
-const receiptOwner = (scope) => ({
-  missionId: scope.missionId,
-  stageId: scope.stageId,
-  attempt: scope.attempt,
-  receipt: scope.activationReceipt,
-});
 function committedScope(s, scope) {
   const run = s.campaign?.active,
     receipt = s.campaign?.receipts?.[scope?.activationReceipt];

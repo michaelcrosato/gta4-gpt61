@@ -5,10 +5,20 @@ An original urban crime drama built on the supplied my-3d2dge engine. Mara Voss,
 a former relief driver, arrives in Harbor City looking for honest work and finds
 a city that keeps its debts better than its promises.
 
-**Development status:** the playable opening is implemented. The complete
-campaign and reference-wide content/feature scope remain in development. See the
-[original brief](docs/brief.md), [production plan](docs/production-plan.md), and
-[source research](docs/research/story-scope.md).
+## Status
+
+LOWLIGHT is in development. New Game plays the first three of twenty authored
+first-arc missions — **Night Crossing**, **Late Meter** and **Two Seats Open** —
+through the physical simulation. The other seventeen are authored but not yet
+integrated, and the full scope is ninety source-mapped missions plus the city,
+side content and multiplayer described in the
+[original brief](docs/brief.md) and [production plan](docs/production-plan.md).
+Legacy saves also keep four original onboarding jobs.
+
+No source mission has completion credit yet. The
+[verification record](docs/verification.md) lists the evidence for each release,
+its fixture boundaries and the retained failures. The
+[source research](docs/research/story-scope.md) holds the story catalogue.
 
 ## Play locally
 
@@ -27,102 +37,150 @@ For melee, select fists or a tool with Q, hold right mouse to guard, then use F
 to counter or Z to disarm after a block. On touch, open MORE ACTIONS for GUARD
 and DISARM.
 
-The exterior world contains 65 original neighborhoods and 194
-site addresses, with coastal landforms, graded bridges and road bores, swimming,
-regional traffic, and persistent populations. Ground/map tiles and visible
-building textures use bounded caches.
+Progress and preferences are saved in the browser on this device. Gameplay needs
+no account or network service.
 
-The 0.5.1 startup patch caches static road bounds during city generation.
-Paired desktop browser checks measured 10–22% faster readiness while preserving
-the complete generated world and initial game state. Sustained/mobile rendering
-performance remains a separate release gate.
+## What is in the build
 
-The 0.4.1 patch preserves indoor car momentum while exterior traffic and police
-continue updating, so vehicles can drive normally inside Saira’s Garage.
+### Harbor City
 
-The interior foundation includes Voss Dispatch, Saira’s Garage, The Lantern and
-Blue Hour Lanes. They share the game’s combat, doors, destructible props,
-persistent occupants and saves; indoor witnesses report the exterior entrance.
-The garage has a paid tools counter and vehicle repair bay, the bar serves paid
-drinks, and the lanes offer paid bowling and food. Harbor Metro operates four
-services across 26 station complexes with 56 directional stop roles, phone
-destinations, boarding/alighting, fares, signals and saved journeys. Train
-clearance, native rendering and frozen-snapshot browser checks pass; the broader
-city and transport inventory remain in development.
+The exterior world contains 65 original neighborhoods and 194 site addresses
+across five districts, with coastal landforms, graded bridges and road bores,
+swimming, regional traffic and persistent populations. Ground/map tiles and
+visible building textures use bounded caches, and city generation caches static
+road bounds and rail construction to shorten startup.
 
-The 0.6.1 Metro repair filters reservation claims against the full swept train
-body and compares waiting priority among complete bundles that can be granted.
-It resumes the known 0.6 all-held fleet without resetting trains or releasing
-occupied resources. Sustained controller checks cover at least five circuits
-per service and saved continuation; full-world acceptance remains open.
+### Interiors
 
-The combat and activity foundation includes 17 weapon roles, physical explosives/fire, melee
-guard/counters/disarms, crouch/cover and vault/climb controls. Police escalate
-through six levels with actual pursuits, roadblocks, arrest and airborne search.
-Blue Hour Lanes, The Lantern, Saltworks Billiards and Night Owl Arcade offer full
-bowling, 301 darts, eight-ball and STACKLIGHT matches. The complete campaign,
-city, side content and multiplayer remain in production.
+Eight rooms share the game's combat, doors, destructible props, persistent
+occupants and saves: Voss Dispatch, Saira’s Garage, The Lantern, Blue Hour Lanes,
+Dockside Rooms, the Old Quay impound annex, Tess’s flat and Pier Goods. Indoor
+witnesses report the exterior entrance. The garage has a paid tools counter and
+a repair bay where vehicles keep their momentum, the bar serves paid drinks, and
+the lanes offer paid bowling and food.
 
-New Game now begins **Night Crossing**, the first of twenty authored
-source-mapped missions. Mara arrives on a physical ferry, reunites with Felix,
-drives their actual shared taxi through a stopped driving lesson, and reaches
-Dockside Rooms. The shelter has a required conversation choice, owned outfits,
-finite meals, a physical save desk and a six-hour rest. Companions walk, board,
-ride, exit and take damage in the shared simulation; checkpoints restore that
-world. Failed storage writes preserve the previous save and earn no save credit.
-Leaving an interrupted crossing retains its checkpoints; the phone and journal
+### Harbor Metro
+
+Four services run across 26 station complexes with 56 directional stop roles,
+phone destinations, boarding/alighting, fares, signals and saved journeys.
+Dispatch checks reservations against each train's full swept body and grants a
+waiting request only when its complete resource bundle is free. Saves from 0.6
+in which every train was held resume without resetting the fleet.
+
+### Combat, police and activities
+
+There are 17 weapon roles, physical explosives/fire, melee guard/counters/disarms,
+crouch/cover and vault/climb controls. Police escalate through six levels with
+actual pursuits, roadblocks, arrest and airborne search. Blue Hour Lanes,
+The Lantern, Saltworks Billiards and Night Owl Arcade offer full bowling,
+301 darts, eight-ball and STACKLIGHT matches.
+
+### Campaign
+
+- **Night Crossing.** Mara arrives on a physical ferry, reunites with Felix,
+  drives their shared taxi through a stopped driving lesson, and reaches
+  Dockside Rooms. The shelter has a required conversation choice, owned outfits,
+  finite meals, a physical save desk and a six-hour rest. Companions walk,
+  board, ride, exit and take damage in the shared simulation; checkpoints
+  restore that world.
+- **Late Meter.** Felix then travels to Voss Dispatch. Bring a working taxi to
+  its rank and speak to him inside. Drive him to the impound annex, identify the
+  collector’s jacket and clipboard, and use the phone’s contact list to deliver
+  a timed warning while people and vehicles keep moving. The collector drives
+  his own car and follows real roads and last sightings; break the pursuit and
+  return Felix and the taxi to dispatch. Harming the clerk or patrol can
+  interrupt the job.
+- **Two Seats Open.** Speak to Felix inside dispatch again. Guard Dax’s blade
+  attack and disarm him; his wrist injury, bandage and both collectors’ retreat
+  persist in saves. Felix rides along while Nadia and Tess fill the remaining
+  seats. Deliver Tess through her doorway and Nadia into dispatch, then choose
+  one of three original outfits at Pier Goods with the single co-op voucher.
+  Bea and Felix must be present for the final conversation.
+
+Leaving an interrupted mission keeps its checkpoints; the phone and journal
 offer an explicit retry or full restart after Continue.
-After the arrival, Felix physically travels to Voss Dispatch. Bring a working
-taxi to its rank and speak to him inside to begin **Late Meter**. Drive him to
-the impound annex, identify the collector’s rendered jacket and clipboard,
-then use the phone’s contact list to deliver a timed warning. The phone stays
-in the world while people and vehicles move. Felix leaves the annex and boards
-the taxi; the collector walks to his own car, takes its driver seat and follows
-real roads and last sightings. Return Felix and the surviving taxi to dispatch
-after breaking the pursuit. Harm to the clerk or patrol can interrupt the job.
-Existing legacy saves still Continue, including the additional four onboarding
-jobs. Metro saves use a portable topology signature across browser engines.
-Known 0.5 campaign saves retain their progress and receipt identities when
-unplayed mission content changes; unknown versions or changed owned missions
-are rejected rather than silently replacing progress.
 
-After Late Meter, speak to the living Felix inside dispatch for **Two Seats
-Open**. Guard Dax’s actual blade attack and disarm him; his wrist
-injury, bandage and both collectors’ physical retreat persist in saves. Felix
-rides along while Nadia and Tess fill the remaining passenger seats. Deliver
-Tess through her real doorway, then Nadia into dispatch, before choosing one of
-three original outfits at Pier Goods with the single co-op voucher. Bea and
-Felix must be present for the final conversation. The purchase spends the
-voucher once and equips the actual selected outfit.
+### Saves and compatibility
 
-The third mission uses calibrated body/ceiling checks and rebuilt rail spans at
-Dispatch and Tess’s street. Known old saves migrate their fleet, occupied
-resources and supported bodies without resetting their clocks, fares or story.
-The wider public headroom rebuild remains open: other low decks, bridges and
-underground chambers are not yet certified for full standing access. Some of
-those unfinished routes can reject a full-height body during the third mission
-and its approach.
+Failed storage writes preserve the previous save and earn no save credit.
+Legacy saves still Continue, including the four onboarding jobs. Metro saves use
+a portable topology signature across browser engines. Known 0.5 and 0.6
+campaign saves keep their progress and receipt identities when unplayed mission
+content changes; unknown versions or changed owned missions are rejected rather
+than silently replacing progress. Known old saves migrate their fleet, occupied
+resources and supported bodies without resetting clocks, fares or story.
 
-The other seventeen authored missions still need physical integration; the full
-ninety-mission scope remains active. The first three missions’ production-input
-checks earn no source completion credit or full natural browser playthrough
-claim. All four additional jobs have not yet been
-completed in one natural input run. See the [verification record](docs/verification.md)
-for the retained failures and fixture boundaries.
+## Known limitations
+
+- The wider public headroom rebuild is open. Dispatch and Tess’s street have
+  calibrated body/ceiling checks and rebuilt rail spans, but other low decks,
+  bridges and underground chambers are not certified for full standing access.
+  Some of those routes can reject a full-height body during Two Seats Open and
+  its approach.
+- Seventeen authored first-arc missions still need physical integration.
+- The first three missions have production-input checks, not a full natural
+  browser playthrough, and the four onboarding jobs have not been completed in
+  one natural input run.
+- Sustained gameplay and real-device (including iOS Safari) performance remain
+  release gates.
+
+## Development checks
+
+These mirror CI (`.github/workflows/ci.yml`):
 
 ```sh
+git diff --check
+python3 -m unittest discover -s tests -v
+node --check my-3d2dge.js
 npm run check
 npm run format:check
 npm test
 npm run scope
 npm run build
-LOWLIGHT_ROOT=dist PORT=5174 npm run dev
+for script in .githooks/post-commit scripts/setup-local.sh scripts/setup-github.sh; do
+  sh -n "$script"
+done
 ```
 
-The build is a static site in `dist/`. Progress and preferences are saved in the
-browser on this device; no account or network service is required for gameplay.
+`npm run format` formats game source and tooling; it preserves the supplied
+engine source layout. `npm run scope` reports the source catalogue separately
+from the implemented content and never treats planned content as delivered.
+`npm run build` writes a static site to `dist/`; serve it with
+`LOWLIGHT_ROOT=dist PORT=5174 npm run dev`.
 
-## Vercel
+### Browser checks
+
+With Playwright installed (`requirements-dev.txt`), these scripts drive Chromium,
+Firefox and WebKit against a running server. Reports and screenshots go to
+`/tmp`, and each script exits with failure if a check fails. Pass `--url` to
+target a different server.
+
+| Script                              | Covers                                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `browser-smoke.py`                  | Controls and interface from canonical New Game, plus legacy Continue; iPhone profiles   |
+| `browser-save-portability.py`       | UI saves moved between engines                                                          |
+| `browser-campaign-interruption.py`  | Failure, leaving, save/Continue and explicit story recovery                             |
+| `browser-activities.py`             | Activities, shops and traversal; iPhone profiles                                        |
+| `browser-interiors.py`              | Room controls and paid services                                                         |
+| `browser-map.py`                    | Native canvas and map controls                                                          |
+| `browser-city.py`                   | City raster and layer rendering                                                         |
+| `browser-rail.py`                   | Boarding, travel, save/Continue and alighting (desktop profiles)                        |
+| `browser-rail-ui.py`                | Metro interface                                                                         |
+| `browser-late-meter.py`             | Late Meter warning UI; needs `--source-root`, `--warn-save` and `--fixture-report`      |
+| `browser-rail-recovery.py`          | Continuing a held-fleet 0.6 save; needs `--source-root` and `--save`                    |
+| `browser-startup.py`                | Paired startup timing against `--baseline` (another server URL)                         |
+| `browser-opening.py`                | The four onboarding jobs; legacy only, it needs a build whose New Game starts First Shift |
+
+Run them as, for example, `python3 tests/browser-smoke.py --url http://localhost:5173/`.
+The activity, city/map, interior and rail scripts declare legacy-mode save
+baselines and venue, budget, geography or platform fixtures to isolate their
+regression contracts; the canonical New Game is checked separately. None of
+these replaces a natural playthrough from a clean save, and short automated
+frame samples do not establish sustained or real-device performance. See
+[verification boundaries and evidence](docs/verification.md) and
+[AGENTS.md](AGENTS.md) for the viewport and device tools.
+
+## Deploy on Vercel
 
 Import this repository with its root directory set to `./` and use the
 **Other** framework preset. The checked-in `vercel.json` selects
@@ -138,42 +196,7 @@ The [cache configuration](https://vercel.com/docs/caching/cache-control-headers)
 is version-controlled with the game. Saves remain local to the browser and
 deployment origin.
 
-## Development checks
-
-`npm run format` formats game source and tooling; it preserves the supplied
-engine source layout. `npm run scope` reports the source catalogue separately
-from the implemented opening, and does not treat planned content as delivered.
-
-With Playwright installed (`requirements-dev.txt`), run browser control and
-save/continue regression checks against the development server:
-
-```sh
-python3 tests/browser-smoke.py --url http://localhost:5173/
-python3 tests/browser-save-portability.py --url http://localhost:5173/
-python3 tests/browser-campaign-interruption.py --url http://localhost:5173/
-python3 tests/browser-activities.py --url http://localhost:5173/
-python3 tests/browser-interiors.py --url http://localhost:5173/
-python3 tests/browser-map.py --url http://localhost:5173/
-python3 tests/browser-city.py --url http://localhost:5173/
-python3 tests/browser-rail.py --url http://localhost:5173/
-python3 tests/browser-rail-ui.py --url http://localhost:5173/
-```
-
-The scripts cover Chromium, Firefox and WebKit; smoke/activity checks include
-iPhone profiles, while the rail journey runs desktop profiles. Reports and screenshots
-go to `/tmp`, and the script exits with failure if a control or browser check
-fails. It verifies the opening and interface, not the complete campaign. See
-[verification boundaries and evidence](docs/verification.md).
-The activity, city/map, interior and rail scripts declare legacy-mode save
-baselines to isolate their existing regression contracts. The canonical New
-Game is checked separately. The activity and city/map scripts declare venue, budget, late-game and
-geography fixtures. Rail QA declares completed onboarding, a physical-platform
-relocation and a health/budget fixture, then uses real inputs and normal travel.
-These checks do not replace a natural playthrough from a clean save. Short
-automated frame samples do not establish sustained gameplay or real-device
-Safari performance; those remain release gates.
-
-## Setup
+## Contributor setup and publishing
 
 Requires Git, [GitHub CLI](https://cli.github.com/), and Python 3.11 or newer on
 Linux, WSL, or macOS. Authenticate with `gh auth login`, then run:
@@ -187,63 +210,41 @@ cd gta4-gpt61
 The setup installs repository-local hooks, the `git publish` alias, automatic
 fetch pruning, and fast-forward-only pulls. Run it once in each new clone.
 
-## Commit and publish
-
-```sh
-git add <files>
-git commit -m "Describe the change"
-```
-
-Every commit automatically pushes its committed snapshot to
+Every commit on a named branch then pushes its committed snapshot to
 `publish/<local-branch>`, creates or updates a pull request into `main`, and
 enables auto-merge. GitHub waits for the required `Repository checks` CI job,
 merges, and deletes the remote publication branch. Local files, your index, and
 your checked-out branch are left untouched. Commits on local `main` also follow
 this PR workflow; the hook never pushes directly to GitHub's protected `main`.
+Commits made on a detached HEAD, such as during a rebase, are not published
+automatically.
 
-Publishing takes a few network requests during the commit. CI and merging happen
-on GitHub after the commit command returns. A failed push or check leaves your
-commit saved locally. Resolve the reported problem and retry:
+A failed push or check leaves your commit saved locally. Resolve the reported
+problem and retry:
 
 ```sh
 git publish                 # Push/update the PR and queue its merge
-git publish --wait          # Also wait up to 10 minutes for the merge
+git publish --wait          # Also wait up to 25 minutes; stops early if checks fail
 git pull --ff-only          # Update local main after its PR has merged
 ```
 
 When using a local working branch, switch to `main` before pulling. Once its
 commits are on `main`, delete that local branch with `git branch -d <branch>`.
-GitHub retains merged PR records; branch deletion is the automatic cleanup.
 Merge commits preserve local commit ancestry so repeated commits from the same
-branch work after the remote branch is deleted.
+branch work after the remote branch is deleted. Publication never rewrites
+remote history, so add a new commit rather than amending one that is already
+published.
 
-Publishing requires write access to this repository and a named local branch.
-Other contributors can push to their forks and open PRs using GitHub's normal
-workflow. Public contributions are not automatically approved or merged.
+Publishing requires write access to this repository. Other contributors can
+push to their forks and open PRs using GitHub's normal workflow; public
+contributions are not automatically approved or merged. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```sh
 SKIP_AUTO_PUBLISH=1 git commit -m "Keep this commit local for now"
 git config --local repo.autoPublish false   # Disable the hook's publication
 git config --local repo.autoPublish true    # Enable it again
 ```
-
-## Verification
-
-```sh
-python3 -m unittest discover -s tests -v
-npm run check
-npm test
-npm run build
-git diff --check
-for script in .githooks/post-commit scripts/setup-local.sh scripts/setup-github.sh; do
-  bash -n "$script"
-done
-```
-
-CI runs the publication tests and JavaScript/shell syntax and whitespace checks
-on PRs and `main`.
-CI also builds the static game and runs the simulation tests. See
-[AGENTS.md](AGENTS.md) for UI verification tools.
 
 ## Repository maintenance
 
@@ -259,8 +260,11 @@ workflow. Secret scanning, push protection, Dependabot alerts/security fixes, an
 private vulnerability reporting are enabled.
 
 An administrator can reapply settings with `./scripts/setup-github.sh`. Its
-versioned inputs are [.github/repository-settings.json](.github/repository-settings.json)
-and [.github/branch-protection.json](.github/branch-protection.json).
+versioned inputs are [.github/repository-settings.json](.github/repository-settings.json),
+[.github/branch-protection.json](.github/branch-protection.json) and
+[.github/actions-permissions.json](.github/actions-permissions.json).
+
+## License
 
 No license has been selected for this project's original code yet. The supplied
 engine retains its upstream MIT license in [LICENSES/my-3d2dge.txt](LICENSES/my-3d2dge.txt).

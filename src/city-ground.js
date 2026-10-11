@@ -2,11 +2,6 @@
 import { createSpatialIndex } from './spatial-index.js';
 const E = globalThis.My3D2dge;
 const EPSILON = 1e-8;
-const hash = (text) => {
-  let h = 2166136261;
-  for (const ch of String(text)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return (h >>> 0) / 4294967296;
-};
 const rectPoints = (r, z = 0) => [
   [r.x, r.y, z],
   [r.x + r.w, r.y, z],

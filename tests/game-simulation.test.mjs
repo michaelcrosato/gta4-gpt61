@@ -8,13 +8,13 @@ import {
   saveGame,
   restoreGame,
   nearestInteractable,
+  pickupWeapon,
   startMission,
   reloadWeapon,
   selectWeapon,
   currentVehicle,
   isBlocked,
   WORLD,
-  TERRAIN,
   MISSIONS,
   WEAPONS,
   VEHICLE_SPECS,
@@ -574,4 +574,53 @@ test('restore rejects unsupported versions, corrupt ammo, and missing mission or
   const badPosition = structuredClone(saved);
   badPosition.state.player.x = NaN;
   assert.throws(() => restoreGame(badPosition), /corrupted/);
+});
+
+test('resting at an exterior home requests a real save and names that home', () => {
+  for (const id of ['felix-office', 'dockside-rooms']) {
+    const state = freeRoam();
+    const home = WORLD.locations.find((location) => location.id === id);
+    const spot = [
+      [0, -30],
+      [0, 30],
+      [-30, 0],
+      [30, 0],
+    ]
+      .map(([dx, dy]) => ({ x: home.x + dx, y: home.y + dy }))
+      .find((point) => {
+        relocate(state, point);
+        return nearestInteractable(state)?.id === id;
+      });
+    assert.ok(spot, `Expected a reachable rest point at ${id}`);
+    state.player.health = 50;
+    const result = interact(state);
+    assert.equal(result.type, 'save');
+    assert.equal(state.player.health, 75);
+    assert.equal(state.notifications.at(-1).text, `Rested at ${home.name}.`);
+  }
+});
+
+test('a pedestrian pushed beyond its patrol band walks back instead of jittering', () => {
+  const state = freeRoam();
+  const person = state.pedestrians.find((item) => !item.route && item.maxY > item.minY);
+  assert.ok(person, 'Expected a patrolling pedestrian');
+  person.y = person.maxY + 30;
+  person.panic = 0;
+  const start = person.y;
+  tick(state, 2);
+  assert.ok(person.y < start - 20, `Expected the pedestrian to return, y=${person.y}`);
+});
+
+test('a respawned street pickup keeps a saveable non-negative timer', () => {
+  const state = freeRoam(2026);
+  state.vehicles = [];
+  state.pedestrians = [];
+  const pickup = state.pickups.find((item) => item.id === 'diner-glass-bottle');
+  relocate(state, pickup);
+  assert.ok(pickupWeapon(state, pickup.id));
+  pickup.remaining = 0.01;
+  tick(state, 3 / 60);
+  assert.equal(pickup.available, true);
+  assert.equal(pickup.remaining, 0);
+  assert.doesNotThrow(() => restoreGame(saveGame(state)));
 });

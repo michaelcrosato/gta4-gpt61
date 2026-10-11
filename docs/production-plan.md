@@ -16,7 +16,7 @@ The city comprises Breakwater, Saint Brigid, Glassward, The Narrows, and Ironhav
 These need different street geometry, architecture, residents, landmarks,
 transport, interiors, lighting, traffic, sound, and mission opportunities. The
 current exterior world has 65 original neighborhood layouts, coastal landforms,
-194 site addresses, graded crossings, and district populations. Four local
+194 site addresses, graded crossings, and district populations. Eight local
 interiors and four Metro services now have runtime implementations. The broader
 interior inventory, station-access reconciliation, complete traversal/fleet
 content, natural station-network travel and release-performance checks remain
@@ -61,9 +61,12 @@ The first 20 source-mapped original missions are individually authored in
 branches, checkpoints, failure/retry rules and explicit missing-capability notes.
 The [director](../src/campaign/director.js) handles deterministic progression,
 observed conditions, choices, interruption/resumption and complete parent-world
-save/checkpoint transactions. Night Crossing now has production physical
-adapters and an input-driven completion regression; the other nineteen remain
-`authored-unintegrated`. None has source completion credit. Missing physical
+save/checkpoint transactions. Night Crossing, Late Meter and Two Seats Open now
+have production physical adapters and input-driven completion regressions; the
+other seventeen remain `authored-unintegrated`. None has source completion
+credit. (The frozen content manifest still describes only Night Crossing; its
+text is part of the save-compatibility fingerprint, so it changes only with the
+next content migration.) Missing physical
 handlers remain unmet gates. Public Terminal (`LL-ST-022`) remains an explicit
 out-of-pack prerequisite for Pressure Vessel; neither that mission nor other
 missing mechanics is silently folded into a menu or discarded.
@@ -154,7 +157,9 @@ destructible props, persistent NPC health/death, witness reporting at the
 exterior entrance, portal return and local/exterior save ownership use the shared
 simulation. Paid services include store-specific workshop tools, garage repair,
 bar refreshments and bowling/food, with real stock, affordability and charges.
-These four rooms do not satisfy the complete city interior inventory.
+The campaign later added Dockside Rooms, the Old Quay impound annex, Tess’s flat
+and Pier Goods on the same foundation. These eight rooms do not satisfy the
+complete city interior inventory.
 
 Harbor Metro now runs G1/G2 and C1/C2 through-services over 26 station complexes
 and 56 directional stop roles. Its runtime includes moving train/rider bodies,
@@ -185,13 +190,10 @@ real keyboard, pointer and touch actions. Input-only opening runs retain genuine
 pursuit deaths, clinic recovery and harness failures; natural completion of all
 four jobs remains unproven.
 
-The frozen 0.4 snapshot passes 487 JavaScript and 16 publication tests, plus
-syntax, formatting, catalogue integrity, whitespace and build checks. Final
-browser evidence includes all three rail journey engines, five rail UI profiles,
-six interior profiles, 18 activity cases, three control-smoke engines, 36 city
-scenes/raster comparisons and 48 viewport captures. The [verification record](verification.md)
-retains fixtures, initial harness failures and corrected reruns; these checks
-do not establish full-game completion or sustained real-device performance.
+Current test totals, browser evidence and viewport captures for each release
+are recorded in the [verification record](verification.md), which also retains
+fixtures, initial harness failures and corrected reruns. These checks do not
+establish full-game completion or sustained real-device performance.
 
 Browser checks use Chromium, Firefox, and WebKit; phone, tablet, desktop, and
 ultrawide screenshots are reviewed separately. Reports stay under `/tmp`.

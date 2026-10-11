@@ -33,7 +33,7 @@ def source_hashes(root):
         *root.joinpath("src").rglob("*.js"),
         *(
             root / name
-            for name in ("my-3d2dge.js", "my-3d2dge-agent.js", "package.json")
+            for name in ("my-3d2dge.js", "package.json")
         ),
     ]
     return {

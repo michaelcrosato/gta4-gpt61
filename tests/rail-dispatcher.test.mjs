@@ -533,3 +533,94 @@ test('all four actual city services complete a bounded circuit together under ph
   assert.ok(dispatcher.snapshot().stats.maxWait < 350);
   assert.equal(validateRailDispatch(dispatcher.snapshot(), world, model.trains), true);
 });
+test('a step ending just short of a track corner agrees with transit about the swept corner', () => {
+  const platform = (id, x, y, heading) => ({
+    id,
+    x,
+    y,
+    z: 0,
+    heading,
+    length: 100,
+    width: 24,
+    stopPoint: { x, y, z: 0 },
+    boardingPoint: { x, y: y + 20, z: 0 },
+  });
+  const world = {
+    transit: {
+      stations: [
+        { id: 'sA', name: 'A', platforms: [platform('pA', 0, 0, 0)] },
+        { id: 'sB', name: 'B', platforms: [platform('pB', 400, 0, Math.PI)] },
+      ],
+      tracks: [
+        {
+          id: 't0',
+          fromPlatformId: 'pA',
+          toPlatformId: 'pB',
+          points: [
+            { x: 0, y: 0, z: 0 },
+            { x: 150, y: 0, z: 0 },
+            { x: 400, y: 0, z: 0 },
+          ],
+        },
+        {
+          id: 't1',
+          fromPlatformId: 'pB',
+          toPlatformId: 'pA',
+          points: [
+            { x: 400, y: 0, z: 0 },
+            { x: 400, y: 300, z: 0 },
+            { x: 0, y: 300, z: 0 },
+            { x: 0, y: 0, z: 0 },
+          ],
+        },
+      ],
+      throughServices: [
+        {
+          id: 'svc',
+          name: 'S',
+          closedLoop: true,
+          calls: [
+            { stationId: 'sA', platformId: 'pA' },
+            { stationId: 'sB', platformId: 'pB' },
+          ],
+          legs: [
+            { trackId: 't0', fromPlatformId: 'pA', toPlatformId: 'pB', reverse: false },
+            { trackId: 't1', fromPlatformId: 'pB', toPlatformId: 'pA', reverse: false },
+          ],
+          segmentIds: [],
+        },
+      ],
+      segments: [],
+      railResources: [],
+      legResourceBundles: { t0: [], t1: [] },
+      stationResourceBundles: { pA: [], pB: [] },
+      railCrossings: [],
+      railGeometry: { settings: { trainLength: 24, trainWidth: 8, trainHeight: 8 } },
+    },
+  };
+  const model = createTransit(world, {
+    cars: 1,
+    carLength: 24,
+    couplerGap: 0,
+    trainWidth: 8,
+    trainHeight: 8,
+    doorSeconds: 0.1,
+    dwellSeconds: 0.2,
+    cruiseSpeed: 60,
+    acceleration: 20,
+    braking: 20,
+  });
+  const dispatcher = createRailDispatcher(world, model.trains);
+  const step = (dt) => {
+    dispatcher.beginStep(model.trains, model.time);
+    updateTransit(model, world, dt, dispatcher);
+    dispatcher.endStep(model.trains, model.time);
+  };
+  const train = model.trains[0];
+  for (let i = 0; i < 100 && train.phase !== 'moving'; i++) step(0.05);
+  // Accelerate for 3 s (90 units), then cruise to 5e-7 short of the x=150 corner.
+  step(3 + (150 - 5e-7 - 90) / 60 - train.legElapsed);
+  assert.ok(150 - train.distance > 1e-7 && 150 - train.distance < 1e-6);
+  assert.doesNotThrow(() => step(0.05));
+  assert.ok(train.distance > 150);
+});

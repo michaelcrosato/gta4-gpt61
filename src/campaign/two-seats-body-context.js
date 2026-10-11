@@ -13,7 +13,7 @@ const CAST = new Set([
   'dispatch-worker-a',
   'dispatch-worker-b',
 ]);
-export function twoSeatsBodyScope(state) {
+function twoSeatsBodyScope(state) {
   const active = state?.campaign?.active;
   return Boolean(
     (active?.missionId === 'LL-ST-003' && active.phase === 'running') ||

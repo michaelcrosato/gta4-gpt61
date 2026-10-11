@@ -60,15 +60,6 @@ function samples(points, step = 6) {
   });
   return result;
 }
-function grade(points, fromZ, toZ) {
-  const lengths = points.slice(1).map((p, i) => distance(points[i], p));
-  const total = lengths.reduce((sum, n) => sum + n, 0);
-  let done = 0;
-  return points.map((p, i) => {
-    if (i) done += lengths[i - 1];
-    return { x: p.x, y: p.y, z: fromZ + (toZ - fromZ) * (total ? done / total : 0) };
-  });
-}
 function offset(points, amount) {
   const directions = points.slice(1).map((p, i) => {
     const n = distance(points[i], p);
@@ -1680,13 +1671,24 @@ function buildRailWorld(source, options = {}, laneCorrections = [], trackOverrid
       const prior = report.unresolved.length;
       if (track.maxGrade > settings.maxRailGrade + EPS)
         gap('rail-grade-exceeded', id, { grade: track.maxGrade });
+      // hitsBox needs a positive overlap on each axis, so buildings outside the track's padded
+      // bounds can never be hit; skipping them avoids testing every segment against the city.
+      const halfWidth = settings.trainWidth / 2,
+        tail = points.slice(1),
+        xs = points.map((p) => p.x),
+        ys = points.map((p) => p.y),
+        minX = Math.min(...xs) - halfWidth,
+        maxX = Math.max(...xs) + halfWidth,
+        minY = Math.min(...ys) - halfWidth,
+        maxY = Math.max(...ys) + halfWidth;
       const buildingIds = buildings
-        .filter((box) =>
-          points
-            .slice(1)
-            .some((p, j) =>
-              hitsBox(points[j], p, box, settings.trainWidth / 2, settings.trainHeight),
-            ),
+        .filter(
+          (box) =>
+            box.x < maxX &&
+            box.x + box.w > minX &&
+            box.y < maxY &&
+            box.y + box.h > minY &&
+            tail.some((p, j) => hitsBox(points[j], p, box, halfWidth, settings.trainHeight)),
         )
         .map((box) => box.id);
       if (buildingIds.length) gap('train-building-clearance', id, { buildingIds });

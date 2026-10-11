@@ -20,16 +20,12 @@ import { findLocalFootPath } from '../../src/local-navigation.js';
 import { INTERIOR_LAYOUTS, PORTAL_DEFINITIONS, enterInterior } from '../../src/interiors.js';
 import * as Companions from '../../src/companions.js';
 import { startActorMelee, hitCombatant, validateCombatSave } from '../../src/combat.js';
-import { applyRestHours } from '../../src/calendar.js';
 import { FIRST_ARC_MISSIONS } from '../../src/campaign/first-arc.js';
 import { startCampaignMission, validateCampaignDirector } from '../../src/campaign/director.js';
 import { createTwoSeatsScenePlan } from '../../src/campaign/two-seats-scenes.js';
 import {
   initializeTwoSeatsRuntime,
   createTwoSeatsAdapters,
-  twoSeatsIntegrationGates,
-  prepareTwoSeatsStart,
-  observeTwoSeatsDisarm,
   observeTwoSeatsDamage,
   validateTwoSeatsRuntime,
 } from '../../src/campaign/two-seats-runtime.js';

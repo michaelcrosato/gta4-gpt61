@@ -23,7 +23,6 @@ import {
   setInteriorDoor,
   exitInterior,
 } from '../src/interiors.js';
-import { acquireWeapon } from '../src/combat.js';
 const tick = (s, t, input = {}) => {
   for (let i = 0; i < Math.round(t * 60); i++) updateSimulation(s, 1 / 60, input);
 };

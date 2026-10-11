@@ -1,5 +1,4 @@
 node_modules/
 dist/
 my-3d2dge.js
-my-3d2dge-agent.js
 docs/research/*.json

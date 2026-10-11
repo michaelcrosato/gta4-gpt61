@@ -176,17 +176,15 @@ export function createRailRenderer(game, world, { cacheProjection = true } = {})
         }),
       );
     const key = viewKey(r.view);
-    let cached = cacheProjection ? views.get(key) : null;
+    let cached = views.get(key);
     if (!cached) {
       const projected = staticItems.map((item) => ({
         item,
         bounds: projectBounds(item.points, r.view, item.width ?? 1),
       }));
       cached = { index: createSpatialIndex(projected, { getBounds: (p) => p.bounds }) };
-      if (cacheProjection) {
-        if (views.size >= 2) views.delete(views.keys().next().value);
-        views.set(key, cached);
-      }
+      if (views.size >= 2) views.delete(views.keys().next().value);
+      views.set(key, cached);
     } else {
       views.delete(key);
       views.set(key, cached);

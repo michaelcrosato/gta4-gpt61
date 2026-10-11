@@ -54,11 +54,12 @@ function upgradedPoints(track) {
   }
   return result;
 }
-export function createDispatchStandingWorld(referenceWorld) {
+/** Callers that already built the arrival city and its baseline rail world may pass them in. */
+export function createDispatchStandingWorld(referenceWorld, { arrival, baseline } = {}) {
   if (!referenceWorld?.transit?.tracks.some((t) => t.id === DISPATCH_RAIL_PROFILE.trackId))
     throw Error('The known prior-world Dispatch track is required.');
-  const arrival = createNightCrossingWorld(CITY_BLUEPRINT);
-  const baseline = createRailWorld(arrival.world);
+  arrival ??= createNightCrossingWorld(CITY_BLUEPRINT);
+  baseline ??= createRailWorld(arrival.world);
   const tracks = referenceWorld.transit.tracks.map((track) => ({
     trackId: track.id,
     points:

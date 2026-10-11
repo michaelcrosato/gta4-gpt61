@@ -579,6 +579,7 @@ function storyLineKey(view) {
     return `${view.missionId}:${view.stageId}:${view.attempt}:${view.dialogueIndex}`;
   return view?.ambient ? `${view.ambient.receipt}:${view.ambient.index}` : null;
 }
+let renderedCaptionHint = null;
 function renderCaptions(view = storyView(state)) {
   const line = view?.dialogue || view?.ambient || state.dialogue,
     panel = $('dialogue-panel'),
@@ -596,8 +597,10 @@ function renderCaptions(view = storyView(state)) {
       ? ' · MORE: GUARD / DISARM'
       : ' · RIGHT MOUSE: GUARD · Z: DISARM'
     : '';
-  panel.querySelector('span').innerHTML =
-    `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> ${view?.autoDialogue || view?.ambient ? 'CONTINUE · AUTO CAPTIONS' : 'CONTINUE'}${combatControls}`;
+  // This runs every frame; rewrite the hint only when it changes.
+  const hint = `<kbd>${matchMedia('(pointer: coarse)').matches ? 'USE' : 'E'}</kbd> ${view?.autoDialogue || view?.ambient ? 'CONTINUE · AUTO CAPTIONS' : 'CONTINUE'}${combatControls}`;
+  if (hint !== renderedCaptionHint)
+    panel.querySelector('span').innerHTML = renderedCaptionHint = hint;
   if (line) {
     if ($('dialogue-speaker').textContent !== line.speaker)
       $('dialogue-speaker').textContent = line.speaker;
@@ -607,7 +610,8 @@ function renderCaptions(view = storyView(state)) {
   if (renderedStoryLine) presentStoryDialogue(state);
   storySkip.hidden = !visible || !view?.cinematic || !!line;
   storySkip.disabled = !!view?.cinematic?.skipRequested;
-  storySkip.textContent = view?.cinematic?.skipRequested ? 'SCENE CONTINUING…' : 'SKIP SCENE';
+  const skipLabel = view?.cinematic?.skipRequested ? 'SCENE CONTINUING…' : 'SKIP SCENE';
+  if (storySkip.textContent !== skipLabel) storySkip.textContent = skipLabel;
   storyRestFade.hidden = !visible || view?.shelterAction?.kind !== 'rest';
   if (!storyRestFade.hidden)
     storyRestFade.style.opacity = String(Math.sin(Math.PI * view.shelterAction.progress) * 0.9);
@@ -1221,6 +1225,31 @@ $('pause-weapon').addEventListener('click', () => {
   closeAllDialogs();
   announce(`Equipped ${WEAPONS[state.player.weapon].name}.`);
 });
+// The minimap redraws several times a second; reuse the route until the origin moves a few
+// units or the destination or travel mode changes.
+let mapRoute = { key: null, route: [] };
+function mapRouteTo(origin, destination) {
+  const mode = state.player.vehicleId ? 'car' : 'foot',
+    z = origin.groundZ ?? origin.z ?? 0,
+    key = [
+      mode,
+      destination.x,
+      destination.y,
+      destination.z ?? 0,
+      Math.round(origin.x / 8),
+      Math.round(origin.y / 8),
+      Math.round(z),
+    ].join('|');
+  if (mapRoute.key !== key)
+    mapRoute = {
+      key,
+      route: findRoute(WORLD, { x: origin.x, y: origin.y, z }, destination, {
+        mode,
+        includeZ: true,
+      }),
+    };
+  return mapRoute.route;
+}
 function drawMap(canvas, full = false) {
   const g = canvas.getContext('2d'),
     width = canvas.width,
@@ -1250,15 +1279,7 @@ function drawMap(canvas, full = false) {
     (target) => target && inScene(target, null),
   );
   if (destination) {
-    const route = findRoute(
-        WORLD,
-        { x: origin.x, y: origin.y, z: origin.groundZ ?? origin.z ?? 0 },
-        destination,
-        {
-          mode: state.player.vehicleId ? 'car' : 'foot',
-          includeZ: true,
-        },
-      ),
+    const route = mapRouteTo(origin, destination),
       b = pt(destination.x, destination.y);
     g.strokeStyle = '#c5b46a';
     g.lineWidth = full ? 3 : 2;
