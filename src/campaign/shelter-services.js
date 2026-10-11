@@ -135,16 +135,6 @@ export function shelterReceipt(state, receipt) {
     state.shelterServices?.receipts?.[typeof receipt === 'string' ? receipt : receipt?.id];
   return record?.status === 'committed' ? clone(record) : null;
 }
-export function verifyShelterReceipt(state, receipt) {
-  const record = shelterReceipt(state, receipt);
-  return Boolean(
-    record &&
-    receipt?.status === 'committed' &&
-    receipt.kind === record.kind &&
-    state.shelterServices.active?.id !== record.id &&
-    !Object.hasOwn(state.shelterServices.cancelled, record.id),
-  );
-}
 export function cancelShelterService(state, receipt, reason = 'interrupted') {
   const model = initializeShelterServices(state),
     id = typeof receipt === 'string' ? receipt : receipt?.id;

@@ -5,7 +5,7 @@ import { campaignReceiptNamespace } from './campaign/director.js';
 
 const MISSION = 'LL-ST-003',
   STAGE = 'dispatch-threat';
-export const NAMED_HOSTILE_ROLES = Object.freeze({
+const NAMED_HOSTILE_ROLES = Object.freeze({
   'LL-ARC-DAX': Object.freeze({ weapon: 'knife', speed: 32, reach: 18 }),
   'LL-ARC-PEL': Object.freeze({ weapon: 'unarmed', speed: 30, reach: 18 }),
 });

@@ -7,7 +7,6 @@ import {
   fireCombatWeapon,
   updateMelee,
   updateOrdnance,
-  WEAPONS,
 } from '../src/combat.js';
 import { createSimulation, fireWeapon, setCampaignObservationHandlers } from '../src/simulation.js';
 

@@ -19,9 +19,8 @@ import {
 } from './rail-dispatcher.js';
 import { createConstructedRailClearance } from './constructed-rail-clearance.js';
 const dispatchers = new WeakMap();
-const clearances = new WeakMap();
 
-export const RAIL_PLAYER_ID = 'mara-voss';
+const RAIL_PLAYER_ID = 'mara-voss';
 /** Whole-world checkpoint replacement must rebuild reservations from its saved fleet. */
 export function resetRailRuntime(state) {
   dispatchers.delete(state);
@@ -44,14 +43,6 @@ function dispatcherFor(state, world) {
     dispatchers.set(state, dispatcher);
   }
   return dispatcher;
-}
-function clearanceFor(world) {
-  let clearance = clearances.get(world);
-  if (!clearance) {
-    clearance = createConstructedRailClearance(world);
-    clearances.set(world, clearance);
-  }
-  return clearance;
 }
 function applyPose(state, pose) {
   if (!pose) return false;
@@ -155,7 +146,7 @@ export function updateRail(state, world, dt, options) {
     return;
   }
   const dispatcher = dispatcherFor(state, world);
-  const clearance = clearanceFor(world);
+  const clearance = createConstructedRailClearance(world);
   dispatcher.beginStep(state.transit.trains, state.transit.time);
   updateTransit(
     state.transit,

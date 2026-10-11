@@ -520,7 +520,7 @@ function printHuman(report) {
     );
   }
   console.log(
-    `Independent runtime opening: ${report.runtime_opening.mission_count} missions / ${report.runtime_opening.stage_count} stages.`,
+    `Legacy onboarding jobs (${report.runtime_opening.module} MISSIONS): ${report.runtime_opening.mission_count} missions / ${report.runtime_opening.stage_count} stages. Campaign missions are tracked in src/campaign.`,
   );
   for (const mission of report.runtime_opening.missions)
     console.log(`  ${mission.id}: ${mission.stages} stages — ${mission.title}`);

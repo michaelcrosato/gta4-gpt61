@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { updateSimulation, WORLD } from '../src/simulation.js';
 import * as Companions from '../src/companions.js';
-import { applyRestHours } from '../src/calendar.js';
+import { applyRestHours, initializeCalendar } from '../src/calendar.js';
 import { FIRST_ARC_MISSIONS } from '../src/campaign/first-arc.js';
 import { FIRST_ARC_06_CONTENT } from '../src/campaign/history/first-arc-0.6.js';
 import { validateCampaignDirector } from '../src/campaign/director.js';
@@ -15,6 +15,7 @@ import {
   twoSeatsIntegrationGates,
   prepareTwoSeatsStart,
   observeTwoSeatsDisarm,
+  observeTwoSeatsDamage,
   validateTwoSeatsRuntime,
 } from '../src/campaign/two-seats-runtime.js';
 import {
@@ -217,4 +218,58 @@ test('NEW restored pre-injury fixture reproduces fatal clamped damage without re
   assert.equal(validateTwoSeatsRuntime(f.s), true);
   assert.equal(validateTwoSeatsParentState(f.s), true);
   assert.equal(f.live.dax.health, 0, 'fatal live body remains dead');
+});
+
+test('world-caused damage ticks never fill the bounded Two Seats damage history', () => {
+  const s = { time: 100, player: { x: 0, y: 0, health: 100 }, vehicles: [] };
+  initializeCalendar(s);
+  const m = initializeTwoSeatsRuntime(s);
+  m.active = {
+    missionId: 'LL-ST-003',
+    stageId: 'pickup',
+    attempt: 1,
+    receipt: 'campaign:abc:LL-ST-003:attempt:1:activate:pickup:1',
+    startedAt: 50,
+    phase: 'running',
+    blocked: null,
+  };
+  m.run.startedAt = 50;
+  const target = { id: 'ped-1', x: 10, y: 10, z: 0, health: 100, armour: 0, sceneId: null };
+  const parent = { damage: { getTarget: () => target, isCivilian: () => true } };
+  const burn = (owner) => {
+    const healthBefore = target.health;
+    target.health = Math.max(0.0001, target.health - 0.01);
+    return observeTwoSeatsDamage(
+      s,
+      {
+        entityType: 'actor',
+        targetId: target.id,
+        targetKind: 'pedestrian',
+        owner,
+        kind: 'fire',
+        healthBefore,
+        healthAfter: target.health,
+        armourBefore: 0,
+        armourAfter: 0,
+        x: target.x,
+        y: target.y,
+        z: 0,
+        sceneId: null,
+        at: s.time,
+      },
+      parent,
+    );
+  };
+  for (let i = 0; i < 2100; i++) assert.equal(burn('world').ignored, true);
+  assert.equal(m.run.damageEvents.length, 0);
+  assert.equal(m.run.civilianHarm, null);
+  assert.equal(validateTwoSeatsRuntime(s), true);
+  const harmed = burn('player');
+  assert.equal(harmed.ok, true);
+  assert.equal(m.run.civilianHarm.id, harmed.receipt.id);
+  m.run.damageEvents.push(
+    ...Array.from({ length: 2047 }, (_, i) => ({ ...harmed.receipt, id: `fixture:${i}` })),
+  );
+  assert.deepEqual(burn('player'), { ok: false, unmet: ['damage-observation-capacity-reached'] });
+  assert.equal(m.run.damageEvents.length, 2048);
 });

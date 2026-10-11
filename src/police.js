@@ -1,7 +1,9 @@
 import { worldElevation } from './world-elevation.js';
 /** Observation-driven dispatch, road pursuit, arrest and six escalating response tiers. */
 import { findRoute, snapToRoad, createRoadNetwork } from './navigation.js';
-import { WEAPONS } from './combat.js';
+// Saved route lengths are bounded by validatePoliceSave.
+const MAX_CAR_ROUTE = 30,
+  MAX_OFFICER_ROUTE = 40;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const angleTo = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
@@ -290,7 +292,8 @@ function deploymentPoint(state, ctx, offset = 260) {
   for (let attempt = 0; attempt < 16; attempt++) {
     const count = state.policeDispatch.deploymentSequence++,
       angle = ((count % 4) * Math.PI) / 2 + Math.PI / 4;
-    const radius = offset + Math.floor(count / 4) * 55;
+    // Widen the ring per failed attempt, not per deployment over the life of a save.
+    const radius = offset + Math.floor(attempt / 4) * 55;
     const known = state.wanted.lastSeen,
       desired = { x: known.x + Math.cos(angle) * radius, y: known.y + Math.sin(angle) * radius };
     const point = snapToRoad(ctx.world, { ...desired, z: known.z || 0 }, { includeZ: true });
@@ -536,10 +539,11 @@ function deploy(state, ctx) {
 }
 function routeBody(body, destination, state, ctx, dt, speed, radius = 8) {
   if (state.time >= body.nextRoute || !body.policeRoute?.length) {
+    // Routes are rebuilt every 1.2 s, so keep only the saveable leading waypoints.
     body.policeRoute = findRoute(ctx.world, body, destination, {
       mode: body.spec ? 'car' : 'foot',
       includeZ: true,
-    });
+    }).slice(0, body.spec ? MAX_CAR_ROUTE : MAX_OFFICER_ROUTE);
     body.policeRouteIndex = 0;
     body.nextRoute = state.time + 1.2;
   }
@@ -560,9 +564,10 @@ function disembark(state, car, ctx) {
   car.occupied = false;
   for (const [index, id] of car.crewIds.entries()) {
     const member = state.police.find((actor) => actor.id === id);
-    if (!member || member.health <= 0 || !member.inVehicle) continue;
+    if (!member || !member.inVehicle) continue;
     member.inVehicle = false;
     member.vehicleId = null;
+    if (member.health <= 0) continue;
     const point = {
       x: car.x + Math.cos(car.angle + Math.PI / 2) * (index ? 24 : -24),
       y: car.y + Math.sin(car.angle + Math.PI / 2) * (index ? 24 : -24),
@@ -978,6 +983,12 @@ export function updatePolicing(state, dt, input, ctx) {
       actor.corpseRemaining -= dt;
     }
   state.police = state.police.filter((actor) => actor.health > 0 || actor.corpseRemaining > 0);
+  const present = new Set(state.police.map((actor) => actor.id));
+  for (const car of state.vehicles) {
+    if (!car.policeControlled) continue;
+    car.crewIds = car.crewIds.filter((id) => present.has(id));
+    if (car.driverId && !present.has(car.driverId)) car.driverId = null;
+  }
   updateArrest(state, dt, input, ctx);
 }
 
@@ -1029,7 +1040,7 @@ export function validatePoliceSave(state, world) {
         (actor.inVehicle !== undefined && typeof actor.inVehicle !== 'boolean') ||
         (actor.policeRoute &&
           (!Array.isArray(actor.policeRoute) ||
-            actor.policeRoute.length > 40 ||
+            actor.policeRoute.length > MAX_OFFICER_ROUTE ||
             actor.policeRoute.some((position) => !point(position)))) ||
         (actor.inVehicle &&
           !state.vehicles.some(
@@ -1079,7 +1090,7 @@ export function validatePoliceSave(state, world) {
         (!['patrol', 'armored', 'roadblock', 'cordon'].includes(car.response) ||
           !Array.isArray(car.crewIds) ||
           !Array.isArray(car.policeRoute) ||
-          car.policeRoute.length > 30 ||
+          car.policeRoute.length > MAX_CAR_ROUTE ||
           car.policeRoute.some((pointValue) => !point(pointValue))),
     )
   )

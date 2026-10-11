@@ -229,6 +229,24 @@ class PublishTests(unittest.TestCase):
         self.git("config", "repo.autoPublish", "false")
         self.assert_hook_disabled()
 
+    def test_detached_head_skips_hook_and_rejects_manual_publication(self):
+        self.commit()
+        self.git("config", "repo.autoPublish", "true")
+        self.git("switch", "--detach")
+        before = self.local_snapshot_detached()
+        with patch.object(publish, "publish") as publication:
+            with patch.object(publish.sys, "argv", [str(SCRIPT), "--hook"]):
+                self.assertEqual(publish.main(), 0)
+            with patch.object(publish.sys, "argv", [str(SCRIPT)]):
+                with self.assertRaisesRegex(publish.PublishError, "HEAD is detached"):
+                    publish.main()
+        publication.assert_not_called()
+        self.assertEqual(self.local_snapshot_detached(), before)
+        self.assertEqual(self.github.calls, [])
+
+    def local_snapshot_detached(self):
+        return (self.git("rev-parse", "HEAD"), self.git("status", "--porcelain=v1"))
+
     def assert_hook_disabled(self):
         before = self.local_snapshot()
         stdout, stderr = io.StringIO(), io.StringIO()
@@ -356,11 +374,29 @@ class PublishTests(unittest.TestCase):
         self.github.add_pr("publish/main")
         self.github.head_override = self.initial
 
-        with self.assertRaisesRegex(publish.PublishError, "PR head changed"):
-            publish.publish(captured, "main")
+        with patch.object(publish, "pause") as sleep:
+            with self.assertRaisesRegex(publish.PublishError, "PR head changed"):
+                publish.publish(captured, "main")
 
+        self.assertEqual(sleep.call_count, publish.HEAD_SYNC_ATTEMPTS - 1)
         self.assertFalse(any(call[2] == "merge" for call in self.github.calls))
         self.assertEqual(self.git("rev-parse", "HEAD"), captured)
+
+    def test_waits_for_github_to_report_the_pushed_pr_head(self):
+        captured = self.commit()
+        self.github.add_pr("publish/main")
+        self.github.head_override = self.initial
+
+        def github_catches_up(_seconds):
+            self.github.head_override = None
+
+        with patch.object(publish, "pause", side_effect=github_catches_up) as sleep:
+            pr = publish.publish(captured, "main")
+
+        sleep.assert_called_once_with(2)
+        self.assertEqual(pr["headRefOid"], captured)
+        merge = next(call for call in self.github.calls if call[2] == "merge")
+        self.assertEqual(merge[merge.index("--match-head-commit") + 1], captured)
 
     def test_wait_for_merge_fetches_new_main_without_changing_local_files(self):
         captured = self.commit()
@@ -385,6 +421,15 @@ class PublishTests(unittest.TestCase):
              "Resolve merge conflicts"),
             ({"state": "OPEN", "mergeStateStatus": "BLOCKED", "autoMergeRequest": None},
              "Auto-merge is no longer enabled"),
+            ({"state": "OPEN", "mergeStateStatus": "BLOCKED", "autoMergeRequest": {},
+              "statusCheckRollup": [
+                  {"name": "Repository checks", "status": "COMPLETED", "conclusion": "FAILURE"},
+                  {"context": "external", "state": "SUCCESS"},
+              ]},
+             "Checks failed on .*: Repository checks\\."),
+            ({"state": "OPEN", "mergeStateStatus": "BLOCKED", "autoMergeRequest": {},
+              "statusCheckRollup": [{"context": "external", "state": "ERROR"}]},
+             "Checks failed on .*: external\\."),
         )
         pr = {"number": 1, "url": "https://github.com/example/project/pull/1"}
         for state, message in cases:
@@ -396,18 +441,20 @@ class PublishTests(unittest.TestCase):
     def test_wait_timeout_keeps_auto_merge_enabled(self):
         captured = self.commit()
         pr = publish.publish(captured, "main")
-        with patch.object(publish.time, "monotonic", side_effect=[0, 61]):
+        with patch.object(publish, "clock", side_effect=[0, 61]):
             with self.assertRaisesRegex(publish.PublishError, "Auto-merge remains enabled"):
                 publish.wait_for_merge(pr, 60)
         self.assertTrue(self.github.prs[0]["autoMergeRequest"])
 
     def test_wait_polls_pending_pr_until_merged(self):
         self.github.view_states = [
-            {"state": "OPEN", "mergeStateStatus": "BLOCKED", "autoMergeRequest": {"enabled": True}},
+            {"state": "OPEN", "mergeStateStatus": "BLOCKED", "autoMergeRequest": {"enabled": True},
+             "statusCheckRollup": [{"name": "Repository checks", "status": "IN_PROGRESS",
+                                    "conclusion": ""}]},
             {"state": "MERGED", "mergeStateStatus": "CLEAN", "autoMergeRequest": None},
         ]
         pr = {"number": 1, "url": "https://github.com/example/project/pull/1"}
-        with patch.object(publish.time, "sleep") as sleep:
+        with patch.object(publish, "pause") as sleep:
             publish.wait_for_merge(pr, 60)
         sleep.assert_called_once_with(4)
 

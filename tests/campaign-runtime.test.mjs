@@ -56,7 +56,6 @@ const FELIX = 'LL-CHAR-002',
   TAXI = 'arc-arrival-taxi';
 const specs = { taxi: { width: 15, length: 29, seats: 4, maxSpeed: 145 } };
 const at = (x, y, extra = {}) => ({ x, y, z: 0, ...extra });
-const line = (text) => ({ speaker: 'Fixture', text, when: 'always' });
 
 function fixture() {
   const world = {
@@ -943,4 +942,56 @@ test('malformed ordered route and service receipts reject before a physical chec
   const before = h.state.player.money;
   assert.equal(h.adapters.restoreWorld(badService, { reason: 'invalid-save' }).ok, false);
   assert.equal(h.state.player.money, before);
+});
+
+test('Felix waiting at his shelter place is not abandoned while Mara steps outside', () => {
+  const felix = { id: FELIX, x: 144, y: 134, z: 0, sceneId: 'dockside-rooms', alive: true };
+  const state = {
+    time: 0,
+    player: { x: 129, y: 320, z: 0, health: 100, sceneId: null, vehicleId: null },
+    interior: { active: null },
+    vehicles: [],
+    wanted: { level: 0 },
+  };
+  const model = initializeCampaignRuntime(state);
+  const context = {
+    bindings: {
+      'dockside-rooms': {
+        roomId: 'dockside-rooms',
+        felixTarget: { x: 144, y: 134, z: 0, radius: 18 },
+        hooks: {},
+      },
+    },
+    passengers: {
+      companionObservation: (_, id) => (id === FELIX ? felix : null),
+      getSeat: () => null,
+      vehicleOccupants: () => [],
+    },
+    observations: { playerArrested: () => false },
+    services: { getReceipt: () => null },
+  };
+  const lostFelix = { type: 'passenger-dead-or-abandoned', actor: FELIX, grace: 25 };
+  const outside = (stageId) => {
+    model.active = {
+      missionId: 'LL-ST-001',
+      stageId,
+      attempt: 1,
+      receipt: `fixture:${stageId}`,
+      startedAt: state.time,
+      phase: 'running',
+      blocked: null,
+    };
+    model.night.abandonmentSeconds = 0;
+    for (let i = 0; i < 60; i++) {
+      state.time += 0.5;
+      tickCampaignRuntime(state, 0.5, context);
+    }
+    return createCampaignAdapters(state, context).observe(lostFelix, { missionId: 'LL-ST-001' });
+  };
+  for (const stageId of ['shelter', 'rest']) {
+    assert.equal(outside(stageId), false, stageId);
+    assert.equal(model.night.abandonmentSeconds, 0, stageId);
+  }
+  felix.x += 40;
+  assert.equal(outside('rest'), true, 'Felix away from his shelter place still counts');
 });

@@ -428,7 +428,7 @@ function tickItineraries(state, parent, dt) {
   }
 }
 /** Saved two-leg room→world→room preparation; never recruit/relocate a missing Felix. */
-export function prepareLateMeterStart(state, parent) {
+function prepareLateMeterStart(state, parent) {
   const m = initializeLateMeterRuntime(state),
     d = dispatch(parent),
     p = actor(state, parent, I.felix);
@@ -534,7 +534,7 @@ function activate(state, stage, request, parent) {
     attempt: request.attempt,
     receipt: request.receipt,
     startedAt:
-      request.reason === 'resume' &&
+      request.reason === 'resume-after-interleaving' &&
       m.active?.stageId === stage.id &&
       m.active?.attempt === request.attempt
         ? m.active.startedAt

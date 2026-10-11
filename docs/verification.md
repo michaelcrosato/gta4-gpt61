@@ -1,9 +1,11 @@
 # Verification evidence and remaining gates
 
 LOWLIGHT is in development against the full [game brief](brief.md) and
-[production plan](production-plan.md). The current build contains four original
-opening assignments with 25 stages. Those assignments are independent onboarding
-content; they do not implement or certify the 90 source-mapped story mission
+[production plan](production-plan.md). New Game runs three of the twenty
+authored first-arc missions through the physical simulation: Night Crossing,
+Late Meter and Two Seats Open. Legacy saves also keep four original onboarding
+assignments with 25 stages. Neither the integrated missions nor the onboarding
+jobs implement or certify any of the 90 source-mapped story mission
 requirements. The systems catalogue contains 869 requirements, all currently
 `planned`, with 17 explicit research gaps. The story map also retains eight open
 research items and 51 planned notable-character records. The separate
@@ -34,7 +36,7 @@ six-hour rest, idempotent completion and valid Continue. Its output explicitly
 states that this is not a natural browser playthrough or release validation.
 
 The retained development run at
-[/tmp/lowlight-campaign-regression-i4gmiA/completion-report.json](/tmp/lowlight-campaign-regression-i4gmiA/completion-report.json)
+`/tmp/lowlight-campaign-regression-i4gmiA/completion-report.json`
 completed at 245.2 simulation seconds with all three principal characters at
 100 health, no deaths/wanted level and no off-road time or route discontinuity.
 Its source hashes were unchanged during the run. Previous failed attempts
@@ -42,7 +44,7 @@ remain retained, including the genuine seated-passenger self-collision defect
 which was corrected in the shared driving loop.
 
 Browser development evidence is indexed in
-[/tmp/lowlight-campaign-ui/ui-summary.json](/tmp/lowlight-campaign-ui/ui-summary.json).
+`/tmp/lowlight-campaign-ui/ui-summary.json`.
 Genuine New Game checks cover the ferry, manually presented captions, walking
 to the driver door, real taxi boarding, healthy passenger travel and ordinary
 save/Continue. Five desktop/phone/landscape/tablet profiles cover those controls;
@@ -76,7 +78,7 @@ treated as final candidate passes.
 The separately published 0.4.1 garage momentum correction is
 [PR #9](https://github.com/michaelcrosato/gta4-gpt61/pull/9).
 Its focused Chromium/WebKit reports at
-[/tmp/lowlight-garage-hotfix-qa](/tmp/lowlight-garage-hotfix-qa)
+`/tmp/lowlight-garage-hotfix-qa`
 declare damaged-vehicle setup before actual entry, then use ordinary driving,
 paid $120 repair, door opening and physical reverse exit. Both pass. Natural
 additional-onboarding attempts retain pursuit damage, van destruction, clinic
@@ -88,6 +90,7 @@ charges and retries; all four jobs in one natural run remain unproved.
 npm test
 python3 -m unittest discover -s tests -v
 npm run check
+npm run format:check
 npm run build
 node scripts/scope-status.mjs
 node scripts/scope-status.mjs --json
@@ -144,13 +147,15 @@ so a different category cannot quietly replace missing transport/geography.
 Inventory growth is reported for review. SHA-256 fingerprints identify the input
 maps, including the city file, and the simulation module used for each report.
 
-Metadata-only fixtures reject city count mismatches, global ID collisions,
-unresolved source/profile/neighbourhood/station references, regional count
-contradictions, silent inventory shrinkage and unsupported verification claims.
-Separate fixtures demonstrate that unverified city records and open city
-research gates each independently keep source coverage unfinished. The tests use
-in-memory copies; no source-map statuses are changed and no gameplay acceptance
-is inferred from those fixtures.
+The audit enforces these rules on every run. Metadata-only fixtures in
+[scope-status.test.mjs](../tests/scope-status.test.mjs) confirm that the real
+catalogue stays consistent and unfinished, and that inventory count mismatches,
+global ID collisions, unresolved city station references, silent inventory
+shrinkage and implementation claims without references are rejected. The tests
+use in-memory copies; no source-map statuses are changed and no gameplay
+acceptance is inferred from those fixtures. The human-readable report labels the
+four `MISSIONS` in `src/simulation.js` as legacy onboarding jobs; campaign
+missions are tracked separately in `src/campaign`.
 
 Future `implemented` records need `implementation_refs`, containing existing
 repository-relative paths or objects with a `path` field. Future `verified`
@@ -189,8 +194,8 @@ console/page errors, failed requests or unsuccessful page responses. Screenshots
 and contact sheets were reviewed separately.
 
 The corresponding transient evidence is
-[/tmp/lowlight-title-matrix/report.json](/tmp/lowlight-title-matrix/report.json)
-and [/tmp/lowlight-game-matrix/report.json](/tmp/lowlight-game-matrix/report.json).
+`/tmp/lowlight-title-matrix/report.json`
+and `/tmp/lowlight-game-matrix/report.json`.
 These captures precede the latest interface and rendering revisions, so they
 establish a baseline. Fresh captures and visual review of the changed screens
 are required before treating the current build as free of viewport regressions.
@@ -201,8 +206,8 @@ focus, and rendering revisions. Its title and gameplay matrices again produced
 **48 clean captures**, with no recorded overflow, console/page errors, or failed
 requests. All screenshots were inspected in contact sheets, with phone screens
 also inspected at full size. Current reports are
-[/tmp/lowlight-title-final-matrix/report.json](/tmp/lowlight-title-final-matrix/report.json)
-and [/tmp/lowlight-game-final-matrix/report.json](/tmp/lowlight-game-final-matrix/report.json).
+`/tmp/lowlight-title-final-matrix/report.json`
+and `/tmp/lowlight-game-final-matrix/report.json`.
 The directory label describes the final opening-build capture in this iteration;
 it does not identify a finished-game release.
 
@@ -214,10 +219,10 @@ joystick drag and release, touch dialogue/use, save restoration and keyboard map
 placement. These are bounded interface/opening checks, not complete natural
 playthroughs of all four jobs.
 
-Evidence lives under [/tmp/lowlight-qa](/tmp/lowlight-qa). The durable
+Evidence lives under `/tmp/lowlight-qa`. The durable
 [browser-smoke.py](../tests/browser-smoke.py) subsequently passed Chromium,
 Firefox, and a WebKit iPhone profile on the revised opening build. Current
-reports are under [/tmp/lowlight-qa/release-final](/tmp/lowlight-qa/release-final).
+reports are under `/tmp/lowlight-qa/release-final`.
 They verify native Enter menus, immediate dialog-close/Escape races, resumed
 W/E control after map/save/phone/journal, touch USE and LOAD, road-snapped keyboard
 waypoints, settings and save/continue persistence, and virtual controller
@@ -245,7 +250,7 @@ between objectives. The result proves that selected stage transitions, combat,
 pursuit loss and rewards can resolve in that script; it does not prove ordinary
 driving routes, encounter approach, campaign pacing or natural difficulty.
 
-See [/tmp/lowlight-qa/contracts-report.json](/tmp/lowlight-qa/contracts-report.json).
+See `/tmp/lowlight-qa/contracts-report.json`.
 Required follow-up is normal-input play through the complete opening, including
 travel, combat, target recognition, deadline handling, failure/retry and saving
 at significant boundaries. Full source-mapped campaign branches and all side
@@ -255,7 +260,7 @@ content require their own individual gameplay audits later.
 
 The baseline mobile Lighthouse audit of the **title page** reported performance
 **87**, accessibility **100**, best practices **100** and SEO **100**, with no
-run warnings. See [/tmp/lowlight-lighthouse.json](/tmp/lowlight-lighthouse.json).
+run warnings. See `/tmp/lowlight-lighthouse.json`.
 These title-page results do not certify the canvas gameplay's accessibility or
 sustained rendering speed. Screen changes require a fresh audit and keyboard,
 focus, text, touch-target and reduced-motion review.
@@ -275,7 +280,7 @@ This is a short measured improvement of about 3.3 times the initial sample.
 Sustained busy-street and combat performance remain a release gate.
 
 The artifacts are `webkit-actual-fps-before.json` and `webkit-actual-fps.json`
-under [/tmp/lowlight-qa](/tmp/lowlight-qa). Final benchmarking remains open:
+under `/tmp/lowlight-qa`. Final benchmarking remains open:
 remeasure the current build for sustained intervals in representative driving,
 combat, rain, busy streets and multiple camera/quality settings. Inspect frame
 times, visual equivalence and battery/thermal-sensitive behaviour on the target
@@ -319,7 +324,7 @@ immediate money feedback, controls, physics/scoring, abort accounting, pool
 payout, mid-physics Continue without a duplicate fee, purchasing/equipping, and
 movement controls. This does not prove normal campaign access to every venue.
 Reports and inspected images are under
-[/tmp/lowlight-activities-qa/release](/tmp/lowlight-activities-qa/release).
+`/tmp/lowlight-activities-qa/release`.
 
 Equipment fixtures granted/resupplied each weapon, then issued genuine attack
 inputs. All 17 attacks recorded in Chromium and WebKit without engine/browser
@@ -327,16 +332,16 @@ errors; equipment images were inspected. Other fixtures forced each wanted
 level and observed real response populations, vehicles and aircraft without
 render errors in both engines. These are bounded visual/interface checks, not
 clean-save acquisition or campaign proof. Artifacts are
-[/tmp/lowlight-weapons-qa](/tmp/lowlight-weapons-qa) and
-[/tmp/lowlight-police-visuals](/tmp/lowlight-police-visuals).
+`/tmp/lowlight-weapons-qa` and
+`/tmp/lowlight-police-visuals`.
 
 The 0.2 core gameplay matrix additionally captured 24 device/engine combinations
 across the same 14 viewport sizes, with no overflow, browser errors or failed
-requests. Current report: [/tmp/lowlight-core-matrix/report.json](/tmp/lowlight-core-matrix/report.json).
+requests. Current report: `/tmp/lowlight-core-matrix/report.json`.
 The activity Continue cases were rerun after strict save validation was wired
 in; all three engines resumed real mid-roll snapshots without another fee.
 Those reports are under
-[/tmp/lowlight-activities-qa/validation-save-only](/tmp/lowlight-activities-qa/validation-save-only).
+`/tmp/lowlight-activities-qa/validation-save-only`.
 
 
 ## Expanded city integration (0.3)
@@ -468,19 +473,19 @@ costs $18 and bowling admission $10. Darts remains free. Repeated paid purchases
 are real transactions, and unavailable attendants can prevent service.
 
 The earlier isolated renderer report at
-[/tmp/lowlight-interior-qa/report.json](/tmp/lowlight-interior-qa/report.json)
+`/tmp/lowlight-interior-qa/report.json`
 records 96 zero-difference native floor comparisons and four-room captures in
 Chromium desktop and WebKit desktop/phone/tablet profiles. Its scope explicitly
 uses local-room/garage fixtures and makes no natural-input gameplay claim.
 The separate
-[/tmp/lowlight-interior-ui-qa/report.json](/tmp/lowlight-interior-ui-qa/report.json)
+`/tmp/lowlight-interior-ui-qa/report.json`
 records five desktop/phone/tablet/wide profile runs. Those checks declare venue,
 local-counter/door approaches, budgets, cleared onboarding and vehicle fixtures,
 then use actual keyboard, pointer, touch and button input for entry/exit,
 scene-filtered aim/attack, map, journal, room save/Continue, paid stores, repair,
 darts and bowling. The
-[small-phone report](/tmp/lowlight-interior-ui-qa/small-phone-report.json) and
-[input report](/tmp/lowlight-interior-ui-qa/input-report.json) retain heading,
+small-phone report (`/tmp/lowlight-interior-ui-qa/small-phone-report.json`) and
+input report (`/tmp/lowlight-interior-ui-qa/input-report.json`) retain heading,
 joystick release and held-controller-neutral checks. Controller axes are mocked;
 these are not physical-controller or real iOS Safari results.
 
@@ -490,11 +495,11 @@ approaches/exits with genuine activity controls, scoring/physics, fees, aborts
 and mid-roll save/Continue. Venue relocation, budget, dart checkout, final-eight
 and arcade overflow fixtures remain disclosed, so these are not clean-save full
 matches or campaign access proof. Report:
-[/tmp/lowlight-activities-interior-qa/report.json](/tmp/lowlight-activities-interior-qa/report.json).
+`/tmp/lowlight-activities-interior-qa/report.json`.
 The unchanged control smoke script also passed all **three engines** after the
 interior integration; its genuine E onboarding, taxi driving, menus, maps,
 phone, save/Continue, touch and virtual-controller records are at
-[/tmp/lowlight-browser-smoke/20261009T044443Z/report.json](/tmp/lowlight-browser-smoke/20261009T044443Z/report.json).
+`/tmp/lowlight-browser-smoke/20261009T044443Z/report.json`.
 
 Harbor Metro now has four runtime through-services: G1 Seaward Loop, G2 Landward
 Loop, C1 Civic Canal Loop and C2 Canal Civic Loop. The topology contains **26
@@ -523,10 +528,10 @@ boarding, phone destination selection, normal-clock movement, manual
 save/Continue and later open-door E alighting use real browser inputs. All three
 checks paid exactly $2 once ($1000 to $998), with no recorded engine/page errors;
 all six moving/alighted screenshots were inspected. Aggregate report:
-[/tmp/lowlight-rail-qa-current/report.json](/tmp/lowlight-rail-qa-current/report.json).
+`/tmp/lowlight-rail-qa-current/report.json`.
 This does not prove natural street-to-platform access, every service circuit or
 clean-save city/campaign travel. The
-[runtime inventory](/tmp/lowlight-rail-qa-current/runtime-snapshot.json) records
+runtime inventory (`/tmp/lowlight-rail-qa-current/runtime-snapshot.json`) records
 source hashes and intervening clearance changes, so this earlier pass must not
 be substituted for the final three-engine rerun.
 
@@ -535,9 +540,9 @@ over 14 viewport sizes, including small phones, foldables, tablets, wide desktop
 and WebKit. Representative phone portrait/landscape, tablet and ultrawide PNGs
 were inspected; the reports recorded no horizontal overflow, console/page errors
 or failed requests. Reports:
-[/tmp/lowlight-rail-qa-current/viewports-title/report.json](/tmp/lowlight-rail-qa-current/viewports-title/report.json)
+`/tmp/lowlight-rail-qa-current/viewports-title/report.json`
 and
-[/tmp/lowlight-rail-qa-current/viewports-game/report.json](/tmp/lowlight-rail-qa-current/viewports-game/report.json).
+`/tmp/lowlight-rail-qa-current/viewports-game/report.json`.
 Source changed during this capture window; these are preliminary UI checks, not
 verification of one final stable 0.4 snapshot.
 
@@ -631,7 +636,7 @@ The subsequent failure-branch audit found a genuine progression blocker in
 that candidate: Return to the City discarded the only arrival checkpoints;
 Save/Continue then preserved an unfinished mission without a restart control.
 The clean UI reproduction is retained at
-[/tmp/lowlight-05-abandon-repro/report.json](/tmp/lowlight-05-abandon-repro/report.json).
+`/tmp/lowlight-05-abandon-repro/report.json`.
 The correction retains the interrupted run in the director's existing saved
 suspended-run collection. Its explicit phone/journal retry/full-restart routes
 restore actual checkpoints; leaving, saving and opening panels preserve
@@ -662,7 +667,7 @@ in WebKit; both simulation clocks tracked wall time. Chromium startup sampling
 attributed approximately 1.20 seconds to city generation, 0.97 to rail world
 construction and 1.23 to rail renderer preparation. Rendering dominated its
 later arrival sample. Source hashes stayed unchanged and browser errors were
-absent. The [profile record](/tmp/lowlight-05-profile-candidate1/report.json)
+absent. The profile record (`/tmp/lowlight-05-profile-candidate1/report.json`)
 retains raw profiles and timing limits. These bounded desktop samples identify
 performance work; they do not establish acceptable sustained/mobile gameplay
 or real Safari performance. WebKit performance remains a release gate.
@@ -685,7 +690,7 @@ recovery modes pass after the fix, as does an explicit visible-body aiming and
 checkpoint-recovery check on Chromium ultrawide. The original failed reports
 remain retained. Combined evidence covers both recovery modes across all five
 profiles; recovery-panel PNGs were inspected. Reports are at
-[/tmp/lowlight-05-recovery-ui](/tmp/lowlight-05-recovery-ui), with corrected runs in
+`/tmp/lowlight-05-recovery-ui`, with corrected runs in
 `candidate3-landscape` and `candidate3-body-aim`. Candidate3 syntax, formatting
 and build checks pass. Its exact app hashes are in
 `/tmp/lowlight-05-candidate3-manifest.json`; no unrelated passing workflow was
@@ -734,7 +739,7 @@ overflow. All three arrival PNGs were inspected. Three actual 0.5 saves also
 loaded and re-saved without changing player/companion state: a pre-service home
 save, a completed arrival and a WebKit-generated interrupted save. Explicit
 retry of the interrupted save restored its real checkpoint successfully.
-Report: [/tmp/lowlight-051-browser-startup/report.json](/tmp/lowlight-051-browser-startup/report.json).
+Report: `/tmp/lowlight-051-browser-startup/report.json`.
 These bounded headless desktop measurements do not establish cold physical-device
 startup, acceptable sustained/mobile FPS or real Safari behavior. No content,
 save schema, geometry or source-completion claim changes with this patch.
@@ -1124,3 +1129,71 @@ HTTP files match the source manifest byte-for-byte. Evidence is retained at
 /tmp/lowlight-m3-final-browser/services-built-artifact/report.json and
 built-http-hashes.json in the same report directory. Browser replay inputs and
 fixture boundaries remain the same as the earlier purchase check.
+
+## Repository audit and fixes (0.7.1)
+
+A repository-wide audit fixed save-breaking and gameplay bugs. Each fix has a
+regression test that fails on 0.7.0:
+
+- Two Seats Open recorded every actor damage event while running, including
+  world fire ticks, and validation throws above 2,048 events. Only player-caused
+  harm is recorded now, and a full history refuses further records through an
+  integration gate instead of breaking saves.
+- Night Crossing counted Felix as abandoned while he waited at his place in
+  Dockside Rooms, so stepping outside during the shelter or rest stage failed
+  the mission after 25 seconds.
+- Late Meter and Two Seats Open now keep their stage clocks when the director
+  resumes them (`resume-after-interleaving`). The comparison used a reason the
+  director never sends; suspend and resume are not yet wired into the game.
+- Resting at an exterior home said "Progress saved" without saving. It now
+  requests the same save as the interior rest point and names that home.
+- A pedestrian pushed outside its patrol band flipped direction every frame and
+  stayed stuck. Refused interior services no longer add a second generic toast,
+  and refusal reasons returned by hooks are shown.
+- A respawned street pickup left a slightly negative timer that made saves
+  unloadable.
+- Dead cruiser crew could keep `inVehicle` or stale `crewIds`/`driverId`
+  ownership, police routes could exceed the saved waypoint limits, and the
+  deployment ring grew with every deployment over a save's lifetime. All three
+  made saves fail validation or weakened later responses.
+- The rail dispatcher rebuilt swept corners with a coarser tolerance than
+  transit, so a step ending within 1e-7 to 1e-6 units of a track corner threw an
+  uncaught exception in the game loop.
+- `git publish --wait` now waits 25 minutes to match the 20-minute CI job, stops
+  as soon as a check fails, tolerates GitHub's delayed PR head update, and skips
+  detached-HEAD commits made during a rebase.
+
+Startup work that produced byte-identical `WORLD`, `LEGACY_WORLD`, Late Meter
+and Two Seats outputs (SHA-256 compared before and after):
+
+- `world.js` reuses the arrival city and baseline rail world when building the
+  Dispatch standing world instead of rebuilding both.
+- The rail construction cache is keyed by the shared transit, road, building and
+  deck inputs, so the rail renderer no longer recompiles the whole construction
+  at game boot.
+- Track/building clearance skips buildings outside a track's padded bounds
+  before testing segments.
+
+In Node on the audit machine, loading `world.js` dropped from about 18.7 s to
+12.7 s, and the boot-time rail recompile (about 5 s) no longer runs. Per-frame
+work also dropped: the simulation no longer builds an unused combat context
+every physics step, the minimap reuses its route until the origin moves or the
+destination changes, captions only rewrite changed DOM, and spatial-index
+queries no longer allocate during validation. These measurements do not
+establish browser, sustained or real-device performance.
+
+Unused code was removed, including the unused engine "agent edition" copy
+(`my-3d2dge-agent.js`, available upstream), unused exports, imports and helpers.
+The scope-status audit gained the metadata fixtures this record describes.
+The frozen campaign manifest still says only Night Crossing is integrated; its
+text is part of the save-compatibility fingerprint, so it was left unchanged.
+
+The pedestrian fix changes the reviewed post-step state of four legacy seeds in
+`city-startup-two-seats.json`; the oracle records this as a 0.7.1 amendment.
+Reverting only that fix reproduces the published hashes exactly, and every
+initial state, RNG value and RNG trace is unchanged. The candidate passes all
+1,052 JavaScript tests and 18 publication tests, plus syntax, formatting,
+scope-integrity and build checks; the Node suite ran in about 9.5 minutes. A
+Chromium browser smoke run passed with no page or console errors and showed
+captions and the minimap route rendering; Firefox and WebKit were not available
+in the audit environment.

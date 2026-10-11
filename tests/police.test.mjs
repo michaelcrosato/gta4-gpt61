@@ -731,3 +731,61 @@ test('police migration accepts older saves and rejects corrupted dispatch or uns
   observation.state.wanted.lastSeenTime = 999;
   assert.throws(() => restoreGame(observation), /observation/);
 });
+
+test('dead cruiser crew never leaves stale ownership that breaks a save', () => {
+  const seated = free();
+  forceWanted(seated, 2);
+  updateSimulation(seated, 1 / 60);
+  const car = seated.vehicles.find((vehicle) => vehicle.response === 'patrol');
+  const driver = seated.police.find((actor) => actor.id === car.driverId);
+  driver.health = 0;
+  updateSimulation(seated, 1 / 60);
+  assert.equal(driver.inVehicle, false);
+  assert.equal(driver.vehicleId, null);
+  assert.doesNotThrow(() => restoreGame(saveGame(seated)));
+
+  const removed = free();
+  forceWanted(removed, 2);
+  updateSimulation(removed, 1 / 60);
+  const cruiser = removed.vehicles.find((vehicle) => vehicle.response === 'patrol');
+  const passenger = removed.police.find((actor) => actor.id === cruiser.crewIds[1]);
+  Object.assign(passenger, { inVehicle: false, vehicleId: null, health: 0 });
+  tick(removed, 13);
+  assert.equal(
+    removed.police.some((actor) => actor.id === passenger.id),
+    false,
+  );
+  assert.equal(cruiser.crewIds.includes(passenger.id), false);
+  assert.doesNotThrow(() => restoreGame(saveGame(removed)));
+});
+
+test('long police routes stay within saveable bounds and spawn rings do not grow per pursuit', () => {
+  const state = free();
+  forceWanted(state, 2);
+  updateSimulation(state, 1 / 60);
+  const car = state.vehicles.find((vehicle) => vehicle.response === 'patrol');
+  Object.assign(state.wanted.lastSeen, { x: car.x + 2400, y: car.y + 600 });
+  car.nextRoute = 0;
+  updateSimulation(state, 1 / 60);
+  assert.ok(car.policeRoute.length > 0 && car.policeRoute.length <= 30);
+  assert.doesNotThrow(() => restoreGame(saveGame(state)));
+
+  const fresh = free();
+  forceWanted(fresh, 2);
+  updateSimulation(fresh, 1 / 60);
+  const firstRing = Math.max(
+    ...fresh.police.map((actor) =>
+      Math.hypot(actor.x - fresh.wanted.lastSeen.x, actor.y - fresh.wanted.lastSeen.y),
+    ),
+  );
+  const veteran = free();
+  veteran.policeDispatch.deploymentSequence = 400;
+  forceWanted(veteran, 2);
+  updateSimulation(veteran, 1 / 60);
+  const laterRing = Math.max(
+    ...veteran.police.map((actor) =>
+      Math.hypot(actor.x - veteran.wanted.lastSeen.x, actor.y - veteran.wanted.lastSeen.y),
+    ),
+  );
+  assert.ok(laterRing < firstRing + 120, `rings ${firstRing} then ${laterRing}`);
+});

@@ -11,7 +11,10 @@ function rectangle(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new TypeError(`Invalid spatial ${label}: expected { x, y, w, h }.`);
   const { x, y, w, h } = value;
-  for (const [key, number] of Object.entries({ x, y, w, h })) finite(number, `${label}.${key}`);
+  finite(x, `${label}.x`);
+  finite(y, `${label}.y`);
+  finite(w, `${label}.w`);
+  finite(h, `${label}.h`);
   if (w < 0 || h < 0)
     throw new RangeError(`Invalid spatial ${label}: width and height must be nonnegative.`);
   const right = x + w,
@@ -113,8 +116,11 @@ export function createSpatialIndex(items, options = {}) {
         right = x + radius,
         top = y - radius,
         bottom = y + radius;
-      for (const [key, value] of Object.entries({ left, right, top, bottom }))
-        finite(value, `query ${key}`);
+      // Direct checks: this runs for every collision query, so avoid allocating.
+      finite(left, 'query left');
+      finite(right, 'query right');
+      finite(top, 'query top');
+      finite(bottom, 'query bottom');
       return queryBounds({ left, right, top, bottom });
     },
   };

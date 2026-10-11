@@ -38,7 +38,6 @@ import {
 } from './campaign/late-meter-parent-context.js';
 import {
   createLateMeterAdapters,
-  initializeLateMeterRuntime,
   tickLateMeterRuntime,
   lateMeterView,
   actLateMeter,
@@ -106,7 +105,6 @@ import {
   migrateCampaignDirectorContent,
 } from './campaign/director.js';
 import {
-  initializeCampaignRuntime,
   createCampaignAdapters,
   tickCampaignRuntime,
   campaignRuntimeView,
@@ -130,7 +128,6 @@ import {
   initializeInteriors,
   nearbyInteriorPortals,
   enterInterior,
-  exitInterior,
   emergencyExteriorReturn,
   tickInterior,
   interiorScene,
@@ -1960,7 +1957,6 @@ function fireHostile(state, hostile) {
       owner: hostile.id,
       sceneId: actorSceneId(hostile),
       weapon: hostile.weapon,
-      sceneId: actorSceneId(hostile),
     });
   }
   hostile.fireCooldown = Math.max(0.3, weapon.fireInterval * 3) + random(state) * 0.4;
@@ -2762,7 +2758,9 @@ function updatePedestrians(state, dt) {
       person.angle = (direction * Math.PI) / 2;
       person.x += (person.homeX - person.x) * Math.min(1, dt);
       moveBody(person, 0, direction * person.speed * dt, 6);
-      if (person.y > person.maxY || person.y < person.minY) person.angle *= -1;
+      // Head back into the patrol band; flipping every frame would strand a pushed pedestrian.
+      if (person.y > person.maxY) person.angle = -Math.PI / 2;
+      else if (person.y < person.minY) person.angle = Math.PI / 2;
     }
   }
 }
@@ -3285,9 +3283,6 @@ export function equipmentPrice(state, id) {
     ? (WORKSHOP_PRICES[id] ?? WEAPONS[id]?.cost ?? 0)
     : (WEAPONS[id]?.cost ?? 0);
 }
-function atWeaponStore(state) {
-  return !!getEquipmentStore(state);
-}
 export function buyWeapon(state, id) {
   const weapon = WEAPONS[id];
   const store = getEquipmentStore(state);
@@ -3316,7 +3311,6 @@ export function buyAmmo(state, id = state.player.weapon) {
     !getEquipmentStore(state)?.ammoIds.includes(id) ||
     weapon.mode === 'melee' ||
     !state.player.ownedWeapons.includes(id) ||
-    !atWeaponStore(state) ||
     !ammo
   )
     return false;
@@ -3476,9 +3470,11 @@ export function interact(state) {
   }
   if (currentSceneId(state) && !['dialogue', 'vehicle', 'exit'].includes(candidate.type)) {
     const result = interactInterior(state, interiorContext(state));
-    return result.ok
-      ? result.result || result
-      : (notify(state, result.reason || 'That service is unavailable.'), null);
+    if (result.ok) return result.result || result;
+    // A hook that returns false has already told the player why it refused.
+    if (result.result !== false)
+      notify(state, result.reason || result.result?.reason || 'That service is unavailable.');
+    return null;
   }
   if (['rail-board', 'rail-alight'].includes(candidate.type))
     return interactRail(state, WORLD, candidate, railOptions(state));
@@ -3624,7 +3620,8 @@ export function interact(state) {
       state.saveRequested = true;
       state.player.health = Math.min(100, state.player.health + 25);
       state.checkpoint = { x: candidate.x, y: candidate.y };
-      notify(state, 'Rested at Voss Dispatch. Progress saved.', 'success');
+      notify(state, `Rested at ${candidate.name}.`, 'success');
+      return { ...candidate, type: 'save' };
     }
   } else if (candidate.type === 'clinic' || candidate.type === 'food') {
     if (pay(state, candidate.cost)) {
@@ -3816,7 +3813,7 @@ function interiorContext(state) {
         );
         return { type: 'refreshment', cost };
       }
-      return false;
+      return { ok: false };
     },
   };
 }
@@ -3878,7 +3875,6 @@ export function updateSimulation(state, dt, input = {}) {
     state.time += step;
     updateRail(state, WORLD, step, railOptions(state));
     state.clock = clockHour(state);
-    const context = combatContext(state);
     state.player.intoxication = Math.max(0, (state.player.intoxication || 0) - step * 0.0007);
     state.player.fireCooldown = Math.max(0, state.player.fireCooldown - step);
     state.player.recoil = Math.max(0, state.player.recoil - step * 0.2);

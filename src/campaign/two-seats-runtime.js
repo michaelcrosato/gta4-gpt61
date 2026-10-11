@@ -15,6 +15,7 @@ export const TWO_SEATS_IDS = Object.freeze({
 const I = TWO_SEATS_IDS,
   EPS = 1e-6,
   NADIA_WAIT_RADIUS = 4,
+  TWO_SEATS_DAMAGE_HISTORY_LIMIT = 2048,
   own = (v, k) => Object.hasOwn(v, k),
   object = (v) => v && typeof v === 'object' && !Array.isArray(v),
   finite = (v) => typeof v === 'number' && Number.isFinite(v),
@@ -387,7 +388,9 @@ function activate(s, stage, request, p) {
     attempt: request.attempt,
     receipt: request.receipt,
     startedAt:
-      request.reason === 'resume' && m.active?.stageId === stage.id ? m.active.startedAt : s.time,
+      request.reason === 'resume-after-interleaving' && m.active?.stageId === stage.id
+        ? m.active.startedAt
+        : s.time,
     phase: 'running',
     blocked: null,
   };
@@ -546,7 +549,9 @@ export function observeTwoSeatsDamage(s, event, p) {
   const m = initializeTwoSeatsRuntime(s);
   if (m.active?.phase !== 'running') return { ok: true, ignored: true };
   event = copy(event);
-  if (event.entityType !== 'actor') return { ok: true, ignored: true };
+  // Only player-caused harm can injure Dax or harm civilians in this mission. World damage, such
+  // as a fire ticking every frame, must not fill the bounded history and invalidate saves.
+  if (event.entityType !== 'actor' || event.owner !== 'player') return { ok: true, ignored: true };
   if (
     !id(event.targetId) ||
     !id(event.owner) ||
@@ -584,8 +589,12 @@ export function observeTwoSeatsDamage(s, event, p) {
     calendarOffsetHours: s.calendar.offsetHours,
     calendarReceiptIds: Object.keys(s.calendar.receipts),
   };
+  if (m.run.damageEvents.length >= TWO_SEATS_DAMAGE_HISTORY_LIMIT) {
+    m.active.blocked = 'damage-observation-capacity-reached';
+    return gate(m.active.blocked);
+  }
   m.run.damageEvents.push(record);
-  if (event.owner === 'player' && civilian) m.run.civilianHarm ??= copy(record);
+  if (civilian) m.run.civilianHarm ??= copy(record);
   return { ok: true, receipt: record };
 }
 function legitimateShopTransfer(s, p, actorId, a = observation(s, p, actorId)) {
@@ -1062,20 +1071,6 @@ function apply(s, batch, request, p) {
     throw e;
   }
 }
-export function actTwoSeats(s, action, p) {
-  if (
-    action.type !== 'choose-outfit' ||
-    !mission(p)
-      .stages.find((x) => x.id === 'workwear')
-      .stock.includes(action.outfitId) ||
-    initializeTwoSeatsRuntime(s).active?.stageId !== 'workwear'
-  )
-    return gate('actual-workwear-choice-required');
-  return (
-    sync(p.director.chooseOption, s, 'outfit', action.outfitId) ??
-    gate('composed-two-seats-choice-unavailable')
-  );
-}
 export function createTwoSeatsAdapters(s, p) {
   initializeTwoSeatsRuntime(s);
   return {
@@ -1385,7 +1380,8 @@ export function validateTwoSeatsRuntime(s) {
     )
       throw Error('Unproved physical collector retreat.');
   }
-  if (r.damageEvents.length > 2048) throw Error('Two Seats damage history exceeds its limit.');
+  if (r.damageEvents.length > TWO_SEATS_DAMAGE_HISTORY_LIMIT)
+    throw Error('Two Seats damage history exceeds its limit.');
   // Calendar receipts store world hours, so recover their real simulation
   // occurrence from the ordered accumulated sleep offsets. An event may not
   // omit earlier sleep and thereby shorten its 48-hour injury on Continue.

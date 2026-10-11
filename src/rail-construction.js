@@ -665,9 +665,18 @@ function canonicalRails(world, stats) {
   return { runs, lines };
 }
 
+// Keyed by transit with its other inputs checked: composed worlds spread an earlier world
+// object, so they share these inputs while being different objects.
 const models = new WeakMap();
 export function compileRailConstruction(world) {
-  let model = models.get(world);
+  const key = world.transit ?? world,
+    cached = models.get(key);
+  let model =
+    cached?.roads === world.roads &&
+    cached.buildings === world.buildings &&
+    cached.decks === world.decks
+      ? cached.model
+      : null;
   if (!model) {
     const metrics = { duplicateVolumes: 0 },
       structures = compileSurfaces(world, metrics),
@@ -678,8 +687,8 @@ export function compileRailConstruction(world) {
       ...new Map(supports.filter((s) => s.solid).map((s) => [s.solid.id, s.solid])).values(),
     ];
     model = { structures, rails, supports, supportSolids, metrics };
-    models.set(world, model);
+    models.set(key, { roads: world.roads, buildings: world.buildings, decks: world.decks, model });
   }
   return model;
 }
-export { EPS, palette, round, overlaps, at, compileSurfaces, compileSupports, canonicalRails };
+export { EPS, palette, round, overlaps, at };

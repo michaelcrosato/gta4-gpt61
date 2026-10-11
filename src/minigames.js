@@ -376,7 +376,7 @@ function tickBowling(s, dt) {
   if ((!b.active && !moving && s.rollElapsed > 2) || s.rollElapsed > 9)
     recordBowlingRoll(s, s.rollStanding - s.pins.filter((p) => p.standing).length);
 }
-export function chooseBowlingAIShot(s) {
+function chooseBowlingAIShot(s) {
   const standing = s.pins.filter((p) => p.standing),
     position = (random(s) - 0.5) * 0.35;
   let target =
@@ -857,8 +857,7 @@ function tickPool(s, dt) {
       if (!b.z) {
         friction(b, step, POOL_FRICTION);
         if (b.id === 0 && b.spin) {
-          const speed = Math.hypot(b.vx, b.vy),
-            turn = b.spin * 0.065 * step;
+          const turn = b.spin * 0.065 * step;
           const vx = b.vx;
           b.vx -= b.vy * turn;
           b.vy += vx * turn;
@@ -1062,7 +1061,7 @@ function poolAIPlacement(s) {
   return best || poolFreeSpot(s);
 }
 
-export const STACKLIGHT_COLORS = Object.freeze([
+const STACKLIGHT_COLORS = Object.freeze([
   '#5fc6cf',
   '#e8816f',
   '#93b878',
@@ -1219,7 +1218,7 @@ function arcadeSquares(s) {
     }
   return result;
 }
-export function arcadeGravity(s) {
+function arcadeGravity(s) {
   for (let x = 0; x < s.width; x++) {
     const values = [];
     for (let y = s.height - 1; y >= 0; y--) if (s.grid[y][x] !== null) values.push(s.grid[y][x]);

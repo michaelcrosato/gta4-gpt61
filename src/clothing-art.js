@@ -1,6 +1,6 @@
 import { OUTFITS } from './wardrobe.js';
 
-export function clothingRackAppearance(item) {
+function clothingRackAppearance(item) {
   return item.type === 'clothing-rack' && Object.hasOwn(OUTFITS, item.outfitId)
     ? OUTFITS[item.outfitId]
     : null;

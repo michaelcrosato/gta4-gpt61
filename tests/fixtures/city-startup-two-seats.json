@@ -41,8 +41,8 @@
       },
       "initialRng": 1771614319,
       "afterSteps": {
-        "bytes": 50716,
-        "sha256": "e1f42a797290b46eba52230e038e652d50108d3ca08111b557be1e4c4897052f"
+        "bytes": 50718,
+        "sha256": "ec8d89746b01e7a9f5b23f0222fd6bf93e67a31b8a3fa2a4fb3856e56fe4f851"
       },
       "finalRng": 681763562,
       "rngTraceSha256": "75e20363ff60af6b49fdfa242ca2ef4191d281fb63d60383a58a51a7645d3b77"
@@ -56,8 +56,8 @@
       },
       "initialRng": 469428811,
       "afterSteps": {
-        "bytes": 50689,
-        "sha256": "f2d05b8083f90a5d5e40cd7c7a313186e3413bfad473f0b9e4a7faac9e8064a6"
+        "bytes": 50691,
+        "sha256": "f5f4f30efc0031071882d0d688f1b35326862d24690035537201fd540290a6c7"
       },
       "finalRng": 3112730774,
       "rngTraceSha256": "2362a4ac50fbe75e49444b5bf5a754911a0e99fef4ea354bd4c64f8b50fd4f29"
@@ -71,8 +71,8 @@
       },
       "initialRng": 179636545,
       "afterSteps": {
-        "bytes": 50736,
-        "sha256": "1387c1734c5a44d734c0349664150cc419cab986ecb9ff50fba0e32fc8dbe63f"
+        "bytes": 50737,
+        "sha256": "f7340c82b24143019406a54310045fce3fba9388b1a516bf486cd0c53e0b5d80"
       },
       "finalRng": 1991829204,
       "rngTraceSha256": "2f5b9497e97a53be5a187c89bc627af1eb46e58997556fad294232b9c52e82cc"
@@ -87,7 +87,7 @@
       "initialRng": 2327120193,
       "afterSteps": {
         "bytes": 50749,
-        "sha256": "f761af392cbf1dc7c3ff6894a73019919ca6f5195e0a399b13394f9e3526f084"
+        "sha256": "36822851cd8da2ba8b8ba240e9c41e0cc3a2fec33f5dd90049782a7eae02b257"
       },
       "finalRng": 4139312852,
       "rngTraceSha256": "7d94caa7be0fc1e2dec4ceb7dbb085460474587922639937a1666a2dc18da623"
@@ -166,6 +166,18 @@
       },
       "finalRng": 2327120193,
       "rngTraceSha256": "ec705f9d56b8ccb6bfa9c2dbbc48e2ed0b901731ffdb6c02f46f07dbd01876e7"
+    }
+  ],
+  "amendments": [
+    {
+      "version": "0.7.1",
+      "afterStepsUpdated": [
+        "61 legacy",
+        "12345 legacy",
+        "2147483647 legacy",
+        "4294967295 legacy"
+      ],
+      "reason": "Pedestrians pushed outside their patrol band now walk back instead of reversing every frame. Only pedestrian positions/angles differ; initial states, RNG values and RNG traces are unchanged."
     }
   ]
 }

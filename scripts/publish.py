@@ -13,6 +13,17 @@ import time
 
 REPOSITORY = "michaelcrosato/gta4-gpt61"
 BASE_BRANCH = "main"
+# CI allows its job 20 minutes; leave headroom for queueing and the merge itself.
+DEFAULT_WAIT_SECONDS = 1500
+HEAD_SYNC_ATTEMPTS = 5
+FAILED_CHECK_STATES = {
+    "ACTION_REQUIRED", "CANCELLED", "ERROR", "FAILURE", "STARTUP_FAILURE", "TIMED_OUT",
+}
+
+
+# Module-level so tests can replace them without patching subprocess's own timers.
+clock = time.monotonic
+pause = time.sleep
 
 
 class PublishError(Exception):
@@ -91,6 +102,15 @@ def publish(commit, branch, wait=False, timeout=600):
         if not prs:
             raise PublishError(created.stderr.strip() or "PR creation failed.")
     pr = prs[0]
+    # GitHub updates an existing PR's head asynchronously after a push.
+    for _ in range(HEAD_SYNC_ATTEMPTS - 1):
+        if pr["headRefOid"] == commit:
+            break
+        pause(2)
+        prs = open_pr(remote_branch)
+        if not prs:
+            raise PublishError("The PR closed while publishing. Run git publish again.")
+        pr = prs[0]
     if pr["headRefOid"] != commit:
         raise PublishError("The PR head changed. Run git publish again to retry.")
     run("gh", "pr", "merge", str(pr["number"]), "--repo", REPOSITORY,
@@ -103,11 +123,11 @@ def publish(commit, branch, wait=False, timeout=600):
 
 
 def wait_for_merge(pr, timeout):
-    deadline = time.monotonic() + timeout
+    deadline = clock() + timeout
     while True:
         state = json.loads(output(
             "gh", "pr", "view", str(pr["number"]), "--repo", REPOSITORY,
-            "--json", "state,mergeStateStatus,autoMergeRequest",
+            "--json", "state,mergeStateStatus,autoMergeRequest,statusCheckRollup",
         ))
         if state["state"] == "MERGED":
             run("git", "fetch", "--prune", "origin", BASE_BRANCH)
@@ -117,21 +137,32 @@ def wait_for_merge(pr, timeout):
             raise PublishError(f"PR was closed without merging: {pr['url']}")
         if state["mergeStateStatus"] == "DIRTY":
             raise PublishError(f"Resolve merge conflicts in {pr['url']} and retry.")
+        failed = sorted({
+            check.get("name") or check.get("context") or "unnamed check"
+            for check in state.get("statusCheckRollup") or ()
+            if (check.get("conclusion") or check.get("state")) in FAILED_CHECK_STATES
+        })
+        if failed:
+            raise PublishError(
+                f"Checks failed on {pr['url']}: {', '.join(failed)}. "
+                "Fix them, commit, and run git publish again."
+            )
         if not state["autoMergeRequest"]:
             raise PublishError(f"Auto-merge is no longer enabled: {pr['url']}")
-        if time.monotonic() >= deadline:
+        if clock() >= deadline:
             raise PublishError(
                 f"Still waiting on {pr['url']}. Auto-merge remains enabled; "
                 "inspect its checks or run git publish --wait again."
             )
-        time.sleep(4)
+        pause(4)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hook", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--wait", action="store_true", help="Wait for GitHub to merge.")
-    parser.add_argument("--timeout", type=int, default=600, help="Wait timeout in seconds.")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_WAIT_SECONDS,
+                        help="Wait timeout in seconds.")
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
@@ -144,7 +175,12 @@ def main():
             return 0
     # Capture identity before waiting for a concurrent publisher's lock.
     commit = output("git", "rev-parse", "HEAD")
-    branch = output("git", "symbolic-ref", "--quiet", "--short", "HEAD")
+    branch = run("git", "symbolic-ref", "--quiet", "--short", "HEAD", check=False).stdout.strip()
+    if not branch:
+        if args.hook:
+            # Rebases and detached checkouts commit without a branch to publish.
+            return 0
+        raise PublishError("Publishing requires a named local branch; HEAD is detached.")
     lock_path = Path(output("git", "rev-parse", "--git-common-dir")) / "publish.lock"
     with lock_path.open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)

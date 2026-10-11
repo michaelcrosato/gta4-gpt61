@@ -3,7 +3,6 @@ import { createSpatialIndex } from './spatial-index.js';
 /** Full consist clearance. This module never moves trains or changes the city. */
 const EPS = 1e-7;
 const DEFAULT = { length: 68, width: 20, height: 16 };
-const clone = (value) => JSON.parse(JSON.stringify(value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);

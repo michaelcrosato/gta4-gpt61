@@ -1008,7 +1008,7 @@ function transition(state, actor, record, vehicle, context, dt, exiting) {
     releaseReservation(record);
     record.phase = 'seated';
     record.lastVehicleHealth = vehicle.health;
-    if (record.phase !== 'exiting') seatedSync(state, actor, record, vehicle, context);
+    seatedSync(state, actor, record, vehicle, context);
     if (actor.seat === 0) syncSeats(state);
     emit(state, 'boarded', actor.id, { vehicleId: vehicle.id, seat: actor.seat }, context);
   }

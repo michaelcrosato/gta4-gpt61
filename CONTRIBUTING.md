@@ -24,8 +24,7 @@ a merged local working branch with `git branch -d <branch>`.
 The `Repository checks` check must pass before merging into `main`. Pull requests
 should describe the resulting behavior and include the commands used to verify
 it. Do not commit credentials, local environment files, dependencies, generated
-reports, or build output. Keep dependency lockfiles under version control when
-a development stack is added.
+reports, or build output. Keep `package-lock.json` under version control.
 
 If publishing fails, the local commit remains. Fix the reported issue and run
 `git publish` again. See [README.md](README.md) for setup and the configured

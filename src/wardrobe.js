@@ -72,7 +72,7 @@ export function initializeWardrobe(state) {
   state.wardrobe ??= { version: 1, owned: ['relief-coat'], equipped: 'relief-coat', receipts: {} };
   return state.wardrobe;
 }
-export function equippedOutfit(state) {
+function equippedOutfit(state) {
   return own(OUTFITS, state.wardrobe?.equipped)
     ? OUTFITS[state.wardrobe.equipped]
     : OUTFITS['relief-coat'];

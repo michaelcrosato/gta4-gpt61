@@ -153,7 +153,7 @@ export const TWO_SEATS_ROOMS = freeze({
   ),
 });
 
-export const TWO_SEATS_OUTFITS = freeze(
+const TWO_SEATS_OUTFITS = freeze(
   Object.fromEntries(
     ['slate-work-jacket', 'ochre-rain-shell', 'navy-coveralls'].map((id) => [id, OUTFITS[id]]),
   ),
@@ -241,7 +241,7 @@ export const TWO_SEATS_APPEARANCES = freeze({
   },
 });
 
-export const TWO_SEATS_CAPABILITY_GAPS = freeze([
+const TWO_SEATS_CAPABILITY_GAPS = freeze([
   {
     id: 'named-blade-combat',
     needs:
